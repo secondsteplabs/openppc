@@ -49,15 +49,20 @@ All screens use the made-up Acme Plumbing sample in `examples/`.
 ## Quick start
 
 ```bash
-git clone https://github.com/secondsteplabs/openppc
-cd openppc
-uv venv && uv pip install -e .
+pip install openppc        # or: uv tool install openppc
 
-openppc audit search-term-waste examples/search_terms_acme.csv --industry home-services
-openppc check --audit examples/ai_audit_sample.md --data examples/search_terms_acme.csv
+openppc audit search-term-waste --sample
+openppc check --sample
 ```
 
-The examples are synthetic, so this runs with no account and no API keys. For your own data, export a report from Google Ads and put it in `exports/`, which git ignores.
+`--sample` runs on a made-up plumbing company's account that ships with OpenPPC, so this works with no account and no API keys. For your own data, export a report from Google Ads and pass its path:
+
+```bash
+openppc audit search-term-waste search_terms.csv --brand "Your Brand"
+openppc check --audit their_audit.md --data search_terms.csv
+```
+
+To work on OpenPPC itself, clone it (`git clone https://github.com/secondsteplabs/openppc`) and run `uv venv && uv pip install -e .` inside it. Keep your own exports in `exports/`, which git ignores.
 
 ## Run it in your browser
 

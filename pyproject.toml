@@ -1,6 +1,6 @@
 [project]
 name = "openppc"
-version = "0.1.1"
+version = "0.1.2"
 description = "Read-only Google Ads audits where every number is traced back to your own export."
 readme = "README.md"
 license = { text = "MIT" }
@@ -38,6 +38,14 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["openppc"]
+
+[tool.hatch.build.targets.wheel.force-include]
+# The made-up sample ships in the wheel, so `openppc audit <template> --sample` works after a plain pip install.
+"examples/search_terms_acme.csv" = "openppc/samples/search_terms_acme.csv"
+"examples/keywords_acme.csv" = "openppc/samples/keywords_acme.csv"
+"examples/account_structure_acme.json" = "openppc/samples/account_structure_acme.json"
+"examples/account_acme.json" = "openppc/samples/account_acme.json"
+"examples/ai_audit_sample.md" = "openppc/samples/ai_audit_sample.md"
 
 [tool.hatch.build.targets.sdist]
 # An allowlist: the source archive on PyPI holds only what builds and explains the package. Hatch reads only the
