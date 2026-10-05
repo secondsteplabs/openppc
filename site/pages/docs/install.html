@@ -100,17 +100,17 @@ $4,973.64 total cost in this export, and each one cost at least $20.00.</pre>
 <span class="p">$ </span>openppc industries  <span class="c"># every benchmark industry</span></pre>
 
     <h2 id="ai">Use it inside Claude, Cursor and ChatGPT</h2>
-    <p>OpenPPC is an MCP server, so AI assistants can call it while they work. Your assistant writes the words, and OpenPPC supplies and checks the numbers. On your computer it reads your exports where they are. These setups use <a href="https://docs.astral.sh/uv/">uv</a>, which fetches and runs OpenPPC for you. OpenPPC isn't on PyPI yet, so the commands fetch it from GitHub.</p>
+    <p>OpenPPC is an MCP server, so AI assistants can call it while they work. Your assistant writes the words, and OpenPPC supplies and checks the numbers. On your computer it reads your exports where they are. These setups use <a href="https://docs.astral.sh/uv/">uv</a>, which fetches OpenPPC from PyPI and runs it for you.</p>
 
     <h3 id="claude">Claude Code</h3>
-    <pre class="code"><span class="p">$ </span>claude mcp add openppc -- uvx --from "openppc[mcp] @ git+https://github.com/secondsteplabs/openppc" openppc-mcp</pre>
+    <pre class="code"><span class="p">$ </span>claude mcp add openppc -- uvx --from "openppc[mcp]" openppc-mcp</pre>
     <h3>Claude Desktop</h3>
     <p>Open <b>Settings</b>, then <b>Developer</b>, then <b>Edit Config</b>, add OpenPPC to <code>claude_desktop_config.json</code>, and restart Claude Desktop.</p>
     <pre class="code">{
   "mcpServers": {
     "openppc": {
       "command": "uvx",
-      "args": ["--from", "openppc[mcp] @ git+https://github.com/secondsteplabs/openppc", "openppc-mcp"]
+      "args": ["--from", "openppc[mcp]", "openppc-mcp"]
     }
   }
 }</pre>
@@ -119,12 +119,12 @@ $4,973.64 total cost in this export, and each one cost at least $20.00.</pre>
 
     <h3 id="cursor">Cursor</h3>
     <p>Click <b>Add to Cursor</b>, or open Cursor's MCP settings and add the server to <code>~/.cursor/mcp.json</code>, or to <code>.cursor/mcp.json</code> in a project.</p>
-    <p><a class="btn btn-dark" href="cursor://anysphere.cursor-deeplink/mcp/install?name=openppc&amp;config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJvcGVucHBjW21jcF0gQCBnaXQraHR0cHM6Ly9naXRodWIuY29tL3NlY29uZHN0ZXBsYWJzL29wZW5wcGMiLCJvcGVucHBjLW1jcCJdfQ==">Add to Cursor</a></p>
+    <p><a class="btn btn-dark" href="cursor://anysphere.cursor-deeplink/mcp/install?name=openppc&amp;config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJvcGVucHBjW21jcF0iLCJvcGVucHBjLW1jcCJdfQ==">Add to Cursor</a></p>
     <pre class="code">{
   "mcpServers": {
     "openppc": {
       "command": "uvx",
-      "args": ["--from", "openppc[mcp] @ git+https://github.com/secondsteplabs/openppc", "openppc-mcp"]
+      "args": ["--from", "openppc[mcp]", "openppc-mcp"]
     }
   }
 }</pre>

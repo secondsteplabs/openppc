@@ -45,7 +45,7 @@ OpenPPC does two things. It checks any audit (from ChatGPT, Claude, an agency or
 - [Home]({ORIGIN}/): what OpenPPC does, with a demo video
 - [The app]({ORIGIN}/app/): runs in the browser, no sign-up
 - [Install and quick start]({ORIGIN}/docs/install/): browser, command line, self-hosting
-- [Claude, Cursor and ChatGPT]({ORIGIN}/docs/install/#ai): MCP server on your computer (`uvx --from "openppc[mcp] @ git+https://github.com/secondsteplabs/openppc" openppc-mcp`), or a web connector you run with `openppc-mcp --http` (a hosted one is coming soon)
+- [Claude, Cursor and ChatGPT]({ORIGIN}/docs/install/#ai): MCP server on your computer (`uvx --from "openppc[mcp]" openppc-mcp`), or a web connector you run with `openppc-mcp --http` (a hosted one is coming soon)
 - [Source code]({GITHUB}): MIT license
 """
 

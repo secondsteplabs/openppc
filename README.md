@@ -119,16 +119,16 @@ OpenPPC is an MCP server: your assistant writes the words, and OpenPPC computes 
 **On your computer** (Claude Code, Claude Desktop, Cursor). It reads your exports where they are:
 
 ```bash
-claude mcp add openppc -- uvx --from "openppc[mcp] @ git+https://github.com/secondsteplabs/openppc" openppc-mcp
+claude mcp add openppc -- uvx --from "openppc[mcp]" openppc-mcp
 ```
 
 For Claude Desktop or Cursor, add the same server to `claude_desktop_config.json` or `~/.cursor/mcp.json`:
 
 ```json
-{ "mcpServers": { "openppc": { "command": "uvx", "args": ["--from", "openppc[mcp] @ git+https://github.com/secondsteplabs/openppc", "openppc-mcp"] } } }
+{ "mcpServers": { "openppc": { "command": "uvx", "args": ["--from", "openppc[mcp]", "openppc-mcp"] } } }
 ```
 
-OpenPPC isn't on PyPI yet, so these commands fetch it straight from GitHub.
+uv fetches OpenPPC from PyPI the first time it runs.
 
 **As a web connector** (ChatGPT, claude.ai), over streamable HTTP at `/mcp`:
 
