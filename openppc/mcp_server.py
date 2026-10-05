@@ -2,7 +2,7 @@
 
 On your computer (Claude Code, Claude Desktop, Cursor), over stdio, reading local files:
 
-    claude mcp add openppc -- uvx --from "openppc[mcp] @ git+https://github.com/secondsteplabs/openppc" openppc-mcp
+    claude mcp add openppc -- uvx --from "openppc[mcp]" openppc-mcp
 
 As a web connector (ChatGPT, claude.ai), over streamable HTTP at /mcp:
 

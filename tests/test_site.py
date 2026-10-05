@@ -29,7 +29,7 @@ def test_the_home_page_has_the_video_the_app_and_github(tmp_path):
     assert "https://github.com/secondsteplabs/openppc" in home
     assert '<link rel="canonical" href="https://openppc.si/">' in home
     assert "Works inside Claude, Cursor and ChatGPT" in home and "cursor://anysphere.cursor-deeplink/mcp/install?name=openppc" in home
-    assert "coming soon" in home and "git+https://github.com/secondsteplabs/openppc" in home
+    assert "coming soon" in home and '"openppc[mcp]"' in home and "git+https://" not in home
     faq = [json.loads(b) for b in re.findall(r'<script type="application/ld\+json">(.*?)</script>', home)]
     assert [b["@type"] for b in faq] == ["SoftwareApplication", "FAQPage"] and len(faq[1]["mainEntity"]) == 7
 
