@@ -59,3 +59,15 @@ def test_the_site_serves_the_logo_icons_and_share_image(tmp_path):
     home = (tmp_path / "dist" / "index.html").read_text()
     assert '<img src="/logo.svg" alt="OpenPPC"' in home and 'href="/apple-touch-icon.png"' in home
     assert '<meta property="og:image" content="https://openppc.si/og-image.png">' in home
+
+
+def test_analytics_runs_on_the_website_and_never_in_the_app(tmp_path):
+    _site().build(tmp_path / "dist")
+    dist = tmp_path / "dist"
+    tag = (dist / "analytics.js").read_text()
+    assert "GTM-MKK8JT53" in tag and tag.index("'consent', 'default'") < tag.index("gtm.js?id=")
+    for page in ("index.html", "docs/index.html", "docs/install/index.html", "404.html"):
+        assert '<script src="/analytics.js" async></script>' in (dist / page).read_text(), page
+    app = (dist / "app" / "index.html").read_text()
+    assert "analytics.js" not in app and "googletagmanager" not in app
+    assert "connect-src https://cdn.jsdelivr.net;" in app   # the app may fetch the Python runtime and nothing else
