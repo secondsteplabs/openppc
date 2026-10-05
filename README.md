@@ -17,7 +17,7 @@ AI will happily audit a Google Ads account. When we tested language models on re
 - **traced**: it matches your data, at the precision it was written
 - **mismatch**: right number, wrong metric or row ("22 conversions" when 22 is that search term's clicks)
 - **not in data**: nothing in your files produces it, and the flag says what the figure really is ("no: the cost of
-  'pipe repair' is 296.40")
+  'pipe repair' is $296.40")
 - **can't check**: a target, threshold, forecast or what-if, or the audit's own working over rows an export can't
   rebuild (brand against non-brand, "the other $3,690"). Listed apart with a prompt to ask for the working, never
   counted against the audit

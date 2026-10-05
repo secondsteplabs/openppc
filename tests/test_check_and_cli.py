@@ -5,7 +5,7 @@ import pytest
 from openppc import mcp_server
 from openppc.checkfacts import facts_for_paths
 from openppc.cli import main
-from openppc.engine.trace import trace
+from openppc.engine.trace import render_check, trace
 
 EXAMPLES = Path(__file__).parent.parent / "examples"
 CSV = EXAMPLES / "search_terms_acme.csv"
@@ -22,6 +22,14 @@ def test_sample_ai_audit_is_caught():
     assert [n for n, _, _ in contradictions] == [11]
     traced = {c.written for c in claims if c.verdict == "traced"}
     assert {"$312", "41", "$58.51", "$9,000", "7.4%"} <= traced
+
+
+def test_a_flag_prints_money_with_its_symbol_and_one_sentence_reads_as_one():
+    claims, contradictions = trace(SAMPLE.read_text(), facts_for_paths([CSV], "home-services"))
+    detail = next(c.detail for c in claims if c.written == "$4,200")
+    assert detail == "no: the cost of all search terms with no conversions is $784.70"
+    markdown = render_check(claims, contradictions)
+    assert "1 sentence contradicts its own numbers." in markdown and "sentence(s)" not in markdown
 
 
 def test_industry_averages_count_as_data_when_asked():

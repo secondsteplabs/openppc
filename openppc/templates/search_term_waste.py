@@ -162,7 +162,8 @@ def _actions(book, waste, sure, chance, prior, needed, bar, pricey, harvest, cpa
             detail = (f"The waste model is at least {bar} sure about {'it' if one else 'them'}, and {'it' if one else 'they'} "
                       f"spent {spent}. \u201c{lead}\u201d {'is the one' if one else 'leads'}.")
             if rest:
-                detail += f" The other {book.count('waste terms too early to judge', rest)} are too early to judge."
+                detail += (f" The other {book.count('waste terms too early to judge', rest)} "
+                           f"{'is' if rest == 1 else 'are'} too early to judge.")
             m_s = book.count("waste terms the waste model is sure about", m)
             out.append({"kind": "negative", "title": f"Add {m_s} negative {plural(m, 'keyword')}", "detail": detail})
         else:
@@ -276,7 +277,8 @@ def _client(book, report, x):
                 why = f"We are at least {bar} sure about {m_s} of them, which spent {mc}."
                 if n > len(sure):
                     rest = book.count("waste terms too early to judge", n - len(sure))
-                    why += f" The other {rest} have too few clicks yet to tell a bad term from bad luck."
+                    why += (f" The other {rest} {'has' if n - len(sure) == 1 else 'have'} too few clicks yet to tell "
+                            "a bad term from bad luck.")
             else:
                 why = ("None of them has had enough clicks yet to prove it is bad rather than unlucky, so these are "
                        "terms to watch, not to block yet.")
@@ -347,7 +349,8 @@ def _client(book, report, x):
             text = (f"We are at least {bar} sure {'it is' if one else 'they are'} bad, and {'it' if one else 'they'} "
                     f"spent {spent}. “{lead}” {'is the one' if one else 'leads'}.")
             if n > m:
-                text += f" The other {book.count('waste terms too early to judge', n - m)} are too early to judge."
+                text += (f" The other {book.count('waste terms too early to judge', n - m)} "
+                         f"{'is' if n - m == 1 else 'are'} too early to judge.")
             m_s = book.count("waste terms the waste model is sure about", m)
             steps.append({"kind": "negative", "title": f"Add {m_s} negative {plural(m, 'keyword')}", "text": text})
         else:
@@ -535,7 +538,7 @@ def run(report, min_cost=None, industry=None, top=25, brand=None, **_):
                          "out fine)" if doubt else "")
                 out += ["", f"The waste model is at least {bar} sure about {m} of them, which spent {mc}{maybe}: add "
                             f"{'it as a negative' if len(sure) == 1 else 'those as negatives'}. The other {book.count('waste terms too early to judge', len(waste) - len(sure))} "
-                            "have too few clicks to tell a bad term from bad luck."]
+                            f"{'has' if len(waste) - len(sure) == 1 else 'have'} too few clicks to tell a bad term from bad luck."]
             else:
                 out += ["", f"None of them has enough clicks for the waste model to be {bar} sure it is bad rather "
                             "than unlucky, so give them more clicks before adding negatives."

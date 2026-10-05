@@ -17,6 +17,7 @@ class Fact:
     metric: str = ""  # cost, clicks, impressions, conversions, ctr, cpc, cpa, cvr, days, rule
     entity: str = ""  # the row or group it belongs to; "" for account-level figures
     level: str = ""   # "row" (a search term or keyword) or "group" (a campaign, ad group or match type)
+    currency: str = ""  # money only: the currency code it is in, so it prints with its symbol
 
 
 def fmt_money(value, currency="USD"):
@@ -33,7 +34,8 @@ class FactBook:
 
     def add(self, label, value, kind, metric="", entity=""):
         if value is not None:
-            self.facts.append(Fact(label, float(value), kind, metric, entity))
+            self.facts.append(Fact(label, float(value), kind, metric, entity,
+                                   currency=self.currency if kind == "money" else ""))
         return value
 
     def money(self, label, value, metric="cost", entity=""):

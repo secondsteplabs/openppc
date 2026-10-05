@@ -283,7 +283,7 @@ a.home-card:hover { color: var(--ink); border-color: var(--accent-soft); box-sha
 .home-t { font-size: 20px; font-weight: 800; letter-spacing: -0.02em; }
 .home-card .small { font-size: 14px; }
 .home-go { margin-top: 6px; font-size: 14px; font-weight: 700; color: var(--accent); }
-.home-go::after { content: " \2192"; }
+.home-go::after { content: " \2192"; content: " \2192" / ""; }  /* decorative: screen readers skip it */
 .three, .steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .steps { margin: 0; padding: 0; list-style: none; }
 .gallery { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }

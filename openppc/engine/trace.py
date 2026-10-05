@@ -39,7 +39,7 @@ so every trace names the fact it matched. Read the "traced to" column, don't jus
 import re
 from dataclasses import dataclass
 
-from ..facts import Fact
+from ..facts import Fact, fmt_money
 
 # Money: a symbol before the number ($, A$, CA$, NZ$, €, £, ₹, ¥, Rs), or a currency code before or after it.
 CODES = ("USD|INR|EUR|GBP|AUD|CAD|NZD|JPY|CHF|SEK|NOK|DKK|PLN|CZK|HUF|KRW|CNY|HKD|SGD|MYR|THB|IDR|PHP|VND|AED"
@@ -365,6 +365,8 @@ def _bases(facts):
             if f.entity and f.label == f"{metric} of '{f.entity}'":
                 row = base.setdefault(f.entity.lower(), {"level": f.level})
                 row.setdefault(metric, f.value)  # the first is the row's total
+                if f.currency:
+                    row.setdefault("currency", f.currency)
             elif not f.entity and f.label == f"{metric} of the account":
                 grand.setdefault(metric, f.value)
     return base, grand
@@ -382,17 +384,19 @@ def _group_facts(members, base, grand):
         return []
     s = {k: sum(r.get(k) or 0 for r in rows) for k in ("cost", "clicks", "conversions", "impressions")}
     tag = f"the {len(rows)} rows named together"
-    out = [Fact(f"cost of {tag}", s["cost"], "money", "cost", GROUP),
+    cur = next((r["currency"] for r in rows if r.get("currency")), "")
+    out = [Fact(f"cost of {tag}", s["cost"], "money", "cost", GROUP, currency=cur),
            Fact(f"clicks of {tag}", s["clicks"], "count", "clicks", GROUP),
            Fact(f"conversions of {tag}", s["conversions"], "count", "conversions", GROUP)]
     if s["impressions"]:
         out += [Fact(f"impressions of {tag}", s["impressions"], "count", "impressions", GROUP),
                 Fact(f"CTR of {tag}", s["clicks"] / s["impressions"] * 100, "pct", "ctr", GROUP)]
     if s["clicks"]:
-        out += [Fact(f"CPC of {tag}", s["cost"] / s["clicks"], "money", "cpc", GROUP),
+        out += [Fact(f"CPC of {tag}", s["cost"] / s["clicks"], "money", "cpc", GROUP, currency=cur),
                 Fact(f"conversion rate of {tag}", s["conversions"] / s["clicks"] * 100, "pct", "cvr", GROUP)]
     if s["conversions"]:
-        out.append(Fact(f"cost per conversion of {tag}", s["cost"] / s["conversions"], "money", "cpa", GROUP))
+        out.append(Fact(f"cost per conversion of {tag}", s["cost"] / s["conversions"], "money", "cpa", GROUP,
+                        currency=cur))
     for metric in ("cost", "clicks", "conversions"):
         if grand.get(metric):
             out.append(Fact(f"share of total {metric} of {tag}", s[metric] / grand[metric] * 100, "pct", metric, GROUP))
@@ -410,7 +414,7 @@ def _cant_check(clause):
 
 def _show(f):
     if f.kind == "money":
-        return f"{f.value:,.2f}"
+        return fmt_money(f.value, f.currency) if f.currency else f"{f.value:,.2f}"
     if f.kind == "pct":
         return f"{f.value:.2f}%" if abs(f.value) < 1 else f"{f.value:.1f}%"
     return f"{f.value:,.1f}" if f.value % 1 else f"{f.value:,.0f}"
@@ -888,11 +892,12 @@ def render_check(claims, contradictions):
     flagged = [c for c in claims if c.verdict in ("mismatch", "not in data")]
     unchecked = [c for c in claims if c.verdict == "can't check"]
     mismatched = sum(c.verdict == "mismatch" for c in claims)
+    n, bad = len(claims), len(contradictions)
     out = ["# Number check", "",
-           f"**{len(claims)} numbers found: {len(traced)} traced to your data, {mismatched} mismatched, "
-           f"{len(flagged) - mismatched} not in your data"
-           + (f", {len(unchecked)} can't be checked from an export" if unchecked else "") + ".** "
-           f"{len(contradictions)} sentence(s) contradict their own numbers."]
+           f"**{n:,} {'number' if n == 1 else 'numbers'} found: {len(traced):,} traced to your data, "
+           f"{mismatched:,} mismatched, {len(flagged) - mismatched:,} not in your data"
+           + (f", {len(unchecked):,} can't be checked from an export" if unchecked else "") + ".** "
+           + f"{bad:,} {'sentence contradicts its' if bad == 1 else 'sentences contradict their'} own numbers."]
     if not flagged and not contradictions:
         out += ["", "Every number an export can confirm traces back to your data. That checks the numbers, "
                     "not the advice."]
