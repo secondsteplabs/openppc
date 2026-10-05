@@ -72,6 +72,7 @@ def test_audit_hands_the_app_structured_results():
     assert res["passed"] and [k["label"] for k in cards["kpis"]] == [
         "Wasted spend", "Share of total cost", "A year at this rate", "Cost per conversion", "CTR"]
     assert cards["kpis"][0]["value"] == "$767.20" and cards["kpis"][3]["note"] == "vs $90.92 industry"
+    assert cards["kpis"][0]["note"] == "6 terms of $20.00 or more, zero conversions"  # the threshold, named
     assert [a["kind"] for a in cards["actions"]] == ["watch", "review", "add"]
     first = cards["waste"][0]
     assert (first["term"], first["cost"], first["chance"], first["sure"]) == ("free plumbing estimate", "$312.00", "79%", False)

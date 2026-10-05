@@ -202,14 +202,16 @@ def _actions(book, waste, sure, chance, prior, needed, bar, pricey, harvest, cpa
     return out
 
 
-def _cards(book, grand, waste, sure, chance, top, wc, share, d, y, cpa_s, industry, actions):
+def _cards(book, grand, waste, sure, chance, top, wc, share, d, y, cpa_s, industry, actions, min_s=None):
     """The same results as data for the web app. Every number is a string the FactBook printed."""
     bench = benchmarks.lookup(industry) if industry else None
     dollars = (book.currency or "USD").upper() == "USD"  # the industry's cost per conversion is in US dollars
     kpis = []
     if wc:
         n = book.count("search terms flagged as waste", len(waste))
-        kpis.append({"label": "Wasted spend", "value": wc, "note": f"{n} {plural(len(waste), 'term')}, zero conversions"})
+        rule = f" of {min_s} or more" if min_s else ""  # the threshold, so this never reads as every zero-conversion term
+        kpis.append({"label": "Wasted spend", "value": wc,
+                     "note": f"{n} {plural(len(waste), 'term')}{rule}, zero conversions"})
         kpis.append({"label": "Share of total cost", "value": share, "note": f"of {book.money('total cost', grand.cost)}"})
     if y:
         kpis.append({"label": "A year at this rate", "value": y, "note": f"{d} a day"})
@@ -496,6 +498,7 @@ def run(report, min_cost=None, industry=None, top=25, brand=None, **_):
     zero = [t for t in others if not val(t, "conversions")]  # not one conversion on any of the term's rows
     waste = sorted((t for t in zero if val(t, "cost") >= min_cost), key=lambda t: -val(t, "cost"))
     small = [t for t in zero if 0 < val(t, "cost") < min_cost]
+    every_zero = [t for t in by_term if not val(t, "conversions")]  # brand terms too: what a number check counts
     wasted = totals(waste)
     in_search = [t for t in waste if t["group"] == "search"]
     names, found = _themes(others)
@@ -517,6 +520,12 @@ def run(report, min_cost=None, industry=None, top=25, brand=None, **_):
         share = book.pct("wasted cost as a share of total cost", wasted.cost / grand.cost * 100, "cost")
         out.append(f"**{n} {plural(len(waste), 'search term')} spent {wc} and never converted.** That is "
                    f"{share} of the {total_cost} total cost in this export, and each one cost at least {min_s}.")
+        if totals(every_zero).cost > wasted.cost + 0.005:  # say how this ties to the all-in figure
+            az = book.count("search terms with no conversions", len(every_zero), "terms")
+            ac = book.money("cost of all search terms with no conversions", totals(every_zero).cost, "cost")
+            brand_too = any(is_brand(t["search_term"]) for t in every_zero)
+            out[-1] += (f" All {az} search terms with no conversions, whatever they cost"
+                        + (" and brand terms included" if brand_too else "") + f", spent {ac}.")
         search_cost, auto_cost = sum(t["search_cost"] for t in waste), sum(t["automated_cost"] for t in waste)
         if search_cost and auto_cost:
             sw = book.money("wasted cost in Search campaigns", search_cost, "cost")
@@ -651,7 +660,7 @@ def run(report, min_cost=None, industry=None, top=25, brand=None, **_):
     if actions:
         out[todo_at:todo_at] = ["", "## What to do", ""] + [
             f"{i}. **{a['title']}.** {a['detail']}" for i, a in enumerate(actions, 1)]
-    book.cards = _cards(book, grand, waste, sure, chance, top, wc, share, d, y, cpa_s, industry, actions)
+    book.cards = _cards(book, grand, waste, sure, chance, top, wc, share, d, y, cpa_s, industry, actions, min_s)
 
     if industry:
         out += benchmarks.section(book, industry, cost=grand.cost, clicks=grand.clicks,

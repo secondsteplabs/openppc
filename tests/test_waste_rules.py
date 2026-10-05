@@ -128,3 +128,21 @@ def test_one_term_left_over_reads_as_one():
     everything = "\n".join(lines) + json.dumps([book.cards, book.client])  # the report, the app's cards, the client PDF
     assert "The other 1 has too few clicks" in everything and "The other 1 is too early to judge" in everything
     assert not re.search(r"The other 1 (are|have)\b", everything)
+
+
+def test_the_all_in_figure_says_when_it_counts_brand_terms():
+    rows = [_row("pipewell plumbing", 40.0, 10, 0), _row("plumbing repair", 300.0, 60, 12),
+            _row("free plumbing course", 240.0, 150, 0), _row("diy drain unclog", 6.5, 1)]
+    text = _run_rows(rows, brand="Pipewell")
+    assert "All 3 search terms with no conversions, whatever they cost and brand terms included, spent $286.50." in text
+
+
+def _run_rows(rows, **params):
+    report = Report(rows=rows, columns={"search_term", "match_type", "campaign_type", "clicks", "impressions", "cost",
+                                        "conversions"},
+                    source="test.csv", start=dt.date(2026, 7, 1), end=dt.date(2026, 7, 30), currency="USD")
+    lines, book = search_term_waste.run(report, **params)
+    text = "\n".join(lines)
+    claims, contradictions = trace(text, book.facts)
+    assert all(c.verdict == "traced" for c in claims) and not contradictions  # the report passes its own number check
+    return text
