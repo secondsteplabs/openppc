@@ -50,6 +50,15 @@ def _parser():
     return ap
 
 
+def explain(error):
+    """The message for an error the user can fix, in words rather than Python's error codes."""
+    if isinstance(error, FileNotFoundError):
+        return f"no file at {error.filename}. Check the path."
+    if isinstance(error, KeyError) and error.args:
+        return str(error.args[0])
+    return str(error)
+
+
 def main(argv=None):
     args = _parser().parse_args(argv)
     try:
@@ -73,6 +82,6 @@ def main(argv=None):
             clean = all(c.verdict == "traced" for c in claims) and not contradictions
             return 0 if clean else 2
     except (ValueError, FileNotFoundError, KeyError) as e:
-        print(f"openppc: {e}", file=sys.stderr)
+        print(f"openppc: {explain(e)}", file=sys.stderr)
         return 1
     return 1
