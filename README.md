@@ -1,7 +1,7 @@
 <h1 align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="brand/openppc-logo-reverse.svg">
-    <img alt="OpenPPC" src="brand/openppc-logo.svg" width="340">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/secondsteplabs/openppc/main/brand/png/openppc-logo-reverse-1600.png">
+    <img alt="OpenPPC" src="https://raw.githubusercontent.com/secondsteplabs/openppc/main/brand/png/openppc-logo-1600.png" width="340">
   </picture>
 </h1>
 
@@ -147,7 +147,7 @@ We backtested this on live accounts, excluding terms that people had already add
 
 ## The rulebook
 
-Every rule the tool applies is a row in [`rulebook/rules.csv`](rulebook/rules.csv): what it checks, the formula, the threshold, where the idea comes from (Google's own guidance, practitioners, or our reasoning) and the line of code that runs it. A test fails if a threshold in the code and its row ever disagree, so the rulebook is always what the tool actually does. Planned rules sit in the same file. Argue with any of them in an issue or a pull request.
+Every rule the tool applies is a row in [`rulebook/rules.csv`](https://github.com/secondsteplabs/openppc/blob/main/rulebook/rules.csv): what it checks, the formula, the threshold, where the idea comes from (Google's own guidance, practitioners, or our reasoning) and the line of code that runs it. A test fails if a threshold in the code and its row ever disagree, so the rulebook is always what the tool actually does. Planned rules sit in the same file. Argue with any of them in an issue or a pull request.
 
 ## What it is not
 
@@ -174,15 +174,15 @@ None. No API keys, no `.env`.
 
 ## Contributing
 
-Issues and pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first, and never attach a client's export.
+Issues and pull requests are welcome. Read [CONTRIBUTING.md](https://github.com/secondsteplabs/openppc/blob/main/CONTRIBUTING.md) first, and never attach a client's export.
 
 ## Security
 
-To report a vulnerability, see [SECURITY.md](SECURITY.md).
+To report a vulnerability, see [SECURITY.md](https://github.com/secondsteplabs/openppc/blob/main/SECURITY.md).
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](https://github.com/secondsteplabs/openppc/blob/main/LICENSE).
 
 ---
 
