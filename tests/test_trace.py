@@ -1,3 +1,6 @@
+from pathlib import Path
+
+from openppc.checkfacts import facts_for_paths
 from openppc.engine.trace import trace
 from openppc.facts import Fact
 
@@ -88,3 +91,41 @@ def test_contradiction():
     assert len(contradictions) == 1
     _, fine = trace("Conversion rate rose from 9% to 14% after the change.", FACTS)
     assert fine == []
+
+
+ACME = facts_for_paths([Path(__file__).parent.parent / "examples" / "search_terms_acme.csv"])
+
+
+def acme(text):
+    claims, _ = trace(text, ACME)
+    return [(c.written, c.verdict) for c in claims]
+
+
+def test_european_decimals_are_one_number():
+    assert acme("The account's cost per conversion is €58,51.") == [("€58,51", "traced")]
+    assert acme("Total cost was $4.973,64 this month.") == [("$4.973,64", "traced")]
+    assert acme("Total cost was $4,973.64 and 732 clicks.") == [("$4,973.64", "traced"), ("732", "traced")]
+
+
+def test_a_range_holds_when_the_real_figure_falls_inside_it():
+    assert acme("The account's average CPC is $5–$7.") == [("$5", "traced"), ("$7", "traced")]
+    assert acme("The account's CTR sits between 7% and 8%.") == [("7%", "traced"), ("8%", "traced")]
+    assert acme("The account's CTR is 7–8%.") == [("7", "traced"), ("8%", "traced")]  # the 7 is a percentage too
+    claims, _ = trace("The account's average CPC is $8–$9.", ACME)
+    assert [c.verdict for c in claims] == ["not in data"] * 2 and claims[0].detail == "no: the CPC of the account is $6.79"
+    claims, _ = trace("The account cost ₹6–7k last month.", [Fact("cost of the account", 6500, "money", "cost")])
+    assert [c.verdict for c in claims] == ["traced"] * 2  # the k is for both ends
+
+
+def test_a_range_is_never_traced_on_loose_grounds():
+    assert {v for _, v in acme("Expect a CPC of $5 to $7 after the change.")} == {"can't check"}  # a forecast
+    keywords = facts_for_paths([Path(__file__).parent.parent / "examples" / "keywords_acme.csv"])
+    claims, _ = trace("Your top two (plumber near me and plumbing services phrase) convert at 9–14%.", keywords)
+    assert {c.verdict for c in claims} == {"can't check"}  # plumber near me converts at 14.6%, outside it
+    assert "plumber near me' is 14.6%, outside this range" in claims[0].detail
+    assert acme("Conversion rate fell from 9% to 14%.") == [("9%", "can't check"), ("14%", "not in data")]  # a change
+
+
+def test_a_minus_sign_stays_with_its_number():
+    assert [w for w, _ in acme("Spend changed by -$0.00, and CPC by −$0.12.")] == ["-$0.00", "−$0.12"]
+    assert [w for w, _ in acme("The account's average CPC is $5-$7.")] == ["$5", "$7"]  # a dash between two numbers
