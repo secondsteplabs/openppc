@@ -13,6 +13,7 @@ contents, work in a temporary folder that is deleted when the call ends, and kee
 tool is annotated read-only so clients know it never changes anything.
 """
 import argparse
+import functools
 import re
 import tempfile
 from pathlib import Path
@@ -24,6 +25,13 @@ except ImportError:
         from mcp.server.fastmcp import FastMCP as Server
     except ImportError:  # the MCP extra is optional
         Server = None
+try:  # the error a tool raises on purpose: the model gets its message (SDK 2.x, then 1.x)
+    from mcp.server.mcpserver.exceptions import ToolError
+except ImportError:
+    try:
+        from mcp.server.fastmcp.exceptions import ToolError
+    except ImportError:
+        ToolError = None
 try:
     from mcp.types import ToolAnnotations
     READ_ONLY = ToolAnnotations(readOnlyHint=True, destructiveHint=False, openWorldHint=False)
@@ -32,6 +40,7 @@ except ImportError:
 
 from . import __version__
 from .checkfacts import facts_for_paths
+from .cli import explain
 from .engine.trace import render_check, trace
 from .templates import TEMPLATES, run_template
 
@@ -96,6 +105,20 @@ def check_audit(audit_text: str, export_text: str, export_name: str = "export.cs
         return check_numbers(audit_text, [_export_file(folder, export_text, export_name)], industry)
 
 
+def _plain_errors(tool):
+    """Hand the errors a user can fix to the model as plain messages, the ones the command line prints. The SDK
+    reports any other exception as only "Error executing tool <name>", which looks like OpenPPC is broken."""
+    @functools.wraps(tool)
+    def call(*args, **kwargs):
+        try:
+            return tool(*args, **kwargs)
+        except (ValueError, FileNotFoundError, KeyError) as e:
+            if ToolError is None:
+                raise
+            raise ToolError(explain(e)) from None
+    return call
+
+
 LOCAL_TOOLS = (list_templates, audit_account, check_numbers)
 WEB_TOOLS = (list_templates, audit_export, check_audit)  # contents in, never paths
 
@@ -110,9 +133,9 @@ def build_server(web=False):
             server = Server("openppc")
     for tool in WEB_TOOLS if web else LOCAL_TOOLS:
         try:
-            server.tool(annotations=READ_ONLY)(tool)
+            server.tool(annotations=READ_ONLY)(_plain_errors(tool))
         except TypeError:  # an SDK too old for tool annotations
-            server.tool()(tool)
+            server.tool()(_plain_errors(tool))
     return server
 
 

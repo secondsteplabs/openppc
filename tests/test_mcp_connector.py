@@ -77,3 +77,18 @@ def test_a_chatgpt_style_client_can_check_an_audit_over_http():
 def test_the_command_line_rejects_unknown_options():
     with pytest.raises(SystemExit):
         mcp_server.main(["--nonsense"])
+
+
+def test_a_mistake_reaches_the_model_as_a_plain_message():
+    if mcp_server.Server is None or mcp_server.ToolError is None:
+        pytest.skip("the MCP extra is not installed")
+    server = mcp_server.build_server()
+    for name, args, words in (
+        ("audit_account", {"template": "search-term-waste", "data_path": "/nope.csv"}, "no file at /nope.csv"),
+        ("audit_account", {"template": "no-such-template", "data_path": str(CSV)}, "unknown template 'no-such-template'"),
+        ("audit_account", {"template": "search-term-waste", "data_path": str(SAMPLE)}, "no header row with Clicks and Cost"),
+        ("check_numbers", {"audit_text": "Spend was $500.", "data_paths": ["/nope.csv"]}, "no file at /nope.csv"),
+    ):
+        with pytest.raises(mcp_server.ToolError) as caught:
+            asyncio.run(server.call_tool(name, args))
+        assert words in str(caught.value), name   # before, the model saw only "Error executing tool <name>"
