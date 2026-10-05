@@ -52,7 +52,8 @@ function icon(name, size = 16, width = 2) {
   node.innerHTML = ICONS[name];  // constant markup from ICONS, never user text
   return node;
 }
-const plural = (n, one, many) => `${Number(n).toLocaleString('en-US')} ${n === 1 ? one : many || one + 's'}`;
+const num = (n) => Number(n).toLocaleString('en-US');
+const plural = (n, one, many) => `${num(n)} ${n === 1 ? one : many || one + 's'}`;
 const capital = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 const an = (s) => (/^[aeiou]/i.test(s) ? 'an ' : 'a ') + s;
 const secs = (ms) => `${Math.max(ms / 1000, 0.1).toFixed(1)} s`;
@@ -271,6 +272,7 @@ async function updateCount() {
     if (run !== state.countRun) return;  // a later edit is being counted
   }
   state.count = count;
+  state.counting = false;
   el.count.textContent = !text.trim() ? ''
     : state.engine !== 'ready' ? 'The numbers get counted once the checker loads.'
       : state.count ? `${plural(state.count, 'number')} found in this text` : 'No numbers found in this text yet.';
@@ -300,7 +302,7 @@ function refresh() {
   let label;
   if (state.mode === 'check') {
     enabled = ready && goodFiles().length > 0 && state.count > 0;
-    label = state.count ? `Check ${plural(state.count, 'number')}` : 'Check numbers';
+    label = state.count && !state.counting ? `Check ${plural(state.count, 'number')}` : 'Check numbers';
   } else {
     const f = auditFile();
     enabled = ready && !!f && !!state.template && f.info.templates.includes(state.template);
@@ -572,8 +574,8 @@ function numbersTable(claims) {
   const bad = claims.filter((c) => FLAGGED.has(c.verdict)).length;
   const unc = claims.filter((c) => c.verdict === "can't check").length;
   const seg = h('div', { class: 'seg', role: 'group', 'aria-label': 'Filter numbers' });
-  const filters = [['all', `All ${claims.length}`], ['bad', `Needs attention ${bad}`], ['ok', `Traced ${claims.length - bad - unc}`]];
-  if (unc) filters.push(['unc', `Can't check ${unc}`]);
+  const filters = [['all', `All ${num(claims.length)}`], ['bad', `Needs attention ${num(bad)}`], ['ok', `Traced ${num(claims.length - bad - unc)}`]];
+  if (unc) filters.push(['unc', `Can't check ${num(unc)}`]);
   for (const [which, label] of filters) {
     seg.append(h('button', {
       type: 'button', 'aria-pressed': String(which === 'all'),
@@ -605,14 +607,14 @@ function scoreCard(c) {
     offset += len;
   }
   const bad = c.mismatch + c.not_in_data;
-  const tile = (n, color, label) => h('div', { class: 'tile' }, h('b', { class: 'num', style: `color:${color}` }, String(n)), h('span', {}, label));
+  const tile = (n, color, label) => h('div', { class: 'tile' }, h('b', { class: 'num', style: `color:${color}` }, num(n)), h('span', {}, label));
   return h('div', { class: 'card score' },
     h('div', { style: 'display:flex;align-items:center;justify-content:space-between' }, h('span', { class: 'card-title' }, 'Number check score'), h('span', { class: 'hint' }, 'Just now')),
     h('div', { class: 'score-row' },
-      h('div', { class: 'ring' }, ring, h('div', { class: 'ring-c' }, h('span', { class: 'ring-n num' }, String(c.traced), h('small', {}, `/${c.total}`)), h('span', { class: 'ring-l' }, 'traced'))),
-      h('p', { class: 'small', style: 'font-size:14px;color:var(--ink3)' }, `${c.traced} of ${plural(c.total, 'number')} trace to your export.`,
-        bad || c.contradictions ? ` ${bad + c.contradictions} ${bad + c.contradictions === 1 ? 'needs' : 'need'} attention before this audit reaches a client.` : '',
-        c.cant_check ? ` ${c.cant_check} can't be checked from an export.` : '')),
+      h('div', { class: 'ring' }, ring, h('div', { class: 'ring-c' }, h('span', { class: 'ring-n num' }, num(c.traced), h('small', {}, `/${num(c.total)}`)), h('span', { class: 'ring-l' }, 'traced'))),
+      h('p', { class: 'small', style: 'font-size:14px;color:var(--ink3)' }, `${num(c.traced)} of ${plural(c.total, 'number')} trace to your export.`,
+        bad || c.contradictions ? ` ${num(bad + c.contradictions)} ${bad + c.contradictions === 1 ? 'needs' : 'need'} attention before this audit reaches a client.` : '',
+        c.cant_check ? ` ${num(c.cant_check)} can't be checked from an export.` : '')),
     h('div', { class: 'tiles' }, tile(c.traced, '#0b8a50', 'Traced'), tile(c.mismatch, '#b86e0c', 'Mismatch'),
       tile(c.not_in_data, '#c0362c', 'Not in data'), tile(c.contradictions, '#11181c', 'Contradiction')));
 }
@@ -1314,6 +1316,13 @@ function init() {
   for (const type of ['dragenter', 'dragover']) el.drop.addEventListener(type, (e) => { e.preventDefault(); el.drop.classList.add('over'); });
   for (const type of ['dragleave', 'drop']) el.drop.addEventListener(type, (e) => { e.preventDefault(); el.drop.classList.remove('over'); });
   el.drop.addEventListener('drop', async (e) => { for (const f of e.dataTransfer.files) await addFile(f); });
+  // the old count goes the moment the text changes, so the button never names a number it is not about to check
+  el.text.addEventListener('input', () => {
+    state.countRun++;
+    state.counting = true;
+    el.count.textContent = el.text.value.trim() ? 'Counting the numbers…' : '';
+    refresh();
+  });
   el.text.addEventListener('input', debounce(updateCount, 250));
   el.minCost.addEventListener('input', () => { el.minCost.dataset.edited = '1'; });
   el.run.addEventListener('click', run);

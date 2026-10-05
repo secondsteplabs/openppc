@@ -39,15 +39,18 @@ so every trace names the fact it matched. Read the "traced to" column, don't jus
 import re
 from dataclasses import dataclass
 
-from ..facts import Fact
+from ..facts import Fact, fmt_money
 
 # Money: a symbol before the number ($, A$, CA$, NZ$, €, £, ₹, ¥, Rs), or a currency code before or after it.
 CODES = ("USD|INR|EUR|GBP|AUD|CAD|NZD|JPY|CHF|SEK|NOK|DKK|PLN|CZK|HUF|KRW|CNY|HKD|SGD|MYR|THB|IDR|PHP|VND|AED"
          "|SAR|ILS|TRY|ZAR|BRL|MXN")
 CUR = rf"(?:(?:US|AU|A|CA|C|NZ|HK|S|R|MX)\$|[$€£₹¥]|Rs\.?\s?|(?:{CODES})\s)"
 # Grouped in thousands (144,775) or the Indian way in lakhs (1,44,775); "1.45 lakh" and "2 crore" are magnitudes.
-NUM = re.compile(rf"(?<![\w.$])(?P<cur>{CUR})?\s?(?P<num>\d{{1,3}}(?:,\d{{3}})+(?:\.\d+)?|\d{{1,2}}(?:,\d{{2}})+,\d{{3}}"
-                 rf"(?:\.\d+)?|\d+(?:\.\d+)?)(?P<mag>[kKmM](?![A-Za-z])|\s?(?:[Ll]akhs?|[Ll]acs?|[Cc]rores?|[Cc]r)\b)?"
+# European decimals are one number: "€58,51" is 58.51 and "4.973,64" is 4,973.64. A minus sign stays with its number
+# ("-$0.00"), but a dash between two numbers is not one ("$5-$7").
+NUM = re.compile(rf"(?<![\w.$])(?P<sign>[-\u2212](?=\d|{CUR}))?(?P<cur>{CUR})?\s?(?P<num>\d{{1,3}}(?:,\d{{3}})+(?:\.\d+)?"
+                 rf"|\d{{1,2}}(?:,\d{{2}})+,\d{{3}}(?:\.\d+)?|\d{{1,3}}(?:\.\d{{3}})+,\d{{1,2}}(?!\d)"
+                 rf"|(?<!\d,)\d+,\d{{1,2}}(?![\d,])|\d+(?:\.\d+)?)(?P<mag>[kKmM](?![A-Za-z])|\s?(?:[Ll]akhs?|[Ll]acs?|[Cc]rores?|[Cc]r)\b)?"
                  rf"(?P<pct>\s?%)?(?P<code>\s(?:{CODES})\b)?")
 LIST_MARKER = re.compile(r"^\s*(?:[-*>]\s*)?(\d+)[.):/]\s")
 MONTH_DAY = re.compile(r"\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})\b",
@@ -163,6 +166,8 @@ NOT_A_SUBSET = {"all", "the", "your", "our", "their", "its", "these", "those", "
 PER_UNIT_GAP = re.compile(r"\s*(?:(?:to|-|–|and)\s*~?[$€£₹]?\s?[\d,.]+[kKmM]?\s*)?")
 LABEL_COLON = re.compile(r"[\s*_]*:[\s*_]*")
 # "$44 to $48", "9-14%": the two ends of a range share their words
+BETWEEN = re.compile(rf"\bbetween\s+~?{CUR}?\s?(\d[\d,.]*)\s*%?\s*(?:and|&)\s*~?{CUR}?\s?(\d[\d,.]*)")
+EU_DECIMAL = re.compile(r",\d{1,2}$")  # "58,51" and "4.973,64"; "4,200" and "1,44,775" are grouped thousands
 RANGE = re.compile(rf"(\d[\d,]*(?:\.\d+)?)\s*%?\s*(?:to|–|-)\s*~?{CUR}?\s?(\d[\d,]*(?:\.\d+)?)")
 COST_WORD = re.compile(r"\bcosts?\b|\bcosting\b")  # "cost $157.02" may mean a price per lead as well as a total
 # a table on its side whose columns are the account: "| Metric | July |", "| | Value |"
@@ -208,11 +213,50 @@ class Claim:
     context: str
 
 
+def _digits(num):
+    """A number as written, as plain digits: '1,361.04' -> '1361.04', '4.973,64' -> '4973.64', '58,51' -> '58.51'."""
+    if EU_DECIMAL.search(num):
+        return num.replace(".", "").replace(",", ".")
+    return num.replace(",", "")
+
+
+def _ranges(line, masked, sentences, earlier):
+    """'$5-$7', '7-8%', 'between 50 and 60': each end's position -> the range, judged as one figure. A range is
+    true when the real figure falls inside it, so it is checked at its middle with half its width as slack."""
+    found = {m.start("num"): m for m in NUM.finditer(line)}
+    out = {}
+    for r in list(RANGE.finditer(masked)) + list(BETWEEN.finditer(masked)):
+        ends = [found.get(r.start(1)), found.get(r.start(2))]
+        if None in ends or r.start(1) in earlier or any(e.group("sign") for e in ends):
+            continue  # "from 9% to 14%" is a change; "-5% to -7%" is left alone
+        kinds = {"money" if (e.group("cur") or e.group("code")) else "pct" if e.group("pct") else "plain" for e in ends}
+        if kinds >= {"money", "pct"}:
+            continue
+        kind = "money" if "money" in kinds else "pct" if "pct" in kinds else "plain"
+        raws, mags = [e.group("num") for e in ends], [e.group("mag") for e in ends]
+        if bool(mags[0]) != bool(mags[1]):
+            mags = [mags[0] or mags[1]] * 2  # "₹6-7k": the k is for both ends
+        vals = [float(_digits(n)) * MAG.get((g or "").strip().lower(), 1) for n, g in zip(raws, mags)]
+        gap = masked[ends[0].end():ends[1].start()]
+        sentence = next((masked[a:b] for a, b in sentences if a <= r.start(1) < b), masked)
+        if kind == "plain" and (gap.strip() == "-" or all(1900 <= v <= 2100 and n.isdigit() for v, n in zip(vals, raws))):
+            continue  # "2025-26", "9-5", "between 2024 and 2026": not a range of figures
+        if "to" in gap and VERB.search(sentence):
+            continue  # "CTR fell 9% to 7%": a change, not a range
+        lo, hi = min(vals), max(vals)
+        if lo <= 0 or hi / lo > 10:
+            continue  # too wide to be one figure's range: each number is judged on its own
+        tol = (hi - lo) / 2 + max(_tolerance(n, g, kind == "pct") for n, g in zip(raws, mags))
+        for e in ends:
+            out[e.start("num")] = {"id": r.start(1), "kind": kind, "mid": (lo + hi) / 2, "tol": tol}
+    return out
+
+
 def _tolerance(num, mag, pct=False):
     """Half of one unit in the last digit written. '312' -> 0.5, '1.4k' -> 50, '16.8' -> 0.05.
     Trailing zeros on large whole numbers are ambiguous ('4,200'), so they get at most 5% slack. Not on
     percentages or numbers under 100: '60%' for 57% and '20 clicks' for 19 are wrong, not rounded."""
-    s = num.replace(",", "")
+    s = _digits(num)
     mult = MAG.get((mag or "").strip().lower(), 1)
     if "." in s:
         return 10 ** -len(s.split(".", 1)[1]) / 2 * mult + 1e-9
@@ -365,6 +409,8 @@ def _bases(facts):
             if f.entity and f.label == f"{metric} of '{f.entity}'":
                 row = base.setdefault(f.entity.lower(), {"level": f.level})
                 row.setdefault(metric, f.value)  # the first is the row's total
+                if f.currency:
+                    row.setdefault("currency", f.currency)
             elif not f.entity and f.label == f"{metric} of the account":
                 grand.setdefault(metric, f.value)
     return base, grand
@@ -382,17 +428,19 @@ def _group_facts(members, base, grand):
         return []
     s = {k: sum(r.get(k) or 0 for r in rows) for k in ("cost", "clicks", "conversions", "impressions")}
     tag = f"the {len(rows)} rows named together"
-    out = [Fact(f"cost of {tag}", s["cost"], "money", "cost", GROUP),
+    cur = next((r["currency"] for r in rows if r.get("currency")), "")
+    out = [Fact(f"cost of {tag}", s["cost"], "money", "cost", GROUP, currency=cur),
            Fact(f"clicks of {tag}", s["clicks"], "count", "clicks", GROUP),
            Fact(f"conversions of {tag}", s["conversions"], "count", "conversions", GROUP)]
     if s["impressions"]:
         out += [Fact(f"impressions of {tag}", s["impressions"], "count", "impressions", GROUP),
                 Fact(f"CTR of {tag}", s["clicks"] / s["impressions"] * 100, "pct", "ctr", GROUP)]
     if s["clicks"]:
-        out += [Fact(f"CPC of {tag}", s["cost"] / s["clicks"], "money", "cpc", GROUP),
+        out += [Fact(f"CPC of {tag}", s["cost"] / s["clicks"], "money", "cpc", GROUP, currency=cur),
                 Fact(f"conversion rate of {tag}", s["conversions"] / s["clicks"] * 100, "pct", "cvr", GROUP)]
     if s["conversions"]:
-        out.append(Fact(f"cost per conversion of {tag}", s["cost"] / s["conversions"], "money", "cpa", GROUP))
+        out.append(Fact(f"cost per conversion of {tag}", s["cost"] / s["conversions"], "money", "cpa", GROUP,
+                        currency=cur))
     for metric in ("cost", "clicks", "conversions"):
         if grand.get(metric):
             out.append(Fact(f"share of total {metric} of {tag}", s[metric] / grand[metric] * 100, "pct", metric, GROUP))
@@ -410,7 +458,7 @@ def _cant_check(clause):
 
 def _show(f):
     if f.kind == "money":
-        return f"{f.value:,.2f}"
+        return fmt_money(f.value, f.currency) if f.currency else f"{f.value:,.2f}"
     if f.kind == "pct":
         return f"{f.value:.2f}%" if abs(f.value) < 1 else f"{f.value:.1f}%"
     return f"{f.value:,.1f}" if f.value % 1 else f"{f.value:,.0f}"
@@ -728,7 +776,7 @@ def trace(text, facts):
             partners[m.start(2)] = next((a for a, b in numbers if a <= m.start(1) < b), m.start(1))
         for m in OF_PAIR.finditer(masked):
             partners.setdefault(m.start(1), next((a for a, b in numbers if a <= m.start(2) < b), m.start(2)))
-        for m in RANGE.finditer(masked):
+        for m in list(RANGE.finditer(masked)) + list(BETWEEN.finditer(masked)):
             partners.setdefault(m.start(1), next((a for a, b in numbers if a <= m.start(2) < b), m.start(2)))
             partners.setdefault(m.start(2), next((a for a, b in numbers if a <= m.start(1) < b), m.start(1)))
         # the rows each sentence takes together, and the figures they add up to
@@ -736,6 +784,7 @@ def trace(text, facts):
         for cut in [m.start() for m in SENTENCE.finditer(line)] + [len(line)]:
             sentences.append((pos, cut))
             pos = cut
+        ranges, settled = _ranges(line, masked, sentences, earlier), {}
         local, prev_rows = [], []
         for a, b in sentences:
             rows = [n for s, _, n in named if a <= s < b and n in base]
@@ -775,11 +824,20 @@ def trace(text, facts):
                 continue
             raw, cur, mag, pct = m.group("num"), m.group("cur"), m.group("mag"), bool(m.group("pct"))
             code = m.group("code")
-            value = float(raw.replace(",", "")) * MAG.get((mag or "").strip().lower(), 1)
+            value = float(_digits(raw)) * MAG.get((mag or "").strip().lower(), 1)
             money = bool(cur or code)
             plain = not (money or pct or mag)
             kind = "money" if money else ("pct" if pct else "plain")
             start = m.start("cur") if cur else pos
+            rng = ranges.get(pos)
+            if rng:
+                kind = rng["kind"]  # "7-8%": the 7 is a percentage too
+                money, plain = kind == "money", kind == "plain" and not mag
+                if rng["id"] in settled:  # the range's other end: one claim, one verdict
+                    a, b = next(((a, b) for a, b in sentences if a <= start < b), (0, len(line)))
+                    claims.append(Claim(i + 1, m.group(0).strip(), value, *settled[rng["id"]],
+                                        _quote(line, a, b, start, m.end())))
+                    continue
             here = [f for a, b, fs in local if a <= start < b for f in fs]
             groups = sum(1 for a, b, fs in local if a <= start < b and fs)
             seen = names | ({GROUP} if here else set())
@@ -822,12 +880,13 @@ def trace(text, facts):
                 else:
                     evidence = _evidence(masked, spans, start, m.end(), kind, others, partners.get(pos), bounds)
             last = (m.end(), kind, evidence)
-            tol = _tolerance(raw, mag, pct)
-            if kind == "money" and value >= 100:
-                tol = max(tol, value * 0.001)  # "₹1,087" for 1,086.48: a slip in the last digit, not a wrong figure
+            judged = rng["mid"] if rng else value
+            tol = rng["tol"] if rng else _tolerance(raw, mag, pct)
+            if kind == "money" and judged >= 100:
+                tol = max(tol, judged * 0.001)  # "₹1,087" for 1,086.48: a slip in the last digit, not a wrong figure
             about = min(evidence, key=evidence.get) if evidence else None
             loose = about == "cost" and kind == "money" and bool(COST_WORD.search(masked[max(0, start - 20):start]))
-            verdict, detail = _judge(value, tol, kind, evidence, seen, facts + here, implied and not here, loose)
+            verdict, detail = _judge(judged, tol, kind, evidence, seen, facts + here, implied and not here, loose)
             if verdict != "traced":
                 a, b = next(((a, b) for a, b in sentences if a <= start < b), (0, len(line)))
                 edges = [e.start() for e in CLAUSE_EDGE.finditer(masked)]
@@ -840,7 +899,7 @@ def trace(text, facts):
                 why = None if anchored else _cant_check(masked[lo:hi])  # names blanked: "free ... estimate" is a term
                 if why:
                     verdict, detail = "can't check", why
-                elif not anchored and detail.startswith("only a row the text doesn't name") and tol < 0.005 * value:
+                elif not anchored and detail.startswith("only a row the text doesn't name") and tol < 0.005 * judged:
                     verdict = "can't check"  # too exact to be chance: a real row's figure, under a name we don't know
                 elif verdict == "not in data":
                     about = min(evidence, key=evidence.get) if evidence else None
@@ -852,7 +911,25 @@ def trace(text, facts):
                     subject = (("earlier", None) if pos in earlier else ("account", None) if anchored else
                                column if side else _subject(named, unions, row, here, implied, lo, hi, a, b, start, masked[a:b],
                                         masked[lo:hi], cell, line, base, about, groups, wordless[lo:start]))
-                    verdict, detail = _settle(value, kind, about, subject, facts + here, masked[a:b], detail)
+                    verdict, detail = _settle(judged, kind, about, subject, facts + here, masked[a:b], detail)
+            if rng:
+                a, b = next(((a, b) for a, b in sentences if a <= start < b), (0, len(line)))
+                why = _cant_check(masked[a:b]) if verdict == "traced" else None
+                if why:  # a range is loose evidence: in a forecast or a target, never call it traced
+                    verdict, detail = "can't check", why
+                fact = next((f for f in facts + here if f.label == detail), None) if verdict == "traced" else None
+                if fact:  # rows named together share the range: "X and Y show 9-14%" needs each inside it
+                    fits = {}
+                    for f in facts:  # a row is inside when its total or any of its rows is ("plumbing services" phrase)
+                        if f.entity.lower() in seen and f.metric == fact.metric and f.kind == fact.kind:
+                            fits.setdefault(f.entity.lower(), []).append(f)
+                    outside = [fs[0] for fs in fits.values() if all(abs(f.value - judged) > tol for f in fs)]
+                    if outside:
+                        verdict, detail = "can't check", (f"the {outside[0].label} is {_show(outside[0])}, outside "
+                                                          "this range: check which rows it covers")
+                    else:
+                        detail = f"the {fact.label} is {_show(fact)}, inside this range"
+                settled[rng["id"]] = (verdict, detail)
             a, b = next(((a, b) for a, b in sentences if a <= start < b), (0, len(line)))
             claims.append(Claim(i + 1, m.group(0).strip(), value, verdict, detail, _quote(line, a, b, start, m.end())))
         rows_here = [n for _, _, n in named if n in base] + ([row] if row and row in base else [])
@@ -888,11 +965,12 @@ def render_check(claims, contradictions):
     flagged = [c for c in claims if c.verdict in ("mismatch", "not in data")]
     unchecked = [c for c in claims if c.verdict == "can't check"]
     mismatched = sum(c.verdict == "mismatch" for c in claims)
+    n, bad = len(claims), len(contradictions)
     out = ["# Number check", "",
-           f"**{len(claims)} numbers found: {len(traced)} traced to your data, {mismatched} mismatched, "
-           f"{len(flagged) - mismatched} not in your data"
-           + (f", {len(unchecked)} can't be checked from an export" if unchecked else "") + ".** "
-           f"{len(contradictions)} sentence(s) contradict their own numbers."]
+           f"**{n:,} {'number' if n == 1 else 'numbers'} found: {len(traced):,} traced to your data, "
+           f"{mismatched:,} mismatched, {len(flagged) - mismatched:,} not in your data"
+           + (f", {len(unchecked):,} can't be checked from an export" if unchecked else "") + ".** "
+           + f"{bad:,} {'sentence contradicts its' if bad == 1 else 'sentences contradict their'} own numbers."]
     if not flagged and not contradictions:
         out += ["", "Every number an export can confirm traces back to your data. That checks the numbers, "
                     "not the advice."]

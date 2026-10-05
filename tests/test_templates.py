@@ -18,6 +18,15 @@ def test_search_term_waste_numbers():
     assert "**6 search terms spent $767.20 and never converted.**" in md
     assert "That is 15.4% of the $4,973.64 total cost" in md
     assert "$9,033.16 a year" in md
+
+
+def test_the_waste_figure_ties_to_the_all_in_figure_a_number_check_uses():
+    # The audit counts terms of $20 or more; a number check counts every term with no conversions. Say both.
+    md, _, _ = run_template("search-term-waste", EXAMPLES / DATA["search-term-waste"])
+    assert "All 7 search terms with no conversions, whatever they cost, spent $784.70." in md
+    every = next(f for f in facts_for_paths([EXAMPLES / DATA["search-term-waste"]])
+                 if f.label == "cost of all search terms with no conversions")
+    assert round(every.value, 2) == 784.70
     assert "| water heater replacement cost | $402.80 | 2 | $201.40 |" in md       # expensive converter
     assert "| leak detection service | 6 | $47.25 | Phrase match |" in md  # worth adding
 

@@ -167,16 +167,26 @@ def load_report(path):
             report.title = line.strip().strip('"').strip()
     body = list(csv.reader(io.StringIO("\n".join(lines[idx + 1:])), delimiter=delim))
     name_at = next((keys.index(k) for k in ("search_term", "keyword") if k in keys), None)
-    data = [cells for cells in body
+    data = [(n, cells) for n, cells in enumerate(body, idx + 2)
             if any(c.strip() for c in cells)
             and not TOTAL_ROW.match(next(c for c in cells if c.strip()))
             and not (name_at is not None and name_at < len(cells) and TOTAL_ROW.match(cells[name_at]))]
-    european = _european(data, keys, path, delim)
-    for cells in data:
+    for n, cells in data:  # a broken file must be refused, never read with its numbers in the wrong columns
+        if any(c.strip() for c in cells[len(keys):]):
+            raise ValueError(f"{path}: line {n} has more cells than the header row, so its numbers would land in the "
+                             "wrong columns. The file looks damaged or hand-edited: download it again with "
+                             "Download > .csv.")
+    european = _european([cells for _, cells in data], keys, path, delim)
+    for n, cells in data:
         row = {}
         for key, cell in zip(keys, cells):
             if key:
                 row[key] = parse_number(cell, european) if key in NUMERIC else cell.strip()
+        negative = next((k for k in ("cost", "clicks", "impressions") if (row.get(k) or 0) < 0), None)
+        if negative:
+            what = {"cost": "cost", "clicks": "click count", "impressions": "impression count"}[negative]
+            raise ValueError(f"{path}: line {n} has a negative {what} ({row[negative]:g}). Google Ads never exports "
+                             "one, so the file was edited or is damaged: download it again with Download > .csv.")
         report.rows.append(row)
     currency = next((r.get("currency") for r in report.rows if r.get("currency")), None)
     if currency:

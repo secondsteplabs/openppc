@@ -89,8 +89,8 @@ def facts_for_paths(paths, industry=None):
             facts += facts_for_report(load_report(path))
     if industry:
         b = benchmarks.lookup(industry)
-        facts += [Fact(f"{b['name']} average CPC", b["cpc"], "money", "cpc"),
+        facts += [Fact(f"{b['name']} average CPC", b["cpc"], "money", "cpc", currency="USD"),
                   Fact(f"{b['name']} average CTR", b["ctr"], "pct", "ctr"),
                   Fact(f"{b['name']} average conversion rate", b["cvr"], "pct", "cvr"),
-                  Fact(f"{b['name']} average cost per lead", b["cpl"], "money", "cpa")]
+                  Fact(f"{b['name']} average cost per lead", b["cpl"], "money", "cpa", currency="USD")]
     return facts

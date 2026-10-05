@@ -76,24 +76,22 @@ description: Use OpenPPC in your browser with nothing to install, run it on your
     </div></div>
 
     <h2 id="computer">Run it on your computer</h2>
-    <p>The command line runs the same engine with no network calls. You need Python 3.10 or newer, Git, and <a href="https://docs.astral.sh/uv/">uv</a> (or pip).</p>
-    <pre class="code"><span class="p">$ </span>git clone https://github.com/secondsteplabs/openppc
-<span class="p">$ </span>cd openppc
-<span class="p">$ </span>uv venv &amp;&amp; uv pip install -e .</pre>
-    <p>Try it on the sample files, which need no account and no keys:</p>
-    <pre class="code"><span class="p">$ </span>openppc audit search-term-waste examples/search_terms_acme.csv --industry home-services
+    <p>The command line runs the same engine with no network calls. You need Python 3.10 or newer.</p>
+    <pre class="code"><span class="p">$ </span>pip install openppc</pre>
+    <p>Try it on the sample account that ships with OpenPPC, a made-up plumbing company, which needs no account and no keys:</p>
+    <pre class="code"><span class="p">$ </span>openppc audit search-term-waste --sample
 
 <span class="c"># Search-term waste audit</span>
 <span class="c">## Summary</span>
 **6 search terms spent $767.20 and never converted.** That is 15.4% of the
 $4,973.64 total cost in this export, and each one cost at least $20.00.</pre>
-    <pre class="code"><span class="p">$ </span>openppc check --audit examples/ai_audit_sample.md --data examples/search_terms_acme.csv --industry home-services
+    <pre class="code"><span class="p">$ </span>openppc check --sample
 
 <span class="c"># Number check</span>
-**11 numbers found: 6 traced to your data, 1 mismatched, 4 not in your data.**
-1 sentence(s) contradict their own numbers.</pre>
+**11 numbers found: 6 traced to your data, 1 mismatched, 3 not in your data,
+1 can't be checked from an export.** 1 sentence contradicts its own numbers.</pre>
     <h3>Your own data</h3>
-    <p>Put your exports in the <code>exports/</code> folder, which Git ignores, so they are never committed.</p>
+    <p>Download a report from Google Ads and pass its path. In a clone of the repo, keep exports in the <code>exports/</code> folder, which Git ignores, so they are never committed.</p>
     <pre class="code"><span class="p">$ </span>openppc audit search-term-waste exports/search_terms.csv --brand "Your Brand, Short Name"
 <span class="p">$ </span>openppc check --audit my-audit.md --data exports/search_terms.csv
 <span class="p">$ </span>openppc templates   <span class="c"># every template</span>
