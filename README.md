@@ -1,8 +1,5 @@
 <h1 align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/secondsteplabs/openppc/main/brand/png/openppc-logo-reverse-1600.png">
-    <img alt="OpenPPC" src="https://raw.githubusercontent.com/secondsteplabs/openppc/main/brand/png/openppc-logo-1600.png" width="340">
-  </picture>
+  <img alt="OpenPPC: Google Ads audits, made simple. Free forever, open source, runs in your browser." src="https://raw.githubusercontent.com/secondsteplabs/openppc/main/brand/readme/openppc-hero.png" width="100%">
 </h1>
 
 Read-only Google Ads audits where every number is traced back to your own export. For PPC freelancers and agencies who use AI on client accounts but won't hand it the keys, or trust its math.
@@ -32,6 +29,22 @@ because calling the audit's own arithmetic wrong would be a guess.
 Besides each row and the account totals, it checks what audits usually work out: the sums, rates and shares of the
 rows a sentence names together, of a match type ("broad", "exact/phrase") and of the rows under a heading. It also
 flags sentences that contradict their own numbers ("fell from 9% to 14%").
+
+## See it
+
+**Check any audit against your export.** Every number comes back traced, mismatched or not in your data, with the line it came from.
+
+![The number check: 4 of 11 numbers in an AI-written audit don't hold up against the export](https://raw.githubusercontent.com/secondsteplabs/openppc/main/site/static/img/docs/06-check-results.jpg)
+
+**Run a free audit.** Code computes every figure in the report, from wasted spend to the negatives worth adding.
+
+![A search-term waste audit of the sample export](https://raw.githubusercontent.com/secondsteplabs/openppc/main/site/static/img/docs/03-audit-results.jpg)
+
+**Hand it to a client.** Export a branded PDF whose numbers are all traced.
+
+![The branded PDF builder](https://raw.githubusercontent.com/secondsteplabs/openppc/main/site/static/img/docs/07-branded-pdf.jpg)
+
+All screens use the made-up Acme Plumbing sample in `examples/`.
 
 ## Quick start
 
