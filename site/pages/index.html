@@ -1,0 +1,187 @@
+<!--
+title: OpenPPC: every number in your Google Ads audit, checked
+description: Paste any AI-written Google Ads audit next to the export it came from, and see which numbers hold up. Free, open source, and it runs in your browser.
+schema: home
+-->
+<section class="hero">
+  <div class="wrap">
+    <span class="eyebrow">Open source · Runs in your browser</span>
+    <h1>Every number in your Google Ads audit, <em>checked</em>.</h1>
+    <p class="lead">Paste an audit from ChatGPT, Claude or your agency next to the export it came from, and see which numbers hold up. Or run a free audit of your own, where code computes every figure.</p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/app/">Try it in your browser</a>
+      <a class="btn" href="https://github.com/secondsteplabs/openppc"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.4-1.8-1.4-1.8-1.1-.8.1-.7.1-.7 1.2.1 1.9 1.2 1.9 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-6a4.7 4.7 0 0 1 1.3-3.2c-.2-.3-.6-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.7 1.7.2 2.9.1 3.2a4.7 4.7 0 0 1 1.3 3.2c0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5z"/></svg>Star on GitHub</a>
+    </div>
+    <div class="works" aria-label="Works inside Claude, Cursor and ChatGPT"><span>Works inside</span><b>Claude</b><b>Cursor</b><b>ChatGPT</b></div>
+    <p class="fine">No sign-up and no access to your account. In the app, your export never leaves your computer.</p>
+  </div>
+</section>
+
+<section class="film" aria-label="See OpenPPC in action">
+  <div class="wrap">
+    <div class="film-frame">
+      <video controls muted autoplay loop playsinline preload="metadata" poster="/media/openppc-demo-poster.jpg" width="1440" height="900">
+        <source src="/media/openppc-demo.mp4" type="video/mp4">
+      </video>
+    </div>
+    <p class="film-caption">38 seconds: check an AI audit, find wasted spend, audit the account structure and make a client-ready report.</p>
+  </div>
+</section>
+
+<section class="section" aria-labelledby="proof-title">
+  <div class="wrap split">
+    <div class="split-text">
+      <span class="eyebrow">Check any AI audit</span>
+      <h2 id="proof-title">AI audits sound right. Their numbers often aren't.</h2>
+      <p>We pasted an AI-written audit of a sample plumbing account next to its search terms export. 4 of its 11 numbers didn't hold up, and one sentence contradicted itself.</p>
+      <p>OpenPPC marks every figure, says what your file actually shows, and gives you a fix list to send back to whoever wrote it.</p>
+      <div class="pills" aria-label="How each number is marked">
+        <span class="pill p-ok">Traced</span><span class="pill p-mis">Mismatch</span><span class="pill p-nid">Not in data</span><span class="pill p-unc">Can't check</span><span class="pill p-con">Contradiction</span>
+      </div>
+    </div>
+    <div class="shot"><img src="/img/features/check.jpg" alt="OpenPPC's verdict on a sample AI audit: 4 of 11 numbers don't hold up, with each problem listed" width="1816" height="1922" loading="lazy"></div>
+  </div>
+</section>
+
+<section class="section" id="ai" aria-labelledby="ai-title">
+  <div class="wrap">
+    <div class="section-head center">
+      <span class="eyebrow">Works inside your AI</span>
+      <h2 id="ai-title">Works inside Claude, Cursor and ChatGPT</h2>
+      <p>Ask your assistant to audit an export or check an audit. It calls OpenPPC for the numbers, so every figure it gives you traces back to your data.</p>
+    </div>
+    <div class="ai-grid">
+      <div class="card ai">
+        <h3>Claude</h3>
+        <p>Claude Code, Claude Desktop and claude.ai. On your computer, OpenPPC reads your exports where they are.</p>
+        <pre class="code"><span class="p">$ </span>claude mcp add openppc -- uvx <span class="nw">--from</span> "openppc[mcp] @ git+https://github.com/secondsteplabs/openppc" <span class="nw">openppc-mcp</span></pre>
+        <a class="more" href="/docs/install/#claude">Claude Desktop and claude.ai setup</a>
+      </div>
+      <div class="card ai">
+        <h3>Cursor</h3>
+        <p>Add it in one click. It runs on your computer, next to your code and exports.</p>
+        <a class="btn btn-dark" href="cursor://anysphere.cursor-deeplink/mcp/install?name=openppc&amp;config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJvcGVucHBjW21jcF0gQCBnaXQraHR0cHM6Ly9naXRodWIuY29tL3NlY29uZHN0ZXBsYWJzL29wZW5wcGMiLCJvcGVucHBjLW1jcCJdfQ==">Add to Cursor</a>
+        <p class="note">Or paste the server into <code>~/.cursor/mcp.json</code>. Claude and Cursor use <a href="https://docs.astral.sh/uv/">uv</a> to fetch and run OpenPPC.</p>
+        <a class="more" href="/docs/install/#cursor">Cursor setup</a>
+      </div>
+      <div class="card ai">
+        <h3>ChatGPT</h3>
+        <p>ChatGPT reaches OpenPPC as a web connector. A hosted one at <code>mcp.openppc.si</code> is coming soon.</p>
+        <p class="note">Until then, run OpenPPC on your computer and connect it through OpenAI's Secure MCP Tunnel, or host the connector yourself. It keeps nothing.</p>
+        <a class="more" href="/docs/install/#chatgpt">ChatGPT setup</a>
+      </div>
+    </div>
+    <p class="tools-line">Every assistant gets the same three read-only tools: list the templates, run an audit, and check an audit's numbers.</p>
+  </div>
+</section>
+
+<section class="section band" id="how" aria-labelledby="how-title">
+  <div class="wrap">
+    <div class="section-head center">
+      <span class="eyebrow">How it works</span>
+      <h2 id="how-title">Three steps, and nothing leaves your computer</h2>
+    </div>
+    <ol class="steps">
+      <li><span class="num">1</span><h3>Export a report from Google Ads</h3><p>A search terms or keywords report as a .csv. OpenPPC never connects to your account.</p></li>
+      <li><span class="num">2</span><h3>Check an audit, or run one</h3><p>Paste any AI's audit to check it against the export, or run a free template on the export itself.</p></li>
+      <li><span class="num">3</span><h3>Every number traces back</h3><p>Code computes each figure, and the checker traces it to your file before you see it.</p></li>
+    </ol>
+  </div>
+</section>
+
+<section class="section" id="features" aria-labelledby="features-title">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Features</span>
+      <h2 id="features-title">An audit you can prove, from the export to the client</h2>
+      <p>Free templates for the checks PPC teams run every week. Each one prints only numbers the code computed and the checker traced.</p>
+    </div>
+    <div class="spots">
+      <div class="spot">
+        <div class="spot-text">
+          <h3>Wasted spend, ranked</h3>
+          <p>Search terms that spent money and never converted, ranked by cost, with the chance each one is genuinely bad rather than unlucky.</p>
+          <ul class="ticks">
+            <li>Block the proven losers and give the rest more clicks</li>
+            <li>Copy them as exact-match negatives, or download a .csv</li>
+            <li>Brand searches and Performance Max handled apart</li>
+          </ul>
+        </div>
+        <div class="shot"><img src="/img/features/waste.jpg" alt="The wasted spend table: each search term with its cost, clicks and chance it's bad" width="1816" height="1152" loading="lazy"></div>
+      </div>
+      <div class="spot flip">
+        <div class="spot-text">
+          <h3>Client-ready reports, every number checked</h3>
+          <p>Your agency's name, logo and colors on a formal report: a cover, what we found, what we recommend, how the account compares and how it was made.</p>
+          <ul class="ticks">
+            <li>Letter or A4, laid out page by page</li>
+            <li>Nothing is cut: long tables continue on the next page</li>
+            <li>Saving unlocks only when every number traces</li>
+          </ul>
+        </div>
+        <div class="shot portrait"><img src="/img/features/pdf-cover.jpg" alt="The cover of a branded client report for the sample account" width="1632" height="2112" loading="lazy"></div>
+      </div>
+    </div>
+    <div class="cards">
+      <div class="card">
+        <span class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="5" rx="1"/><rect x="3" y="16" width="6" height="5" rx="1"/><rect x="15" y="16" width="6" height="5" rx="1"/><path d="M12 8v4M6 16v-2h12v2"/></svg></span>
+        <h3>Account structure</h3>
+        <p>Broad match without Smart Bidding, negatives that block your own keywords, brand mixed with non-brand, thin or pinned ads and more.</p>
+      </div>
+      <div class="card">
+        <span class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M4 12h10"/><path d="M4 17h13"/></svg></span>
+        <h3>Keyword audit</h3>
+        <p>Keywords spending without converting, budget by match type, and spend on low Quality Scores.</p>
+      </div>
+      <div class="card">
+        <span class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/></svg></span>
+        <h3>Period over period</h3>
+        <p>What changed between two periods, and whether it reads as an efficiency win, over-expansion or broken tracking.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section band" aria-labelledby="privacy-title">
+  <div class="wrap">
+    <div class="section-head center">
+      <span class="eyebrow">Privacy</span>
+      <h2 id="privacy-title">In the app, your export never leaves your computer</h2>
+      <p>OpenPPC is built for agencies and freelancers working on client accounts, where uploading data is not an option. This is how the app handles your export; <a href="/docs/install/#chatgpt">here is how the ChatGPT connector does</a>.</p>
+    </div>
+    <div class="trio">
+      <div class="card"><span class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 18v3"/></svg></span><h3>Runs in the browser tab</h3><p>The engine is compiled to WebAssembly and runs on your device. The first visit downloads it once.</p></div>
+      <div class="card"><span class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></span><h3>Can't send your data</h3><p>The app's security policy only lets it download its own runtime from one pinned source, so it has no way to upload your files.</p></div>
+      <div class="card"><span class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg></span><h3>Read-only</h3><p>It never connects to Google Ads and never changes anything. You apply any change yourself.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="section band" aria-labelledby="faq-title">
+  <div class="wrap">
+    <div class="section-head center">
+      <span class="eyebrow">Questions</span>
+      <h2 id="faq-title">Frequently asked</h2>
+    </div>
+    <div class="faq">
+      <details><summary>Is OpenPPC free?</summary><p>Yes. The app, the templates and the checker are open source under the MIT license. You can use them, change them and run them yourself.</p></details>
+      <details><summary>Does my data leave my computer?</summary><p>Not in the app, the command line, Claude Code, Claude Desktop or Cursor: they all run OpenPPC on your computer. In ChatGPT and claude.ai, the export goes through a web connector to be audited, and the connector keeps nothing. To keep it on your computer in ChatGPT too, connect a local OpenPPC through OpenAI&#39;s Secure MCP Tunnel.</p></details>
+      <details><summary>Which AI assistants does it work with?</summary><p>Claude (Claude Code, Claude Desktop and claude.ai), Cursor and ChatGPT, through MCP. Your assistant calls OpenPPC for the numbers, so what it tells you traces back to your data. Any other MCP client works too.</p></details>
+      <details><summary>Which audits can it check?</summary><p>Any audit written as text: from ChatGPT, Claude, Gemini, another tool or an agency. Paste it next to the export it was written from.</p></details>
+      <details><summary>Which Google Ads exports does it read?</summary><p>Search terms and keywords reports as .csv, plus an account snapshot and two-period totals. The install guide shows how to export each one.</p></details>
+      <details><summary>Does it change anything in my Google Ads account?</summary><p>No. It never connects to Google Ads. It reads the file you give it, and you apply any change yourself.</p></details>
+      <details><summary>Where do the industry averages come from?</summary><p>From WordStream and LocaliQ's Google Ads Benchmarks 2026, US search. They are a ballpark for comparison, not a target.</p></details>
+    </div>
+  </div>
+</section>
+
+<section class="closing" aria-labelledby="closing-title">
+  <div class="wrap">
+    <h2 id="closing-title">Check your next audit before it reaches a client.</h2>
+    <p>Open the app, try the sample account, then run it on your own export. It takes about a minute.</p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/app/">Try it in your browser</a>
+      <a class="btn btn-light" href="/docs/install/">Read the install guide</a>
+    </div>
+  </div>
+</section>

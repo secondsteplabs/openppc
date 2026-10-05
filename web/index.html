@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; connect-src https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src https://cdn.jsdelivr.net; img-src 'self' data: blob:; worker-src 'self' blob:; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta name="description" content="Check every number in a Google Ads audit against your own export. Runs in your browser; nothing is uploaded.">
+<title>OpenPPC: check every number in your Google Ads audit</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource-variable/plus-jakarta-sans@5.3.0/index.css" integrity="sha384-CriTXMxa9KSWUY4RPeIP7Xe+CI39CEWYo20uac1eZ4erQw31mZTTxvq6xZdWgidR" crossorigin="anonymous">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource-variable/geist-mono@5.3.0/index.css" integrity="sha384-NST9F93++1eck4FnDE0yqyWiwNNfBoWDI9qHmFymatO15xmb9YIy6A3BP1wUJs2A" crossorigin="anonymous">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource-variable/source-serif-4@5.3.0/index.css" integrity="sha384-BcqMxSEWy7T7vR491w5jVpKFG0b3TfgKXXPd5v6bFEHwlI6bbjKOM8VQL0FY+jmp" crossorigin="anonymous">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+<script defer src="https://cdn.jsdelivr.net/npm/marked@18.0.14/lib/marked.umd.js" integrity="sha384-2vpGtuKqJvFlwJqYnf/wUMuzUfhUnYBt9oay0e2yaFcq0Dh6/aEbQ8YAOeKGzlYo" crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/dompurify@3.4.16/dist/purify.min.js" integrity="sha384-a7SzOxErzJ3ZpQz0zJ32d67dSitNzPcbfybc/ykU9KJhMgZkwqfSxlhhdJRS+XGL" crossorigin="anonymous"></script>
+<script defer src="engine.js"></script>
+<script defer src="app.js"></script>
+</head>
+<body>
+<div class="app">
+  <nav class="rail" aria-label="App">
+    <a class="rail-logo" href="#home" data-view="home" aria-label="OpenPPC home"><svg width="22" height="20" viewBox="8.4 11 48.6 43.4" aria-hidden="true"><path fill="#ffffff" d="M12.96 30.29 L24.92 41.72 L55.24 11.35 A1 1 0 0 1 56.76 12.65 L26.76 53.17 Q24.98 55.58 23.21 53.15 L9.04 33.71 A2.6 2.6 0 0 1 12.96 30.29 Z"/></svg></a>
+    <button type="button" class="ri" data-mode="check" aria-current="page"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>Check</button>
+    <button type="button" class="ri" data-mode="audit"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M9 12h6"/><path d="M9 16h4"/></svg>Audit</button>
+    <a class="ri" href="#templates" data-view="templates"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>Templates</a>
+    <a class="ri" href="#rules" data-view="rules"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>Rules<span class="soon">Soon</span></a>
+    <div class="rail-bottom">
+      <span class="ri ri-local" title="Everything runs on this device"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Local</span>
+      <a class="ri" href="https://github.com/secondsteplabs/openppc"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 8l-4 4 4 4"/><path d="M16 8l4 4-4 4"/></svg>GitHub</a>
+    </div>
+  </nav>
+  <div class="main">
+    <header class="topbar">
+      <div class="crumbs"><b id="crumb-mode">Check an AI audit</b><span class="sep">/</span><span class="page" id="crumb-page">New check</span></div>
+      <div class="topbar-right">
+        <span class="privacy"><span class="dot"></span><span class="privacy-long">On this device · nothing uploaded</span><span class="privacy-short">Local</span></span>
+        <button type="button" class="btn btn-dark" id="new-btn" hidden>New check</button>
+      </div>
+    </header>
+
+    <section class="view" id="compose">
+      <div class="col">
+        <div>
+          <h1 id="compose-title">Paste an AI audit. We'll check every number.</h1>
+          <p class="sub" id="compose-sub">Add the Google Ads export it was written from. Each figure comes back traced, mismatched or not in your data.</p>
+        </div>
+        <div class="card composer">
+          <div class="field">
+            <span class="lbl">1 · Your export</span>
+            <div class="files" id="files"></div>
+            <label class="drop" id="drop">
+              <span class="drop-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>
+              <span class="drop-text"><span class="drop-t">Add a Google Ads export</span><span class="drop-s">Drop it here or choose a file. Search terms or Keywords report (.csv), or two-period totals (.json)</span></span>
+              <input type="file" id="file-input" multiple accept=".csv,.tsv,.txt,.json" aria-label="Choose a Google Ads export">
+            </label>
+          </div>
+          <div class="field" id="audit-field">
+            <label class="lbl" for="audit-text">2 · The audit to check</label>
+            <textarea id="audit-text" spellcheck="false" placeholder="Paste the audit from ChatGPT, Claude, Gemini or your agency. Markdown, tables and plain text all work."></textarea>
+            <span class="hint" id="num-count" aria-live="polite"></span>
+          </div>
+          <div class="field" id="template-field" hidden>
+            <span class="lbl" id="tpl-label">2 · Template</span>
+            <div class="tpl-grid" id="templates" role="radiogroup" aria-labelledby="tpl-label"></div>
+          </div>
+          <div class="controls">
+            <div class="control"><label for="industry">Industry <span class="opt">(optional)</span></label><select id="industry"><option value="">None</option></select></div>
+            <div class="control" id="threshold" hidden><label for="min-cost">Waste threshold</label><span class="money"><span id="min-cost-sign">$</span><input id="min-cost" type="number" value="20" min="0" step="1"></span></div>
+            <div class="control" id="brand-wrap" hidden><label for="brand">Brand terms <span class="opt">(never flagged as waste)</span></label><input id="brand" class="text-input" type="text" autocomplete="off" spellcheck="false" placeholder="e.g. Acme Plumbing, Acme"></div>
+            <button type="button" class="btn btn-dark run" id="run-btn" disabled>Check numbers</button>
+            <button type="button" class="btn" id="stop-btn" hidden>Stop</button>
+          </div>
+        </div>
+        <div class="chips">
+          <button type="button" class="chip" id="sample-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4b32c3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>Try the sample account</button>
+        </div>
+        <div class="status" id="engine-status" role="status" aria-live="polite"></div>
+      </div>
+      <aside class="side">
+        <div class="card pad stack">
+          <span class="card-title">How results read</span>
+          <div class="legend">
+            <span class="pill p-ok">Traced</span><span>A figure in your file produces it.</span>
+            <span class="pill p-mis">Mismatch</span><span>A real figure, on the wrong metric or row.</span>
+            <span class="pill p-nid">Not in data</span><span>Nothing in your file produces it.</span>
+            <span class="pill p-con">Contradiction</span><span>The sentence argues with itself.</span>
+          </div>
+        </div>
+        <div class="card pad stack">
+          <span class="card-title">Nothing leaves this device</span>
+          <p class="small">The checker runs inside this browser tab. Your export and the audit are never uploaded, and the page is not allowed to send them anywhere.</p>
+        </div>
+        <div class="card pad stack dark">
+          <span class="card-title">Run it inside Claude</span>
+          <p class="small">The same checks work as MCP tools (<code>openppc-mcp</code>). Ask Claude to fact-check an audit and it calls OpenPPC for the numbers.</p>
+        </div>
+      </aside>
+    </section>
+
+    <section class="view" id="results" hidden></section>
+
+    <section class="view view-wide" id="home" hidden>
+      <div class="hero">
+        <span class="lbl">Open source · runs on this device</span>
+        <h1>Every number in your Google Ads audit, checked.</h1>
+        <p class="sub">Run a free audit on your own export, or paste any AI's audit and see which numbers hold up. Code computes every figure and traces it back to your file; nothing is uploaded.</p>
+      </div>
+      <div class="home-grid">
+        <a class="card home-card" href="#check">
+          <span class="home-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg></span>
+          <span class="home-t">Check an AI audit</span>
+          <span class="small">Paste an audit from ChatGPT, Claude or your agency, add the export it was written from, and see every number traced, mismatched or not in your data.</span>
+          <span class="home-go">Start a check</span>
+        </a>
+        <a class="card home-card" href="#audit">
+          <span class="home-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M9 12h6"/><path d="M9 16h4"/></svg></span>
+          <span class="home-t">Audit my export</span>
+          <span class="small">Run a free template on a Google Ads export: wasted search terms with the chance each one is bad, keyword and account structure audits, and period-over-period reads.</span>
+          <span class="home-go">Start an audit</span>
+        </a>
+      </div>
+      <div class="chips">
+        <button type="button" class="chip" id="home-sample"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4b32c3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>Try the sample account</button>
+        <a class="chip" href="#templates">Browse templates</a>
+      </div>
+      <div class="three">
+        <div class="card pad stack"><span class="card-title">Nothing leaves this device</span><p class="small">The engine runs inside this browser tab. Your export is never uploaded, and the page is not allowed to send it anywhere.</p></div>
+        <div class="card pad stack"><span class="card-title">Every number traced</span><p class="small">Reports only print figures the code computed from your file, and each one is checked against it before you see it.</p></div>
+        <div class="card pad stack dark"><span class="card-title">Use it inside Claude</span><p class="small">The same engine works as MCP tools (<code>openppc-mcp</code>): Claude writes, OpenPPC checks the numbers.</p></div>
+      </div>
+    </section>
+
+    <section class="view view-wide" id="gallery" hidden>
+      <div>
+        <h1>Templates</h1>
+        <p class="sub">Free templates are open source: read the code, fork them, or write your own. Every number they print is registered, so the checker can trace it.</p>
+      </div>
+      <span class="lbl">Free · open source</span>
+      <div class="gallery" id="gallery-grid"></div>
+      <span class="lbl">Coming next</span>
+      <div class="next-grid">
+        <div class="card pad stack"><span class="pill p-soon">Coming soon</span><span class="card-title">Performance Max audit</span><p class="small">Asset groups, search themes, brand exclusions and channel spend.</p></div>
+        <div class="card pad stack"><span class="pill p-soon">Coming soon</span><span class="card-title">Full account audit</span><p class="small">Structure, bidding, tracking and waste in one report.</p></div>
+        <a class="card pad stack next-live" href="#branded"><span class="pill p-ok">Available</span><span class="card-title">Branded client PDF</span><p class="small">Your logo and colors on any audit, every number checked.</p></a>
+        <div class="card pad stack"><span class="pill p-soon">Coming soon</span><span class="card-title">Portfolio triage</span><p class="small">Every account you manage, ranked by what needs you first.</p></div>
+      </div>
+      <div class="card pad write-own">
+        <div class="stack" style="gap:4px"><span class="card-title">Write your own template</span><p class="small">One Python file. Register each number you print, and the checker traces it like ours.</p></div>
+        <code>openppc/templates/your_template.py</code>
+        <a class="btn" href="https://github.com/secondsteplabs/openppc/tree/main/openppc/templates">Read the templates</a>
+      </div>
+    </section>
+
+    <section class="view view-wide" id="rules" hidden>
+      <div class="hero">
+        <span class="pill p-soon" style="align-self:flex-start">Coming soon</span>
+        <h1>Rules</h1>
+        <p class="sub">Turn a rule from the open rulebook into something that runs on its own, without giving OpenPPC access to your account.</p>
+      </div>
+      <ol class="steps">
+        <li class="card pad stack"><span class="step num">1</span><span class="card-title">Pick a rule</span><p class="small">Start from the rulebook, for example: add a negative once the waste model is 90% sure a search term is bad.</p></li>
+        <li class="card pad stack"><span class="step num">2</span><span class="card-title">Test it on your export</span><p class="small">See what it would have flagged, and what those search terms did next, before it touches anything.</p></li>
+        <li class="card pad stack"><span class="step num">3</span><span class="card-title">Install a script</span><p class="small">Get a Google Ads Script to paste into your own account. It previews by default and changes nothing until you say so.</p></li>
+      </ol>
+      <div class="card pad write-own">
+        <div class="stack" style="gap:4px"><span class="card-title">The rules it will start from</span><p class="small">Every rule OpenPPC applies, with its source and exact threshold: Google's guidance, practitioners', and ours.</p></div>
+        <a class="btn" href="https://github.com/secondsteplabs/openppc/blob/main/rulebook/rules.csv">Browse the rulebook</a>
+      </div>
+    </section>
+
+    <section class="view" id="branded" hidden>
+      <div class="col" id="branded-main"></div>
+      <aside class="side no-print" id="branded-side"></aside>
+    </section>
+  </div>
+</div>
+</body>
+</html>

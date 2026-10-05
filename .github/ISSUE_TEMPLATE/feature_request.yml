@@ -1,0 +1,23 @@
+name: Idea
+description: A template, a rule or an export format you would like.
+labels: [idea]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help
+      description: The problem it solves in an account you manage, and what OpenPPC should do.
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: Where the rule comes from
+      description: For a new check, the guidance or experience behind its threshold. Every rule in rulebook/rules.csv names its source.
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Client data
+      options:
+        - label: This idea has no client names, search terms, account IDs or figures in it.
+          required: true

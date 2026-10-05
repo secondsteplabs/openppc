@@ -1,0 +1,26 @@
+metric_id,name,formula,unit,better,notes
+cost,Cost,sum of cost,money,,Google's cost column; micros / 1e6 in the API
+clicks,Clicks,sum of clicks,count,,
+impressions,Impressions,sum of impressions,count,,
+conversions,Conversions,sum of conversions,count,higher,Can be fractional with data-driven attribution
+ctr,CTR,clicks / impressions x 100,pct,higher,
+cvr,Conversion rate,conversions / clicks x 100,pct,higher,
+cpc,Cost per click,cost / clicks,money,lower,
+cpa,Cost per conversion,cost / conversions,money,lower,Undefined when conversions = 0
+cost_share,Share of total cost,row cost / total cost x 100,pct,,
+waste_share,Wasted cost share,cost of waste rows / total cost x 100,pct,lower,
+run_rate_day,Waste per day,wasted cost / days in the date range,money,lower,
+run_rate_year,Waste per year,waste per day x 365,money,lower,Same daily rate held for a year
+pct_change,Change,(now - before) / before,pct,,Undefined when before = 0
+direction,Direction,"flat if |change| < 3%, else up or down",label,,See ar-flat
+expected_conversions,Expected conversions,"clicks x account CVR, or cost / account CPA at average CPC",count,,
+clicks_needed,Clicks needed,ceil(ln(0.2) / ln(1 - account CVR)),count,,See stw-clicks-needed
+cpa_multiple,CPA multiple,"row CPA / account CPA; for zero-conversion rows, cost / account CPA",ratio,lower,
+biggest_move,Biggest move,"the largest |change| among CPA, conversions and spend",label,,Dollar-weighted metrics outrank reach
+quality_score,Quality Score,Google's 1 to 10 keyword diagnostic,score,higher,Diagnostic only
+lin_rodnitzky,Lin-Rodnitzky ratio,CPA of all search terms / CPA of search terms with 1+ conversion,ratio,,1.5 to 2.0 is healthy
+spend_weighted_qs,Spend-weighted Quality Score,"sum(Quality Score x cost) / sum(cost), keywords with a score",score,higher,"Google: a diagnostic, not a KPI"
+exact_match_is,Exact match impression share,Google's Search exact match impression share,pct,higher,
+search_lost_is_budget,Search lost IS (budget),share of eligible impressions lost to budget (Google),pct,lower,Campaign level only
+conversions_per_impression,Conversions per impression,conversions / impressions = CTR x conversion rate,ratio,higher,Adalysis's ad-test metric
+p_bad,Chance it's bad,"posterior probability that the term's true conversion rate is under half the account's (beta-binomial, prior fit on the account's own terms)",pct,,See stw-waste-model

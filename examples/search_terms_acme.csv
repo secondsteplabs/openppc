@@ -1,0 +1,23 @@
+Search terms report
+July 1, 2026 - July 31, 2026
+Search term,Match type,Added/Excluded,Campaign,Ad group,Clicks,Impr.,CTR,Currency code,Avg. CPC,Cost,Conv. rate,Conversions,Cost / conv.
+plumber near me,Exact match,Added,Search - Plumbing,Core,212,"2,150",9.86%,USD,6.42,"1,361.04",14.62%,31.00,43.90
+plumbing services,Phrase match,Added,Search - Plumbing,Core,168,"2,402",6.99%,USD,6.00,"1,008.00",13.10%,22.00,45.82
+same day water heater install,Broad match,None,Search - Water Heaters,Water heaters,18,240,7.50%,USD,11.44,206.00,27.78%,5.00,41.20
+drain cleaning near me,Broad match,None,Search - Plumbing,Drains,12,150,8.00%,USD,14.50,174.00,25.00%,3.00,58.00
+leak detection service,Phrase match,None,Search - Plumbing,Core,45,610,7.38%,USD,6.30,283.50,13.33%,6.00,47.25
+toilet repair near me,Broad match,None,Search - Plumbing,Core,31,420,7.38%,USD,5.50,170.50,12.90%,4.00,42.62
+free plumbing estimate,Broad match,None,Search - Plumbing,Core,41,530,7.74%,USD,7.61,312.00,0.00%,0.00,--
+plumber jobs hiring,Broad match,None,Search - Plumbing,Core,22,300,7.33%,USD,8.55,188.00,0.00%,0.00,--
+how to unclog a drain yourself,Broad match,None,Search - Plumbing,Core,19,410,4.63%,USD,6.37,121.00,0.00%,0.00,--
+cheap water heater,Broad match,None,Search - Water Heaters,Water heaters,14,220,6.36%,USD,6.86,96.00,7.14%,1.00,96.00
+water heater replacement cost,Broad match,None,Search - Water Heaters,Water heaters,38,610,6.23%,USD,10.60,402.80,5.26%,2.00,201.40
+plumbing franchise cost,Broad match,None,Search - Plumbing,Core,9,160,5.62%,USD,7.20,64.80,0.00%,0.00,--
+sump pump installation,Phrase match,None,Search - Plumbing,Core,16,190,8.42%,USD,6.50,104.00,18.75%,3.00,34.67
+water heater prices,Phrase match,Added,Search - Water Heaters,Water heaters,58,880,6.59%,USD,5.70,330.60,12.07%,7.00,47.23
+sewer line camera inspection,Broad match,None,Search - Plumbing,Drains,7,95,7.37%,USD,7.50,52.50,14.29%,1.00,52.50
+plumbing supply store,Broad match,None,Search - Plumbing,Core,11,260,4.23%,USD,4.40,48.40,0.00%,0.00,--
+plumber reviews,Broad match,None,Search - Plumbing,Core,6,85,7.06%,USD,5.50,33.00,0.00%,0.00,--
+pvc pipe bulk,Broad match,None,Search - Plumbing,Core,5,140,3.57%,USD,3.50,17.50,0.00%,0.00,--
+Total: Search terms,,,,,732,"9,852",7.43%,USD,6.79,"4,973.64",11.61%,85.00,58.51
+Total: Account,,,,,732,"9,852",7.43%,USD,6.79,"4,973.64",11.61%,85.00,58.51

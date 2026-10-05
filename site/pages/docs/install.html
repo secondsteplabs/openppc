@@ -1,0 +1,163 @@
+<!--
+title: Install and quick start: OpenPPC
+description: Use OpenPPC in your browser with nothing to install, run it on your computer from the command line, or add it to Claude. Step by step, with screenshots.
+-->
+<div class="wrap doc">
+  <nav class="doc-nav" aria-label="On this page">
+    <a href="#browser">In your browser</a>
+    <a class="sub" href="#export">Export from Google Ads</a>
+    <a class="sub" href="#audit">Run an audit</a>
+    <a class="sub" href="#check">Check an AI audit</a>
+    <a class="sub" href="#pdf">Make a branded PDF</a>
+    <a href="#computer">On your computer</a>
+    <a href="#ai">Inside your AI</a>
+    <a class="sub" href="#claude">Claude</a>
+    <a class="sub" href="#cursor">Cursor</a>
+    <a class="sub" href="#chatgpt">ChatGPT</a>
+    <a class="sub" href="#connector">Run the connector yourself</a>
+    <a href="#self-host">Host it yourself</a>
+    <a href="#trouble">If something goes wrong</a>
+  </nav>
+  <article class="doc-body">
+    <span class="label">Docs</span>
+    <h1>Install and quick start</h1>
+    <p class="doc-lead">OpenPPC runs three ways: in your browser with nothing installed, from the command line, and inside Claude, Cursor or ChatGPT. All three run the same engine.</p>
+    <div class="toc-cards">
+      <a href="#browser"><b>In your browser</b><span>Nothing to install. Start here.</span></a>
+      <a href="#computer"><b>On your computer</b><span>Command line, for scripts and batches.</span></a>
+      <a href="#ai"><b>Inside your AI</b><span>Claude, Cursor and ChatGPT.</span></a>
+    </div>
+
+    <h2 id="browser">Use it in your browser</h2>
+    <p>Everything runs inside the browser tab. Your export and any audit you paste stay on your computer.</p>
+
+    <div class="doc-step"><span class="num">1</span><div>
+      <h3>Open the app</h3>
+      <p>Go to <a href="/app/">openppc.si/app</a>. The first visit downloads the engine, about 12 MB, and your browser keeps it for next time. Click <b>Try the sample account</b> to see a full audit before you use your own data.</p>
+      <figure><div class="shot"><img src="/img/docs/01-app-home.jpg" alt="The OpenPPC app home screen with Check an AI audit and Audit my export" width="2880" height="1800" loading="lazy"></div><figcaption>The home screen. The sample account is fictional.</figcaption></figure>
+    </div></div>
+
+    <div class="doc-step" id="export"><span class="num">2</span><div>
+      <h3>Export a report from Google Ads</h3>
+      <p>OpenPPC reads the report you download. It never signs in to Google Ads.</p>
+      <ul>
+        <li><b>Search terms report</b> (for the waste audit): in Google Ads, open <b>Campaigns</b>, then <b>Insights and reports</b>, then <b>Search terms</b>. Pick the date range, then <b>Download</b> and choose <b>.csv</b>.</li>
+        <li><b>Keywords report</b> (for the keyword audit): open <b>Campaigns</b>, then <b>Audiences, keywords and content</b>, then <b>Search keywords</b>. Pick the date range, add the Quality Score column if you want that section, then <b>Download</b> and choose <b>.csv</b>.</li>
+      </ul>
+      <p class="callout">Keep the file as Google exports it. OpenPPC skips Google's title, date and total lines, and reads the Excel-style export too.</p>
+    </div></div>
+
+    <div class="doc-step" id="audit"><span class="num">3</span><div>
+      <h3>Run an audit</h3>
+      <p>Click <b>Audit</b> in the left menu and drop your export on the page. OpenPPC picks the template that matches your file. Optionally choose your industry to compare against its averages, and add your brand names so brand searches are never counted as waste. Then click <b>Run audit</b>.</p>
+      <figure><div class="shot"><img src="/img/docs/02-audit-add-export.jpg" alt="The Audit screen with a search terms export added and the waste audit template selected" width="2880" height="1800" loading="lazy"></div><figcaption>The export is added and the matching template is selected.</figcaption></figure>
+      <p>The results open with the headline numbers and what to do, in order.</p>
+      <figure><div class="shot"><img src="/img/docs/03-audit-results.jpg" alt="Audit results with wasted spend, share of cost, yearly cost, cost per conversion, CTR and a what-to-do list" width="2880" height="1800" loading="lazy"></div><figcaption>Every number on this screen traces back to the export.</figcaption></figure>
+    </div></div>
+
+    <div class="doc-step"><span class="num">4</span><div>
+      <h3>Act on the wasted terms</h3>
+      <p>Scroll to <b>Wasted spend, ranked</b>. Each term shows the chance it is genuinely bad. Terms at 90% or more start ticked. Tick or untick terms, then click <b>Copy as negatives</b> to paste them into Google Ads as exact match, or <b>Download .csv</b>.</p>
+      <figure><div class="shot"><img src="/img/docs/04-copy-negatives.jpg" alt="The wasted spend table with checkboxes, Copy as negatives and Download .csv" width="1816" height="1152" loading="lazy"></div><figcaption>None of the sample's terms has had enough clicks to be 90% sure yet, so none starts ticked.</figcaption></figure>
+    </div></div>
+
+    <div class="doc-step" id="check"><span class="num">5</span><div>
+      <h3>Check an AI audit</h3>
+      <p>Click <b>Check</b>. Paste the audit, from ChatGPT, Claude, Gemini or an agency, and add the export it was written from. Click <b>Check numbers</b>.</p>
+      <figure><div class="shot"><img src="/img/docs/05-check-ready.jpg" alt="The Check screen with an AI audit pasted and the export added" width="2880" height="1800" loading="lazy"></div><figcaption>The app counts the numbers it will judge as you paste.</figcaption></figure>
+      <p>Each number comes back traced, a mismatch (a real figure on the wrong metric or row), not in your data, or can't check (a target, a forecast, or the audit's own working over rows an export can't rebuild). Sentences that argue with their own numbers are flagged too. <b>Copy fix list</b> gives you a note to send back to whoever wrote the audit, and <b>Ask for the working</b> asks them to show how they got the rest.</p>
+      <figure><div class="shot"><img src="/img/docs/06-check-results.jpg" alt="Check results: 4 of 11 numbers don't hold up, with the problems listed and a score" width="2880" height="1800" loading="lazy"></div><figcaption>The sample audit: 6 numbers traced, 1 mismatch, 3 not in the data, 1 that no export can confirm, and one contradiction.</figcaption></figure>
+    </div></div>
+
+    <div class="doc-step" id="pdf"><span class="num">6</span><div>
+      <h3>Make a branded PDF</h3>
+      <p>From audit results, click <b>Make the branded PDF</b>. Add your agency name, logo and brand color, the client's name and the paper size. The preview shows every page exactly as it will print. When the checker has traced every number, <b>Save as PDF</b> unlocks. Your browser's print dialog opens: choose <b>Save as PDF</b>.</p>
+      <figure><div class="shot"><img src="/img/docs/07-branded-pdf.jpg" alt="The branded PDF builder with the report cover and the brand settings" width="2880" height="1800" loading="lazy"></div><figcaption>Chrome and Edge keep the layout exactly. Your logo stays in your browser.</figcaption></figure>
+    </div></div>
+
+    <h2 id="computer">Run it on your computer</h2>
+    <p>The command line runs the same engine with no network calls. You need Python 3.10 or newer, Git, and <a href="https://docs.astral.sh/uv/">uv</a> (or pip).</p>
+    <pre class="code"><span class="p">$ </span>git clone https://github.com/secondsteplabs/openppc
+<span class="p">$ </span>cd openppc
+<span class="p">$ </span>uv venv &amp;&amp; uv pip install -e .</pre>
+    <p>Try it on the sample files, which need no account and no keys:</p>
+    <pre class="code"><span class="p">$ </span>openppc audit search-term-waste examples/search_terms_acme.csv --industry home-services
+
+<span class="c"># Search-term waste audit</span>
+<span class="c">## Summary</span>
+**6 search terms spent $767.20 and never converted.** That is 15.4% of the
+$4,973.64 total cost in this export, and each one cost at least $20.00.</pre>
+    <pre class="code"><span class="p">$ </span>openppc check --audit examples/ai_audit_sample.md --data examples/search_terms_acme.csv --industry home-services
+
+<span class="c"># Number check</span>
+**11 numbers found: 6 traced to your data, 1 mismatched, 4 not in your data.**
+1 sentence(s) contradict their own numbers.</pre>
+    <h3>Your own data</h3>
+    <p>Put your exports in the <code>exports/</code> folder, which Git ignores, so they are never committed.</p>
+    <pre class="code"><span class="p">$ </span>openppc audit search-term-waste exports/search_terms.csv --brand "Your Brand, Short Name"
+<span class="p">$ </span>openppc check --audit my-audit.md --data exports/search_terms.csv
+<span class="p">$ </span>openppc templates   <span class="c"># every template</span>
+<span class="p">$ </span>openppc industries  <span class="c"># every benchmark industry</span></pre>
+
+    <h2 id="ai">Use it inside Claude, Cursor and ChatGPT</h2>
+    <p>OpenPPC is an MCP server, so AI assistants can call it while they work. Your assistant writes the words, and OpenPPC supplies and checks the numbers. On your computer it reads your exports where they are. These setups use <a href="https://docs.astral.sh/uv/">uv</a>, which fetches and runs OpenPPC for you. OpenPPC isn't on PyPI yet, so the commands fetch it from GitHub.</p>
+
+    <h3 id="claude">Claude Code</h3>
+    <pre class="code"><span class="p">$ </span>claude mcp add openppc -- uvx --from "openppc[mcp] @ git+https://github.com/secondsteplabs/openppc" openppc-mcp</pre>
+    <h3>Claude Desktop</h3>
+    <p>Open <b>Settings</b>, then <b>Developer</b>, then <b>Edit Config</b>, add OpenPPC to <code>claude_desktop_config.json</code>, and restart Claude Desktop.</p>
+    <pre class="code">{
+  "mcpServers": {
+    "openppc": {
+      "command": "uvx",
+      "args": ["--from", "openppc[mcp] @ git+https://github.com/secondsteplabs/openppc", "openppc-mcp"]
+    }
+  }
+}</pre>
+    <h3>claude.ai</h3>
+    <p>On the web, Claude needs OpenPPC as a web connector. A hosted one at <code>https://mcp.openppc.si/mcp</code> is coming soon. Until then, run <code>openppc-mcp --http</code> on a server of your own behind HTTPS, then open <b>Settings</b>, then <b>Connectors</b>, then <b>Add custom connector</b>, and paste its <code>/mcp</code> address. The connector keeps nothing.</p>
+
+    <h3 id="cursor">Cursor</h3>
+    <p>Click <b>Add to Cursor</b>, or open Cursor's MCP settings and add the server to <code>~/.cursor/mcp.json</code>, or to <code>.cursor/mcp.json</code> in a project.</p>
+    <p><a class="btn btn-dark" href="cursor://anysphere.cursor-deeplink/mcp/install?name=openppc&amp;config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJvcGVucHBjW21jcF0gQCBnaXQraHR0cHM6Ly9naXRodWIuY29tL3NlY29uZHN0ZXBsYWJzL29wZW5wcGMiLCJvcGVucHBjLW1jcCJdfQ==">Add to Cursor</a></p>
+    <pre class="code">{
+  "mcpServers": {
+    "openppc": {
+      "command": "uvx",
+      "args": ["--from", "openppc[mcp] @ git+https://github.com/secondsteplabs/openppc", "openppc-mcp"]
+    }
+  }
+}</pre>
+
+    <h3 id="chatgpt">ChatGPT</h3>
+    <p>ChatGPT connects to MCP servers on the web, not on your computer, and needs a paid plan with Developer mode. Menu names change from time to time; <a href="https://developers.openai.com/plugins/deploy/connect-chatgpt">OpenAI's guide</a> has the current path.</p>
+    <ol>
+      <li>Open <b>Settings</b>, then <b>Security and login</b>, and turn on <b>Developer mode</b>.</li>
+      <li>Open <b>ChatGPT Plugins</b> and click the plus button.</li>
+      <li>Name it OpenPPC, and under <b>Connection</b> paste your connector's <code>/mcp</code> address. The hosted one, <code>https://mcp.openppc.si/mcp</code>, is coming soon.</li>
+    </ol>
+    <p>Then attach your export in a chat and ask ChatGPT to audit it, or to check an audit against it. ChatGPT passes the file's contents to OpenPPC.</p>
+    <p class="callout">With a web connector, your export goes through that server to be audited. It is processed in a temporary folder that is deleted when the call ends, and its contents are never stored or logged. To keep the export on your computer instead, run OpenPPC locally and connect it with OpenAI's <b>Secure MCP Tunnel</b>: ChatGPT then receives only the report.</p>
+
+    <h3 id="connector">Run the connector yourself</h3>
+    <p>The connector is the same program with <code>--http</code>. Its tools then take the file's contents and never read paths:</p>
+    <pre class="code"><span class="p">$ </span>openppc-mcp --http --host 0.0.0.0 --port 8000</pre>
+    <p>Put it behind HTTPS and point ChatGPT or claude.ai at <code>https://your-host/mcp</code>.</p>
+    <p>Every assistant gets the same three read-only tools: <code>list_templates</code>, an audit tool and a check tool. On your computer they are <code>audit_account</code> and <code>check_numbers</code>, which read files by path; on the connector they are <code>audit_export</code> and <code>check_audit</code>, which take the file's contents. Try asking: "Check every number in this audit against my search terms export."</p>
+
+    <h2 id="self-host">Host it yourself</h2>
+    <p>The browser app is a folder of static files, with no server code. Serve the <code>web</code> folder from any static host, or run it locally:</p>
+    <pre class="code"><span class="p">$ </span>python3 -m http.server 8765 --directory web</pre>
+    <p>Then open <code>http://localhost:8765</code>.</p>
+
+    <h2 id="trouble">If something goes wrong</h2>
+    <ul>
+      <li><b>The app says it can't read the file.</b> Export the report again from Google Ads as .csv, and check it is a search terms or keywords report, not a campaign report.</li>
+      <li><b>The engine will not load.</b> The first visit needs an internet connection to download the engine once. After that it works from your browser's cache.</li>
+      <li><b>The PDF looks different in Safari or Firefox.</b> Save it from Chrome or Edge, which keep the page layout exactly.</li>
+      <li><b>Claude Desktop or Cursor can't start OpenPPC.</b> Apps opened from the Dock may not find <code>uvx</code>. Run <code>which uvx</code> in a terminal and put the full path it prints in <code>"command"</code>.</li>
+      <li><b>ChatGPT or claude.ai doesn't list the tools.</b> Check that the address ends in <code>/mcp</code>, and in ChatGPT that Developer mode is on.</li>
+      <li><b>Something else.</b> Open an issue on <a href="https://github.com/secondsteplabs/openppc/issues">GitHub</a> with the steps to repeat it. Never attach a client's export.</li>
+    </ul>
+  </article>
+</div>

@@ -1,0 +1,44 @@
+name: Bug report
+description: A wrong number, a file that won't load, or something that broke.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Never attach a client's export, screenshot or audit.** Describe the problem instead. If a file won't load, paste only its header row.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you saw instead.
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options:
+        - The browser app
+        - The command line
+        - Inside Claude, Cursor or ChatGPT
+        - The website
+    validations:
+      required: true
+  - type: textarea
+    id: header
+    attributes:
+      label: The export's header row
+      description: Only if a file won't load. The column names only, no data rows.
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: Version and browser
+      placeholder: openppc 0.1.0, Chrome 140
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Client data
+      options:
+        - label: This report has no client names, search terms, account IDs or figures in it.
+          required: true

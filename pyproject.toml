@@ -1,0 +1,33 @@
+[project]
+name = "openppc"
+version = "0.1.0"
+description = "Read-only Google Ads audits where every number is traced back to your own export."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Shivendra Rawat" }]
+requires-python = ">=3.10"
+dependencies = []
+keywords = ["google-ads", "ppc", "audit", "mcp", "fact-check"]
+
+[project.optional-dependencies]
+mcp = ["mcp>=1.2"]
+dev = ["pytest>=8"]
+
+[project.scripts]
+openppc = "openppc.cli:main"
+openppc-mcp = "openppc.mcp_server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["openppc"]
+
+[tool.hatch.build.targets.sdist]
+# An allowlist: the source archive on PyPI holds only what builds and explains the package. Hatch reads only the
+# root .gitignore, so without this, local tool folders (a code graph holding absolute paths, caches) would ship too.
+include = ["/openppc", "/examples", "/rulebook", "/README.md", "/LICENSE", "/pyproject.toml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

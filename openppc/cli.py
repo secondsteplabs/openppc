@@ -1,0 +1,78 @@
+"""OpenPPC command line.
+
+    openppc templates
+    openppc industries
+    openppc audit search-term-waste exports/search_terms.csv --industry home-services
+    openppc check --audit their_audit.md --data exports/search_terms.csv
+
+Exit codes: 0 clean, 1 bad input, 2 the check found problems, 3 our own report failed
+its number check (a bug in OpenPPC).
+"""
+import argparse
+import sys
+from pathlib import Path
+
+from . import __version__
+from .checkfacts import facts_for_paths
+from .engine import benchmarks
+from .engine.trace import render_check, trace
+from .templates import TEMPLATES, run_template
+
+
+def _emit(text, out):
+    if out:
+        Path(out).write_text(text + "\n", encoding="utf-8")
+        print(f"wrote {out}", file=sys.stderr)
+    else:
+        print(text)
+
+
+def _parser():
+    ap = argparse.ArgumentParser(
+        prog="openppc", description="Read-only Google Ads audits where every number traces back to your data.")
+    ap.add_argument("--version", action="version", version=f"openppc {__version__}")
+    sub = ap.add_subparsers(dest="command", required=True)
+    sub.add_parser("templates", help="list the audit templates")
+    sub.add_parser("industries", help="list the benchmark industries")
+    a = sub.add_parser("audit", help="run a template on an export")
+    a.add_argument("template", choices=sorted(TEMPLATES))
+    a.add_argument("data", help="your export (.csv) or two-period totals (.json)")
+    a.add_argument("--industry", help="compare against an industry average, e.g. home-services")
+    a.add_argument("--min-cost", type=float, default=None,
+                   help="cost threshold for a waste flag (default: about $20, in the export's currency)")
+    a.add_argument("--brand", help="your brand names, comma-separated; brand terms are never flagged as waste")
+    a.add_argument("--out", help="write the report here instead of printing it")
+    c = sub.add_parser("check", help="check the numbers in any audit against your data")
+    c.add_argument("--audit", required=True, help="the audit to check (.md or .txt)")
+    c.add_argument("--data", required=True, action="append", help="an export or totals file; repeat for more")
+    c.add_argument("--industry", help="also accept this industry's published averages")
+    c.add_argument("--out", help="write the result here instead of printing it")
+    return ap
+
+
+def main(argv=None):
+    args = _parser().parse_args(argv)
+    try:
+        if args.command == "templates":
+            for t in TEMPLATES.values():
+                print(f"{t.NAME:20} {t.TIER:5} reads a {t.INPUT}\n{'':27}{t.SUMMARY}")
+            return 0
+        if args.command == "industries":
+            for key, row in benchmarks.TABLE.items():
+                print(f"{key:20} {row[0]}")
+            return 0
+        if args.command == "audit":
+            markdown, _, passed = run_template(args.template, args.data, industry=args.industry,
+                                               min_cost=args.min_cost, brand=args.brand)
+            _emit(markdown, args.out)
+            return 0 if passed else 3
+        if args.command == "check":
+            text = Path(args.audit).read_text(encoding="utf-8")
+            claims, contradictions = trace(text, facts_for_paths(args.data, args.industry))
+            _emit(render_check(claims, contradictions), args.out)
+            clean = all(c.verdict == "traced" for c in claims) and not contradictions
+            return 0 if clean else 2
+    except (ValueError, FileNotFoundError, KeyError) as e:
+        print(f"openppc: {e}", file=sys.stderr)
+        return 1
+    return 1

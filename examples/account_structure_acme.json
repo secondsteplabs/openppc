@@ -1,0 +1,943 @@
+{
+ "meta": {
+  "account": "Acme Plumbing (synthetic)",
+  "currency": "USD",
+  "captured": "2026-09-28",
+  "note": "Made up for tests: every check has one planted problem, and a paused campaign and a Performance Max campaign that must be ignored."
+ },
+ "campaigns": [
+  {
+   "id": "1",
+   "name": "Acme | Search | Plumbing",
+   "status": "ENABLED",
+   "channel": "SEARCH",
+   "bidding": "MANUAL_CPC",
+   "enhanced_cpc": true,
+   "display_network": true,
+   "geo_target_type": "PRESENCE_OR_INTEREST"
+  },
+  {
+   "id": "2",
+   "name": "Acme | Brand",
+   "status": "ENABLED",
+   "channel": "SEARCH",
+   "bidding": "MAXIMIZE_CONVERSIONS",
+   "enhanced_cpc": false,
+   "display_network": false,
+   "geo_target_type": "PRESENCE"
+  },
+  {
+   "id": "3",
+   "name": "Acme | Water Heaters 2024",
+   "status": "ENABLED",
+   "channel": "SEARCH",
+   "bidding": "Maximize clicks",
+   "enhanced_cpc": false,
+   "display_network": false,
+   "geo_target_type": "Presence or interest: People in, regularly in, or who've shown interest in your targeted locations (recommended)"
+  },
+  {
+   "id": "4",
+   "name": "Acme | Old campaign",
+   "status": "PAUSED",
+   "channel": "SEARCH",
+   "bidding": "MANUAL_CPC",
+   "enhanced_cpc": true,
+   "display_network": true,
+   "geo_target_type": "PRESENCE_OR_INTEREST"
+  },
+  {
+   "id": "5",
+   "name": "Acme | PMax",
+   "status": "ENABLED",
+   "channel": "PERFORMANCE_MAX",
+   "bidding": "MAXIMIZE_CONVERSION_VALUE",
+   "enhanced_cpc": false,
+   "display_network": null,
+   "geo_target_type": "PRESENCE"
+  }
+ ],
+ "ad_groups": [
+  {
+   "id": "11",
+   "campaign_id": "1",
+   "name": "Plumbing repair",
+   "status": "ENABLED"
+  },
+  {
+   "id": "12",
+   "campaign_id": "1",
+   "name": "Drain cleaning",
+   "status": "ENABLED"
+  },
+  {
+   "id": "13",
+   "campaign_id": "1",
+   "name": "Sump pumps",
+   "status": "ENABLED"
+  },
+  {
+   "id": "21",
+   "campaign_id": "2",
+   "name": "Brand",
+   "status": "ENABLED"
+  },
+  {
+   "id": "31",
+   "campaign_id": "3",
+   "name": "Water heaters",
+   "status": "ENABLED"
+  },
+  {
+   "id": "32",
+   "campaign_id": "3",
+   "name": "Paused ad group",
+   "status": "PAUSED"
+  },
+  {
+   "id": "41",
+   "campaign_id": "4",
+   "name": "Old ad group",
+   "status": "ENABLED"
+  }
+ ],
+ "keywords": [
+  {
+   "ad_group_id": "11",
+   "text": "plumbing repair",
+   "match_type": "PHRASE",
+   "status": "ENABLED",
+   "serving": "ELIGIBLE",
+   "quality_score": 7,
+   "expected_ctr": "AVERAGE",
+   "ad_relevance": "AVERAGE",
+   "landing_page": "AVERAGE"
+  },
+  {
+   "ad_group_id": "11",
+   "text": "plumbing repair near me",
+   "match_type": "BROAD",
+   "status": "ENABLED",
+   "serving": "ELIGIBLE",
+   "quality_score": 7,
+   "expected_ctr": "AVERAGE",
+   "ad_relevance": "AVERAGE",
+   "landing_page": "AVERAGE"
+  },
+  {
+   "ad_group_id": "11",
+   "text": "pipe repair",
+   "match_type": "BROAD",
+   "status": "ENABLED",
+   "serving": "ELIGIBLE",
+   "quality_score": 7,
+   "expected_ctr": "AVERAGE",
+   "ad_relevance": "AVERAGE",
+   "landing_page": "BELOW_AVERAGE"
+  },
+  {
+   "ad_group_id": "11",
+   "text": "free plumbing estimate",
+   "match_type": "PHRASE",
+   "status": "ENABLED",
+   "serving": "ELIGIBLE",
+   "quality_score": 7,
+   "expected_ctr": "AVERAGE",
+   "ad_relevance": "AVERAGE",
+   "landing_page": "AVERAGE"
+  },
+  {
+   "ad_group_id": "12",
+   "text": "drain cleaning",
+   "match_type": "PHRASE",
+   "status": "ENABLED",
+   "serving": "ELIGIBLE",
+   "quality_score": 7,
+   "expected_ctr": "AVERAGE",
+   "ad_relevance": "AVERAGE",
+   "landing_page": "AVERAGE"
+  },
+  {
+   "ad_group_id": "12",
+   "text": "plumbing repair",
+   "match_type": "PHRASE",
+   "status": "ENABLED",
+   "serving": "ELIGIBLE",
+   "quality_score": 7,
+   "expected_ctr": "AVERAGE",
+   "ad_relevance": "AVERAGE",
+   "landing_page": "AVERAGE"
+  },
+  {
+   "ad_group_id": "12",
+   "text": "clogged drain",
+   "match_type": "EXACT",
+   "status": "ENABLED",
+   "serving": "ELIGIBLE",
+   "quality_score": 7,
+   "expected_ctr": "AVERAGE",
+   "ad_relevance": "AVERAGE",
+   "landing_page": "AVERAGE"
+  },
+  {
+   "ad_group_id": "13",
+   "text": "sump pump installation",
+   "match_type": "PHRASE",
+   "status": "ENABLED",
+   "serving": "ELIGIBLE",
+   "quality_score": 7,
+   "expected_ctr": "AVERAGE",
+   "ad_relevance": "AVERAGE",
+   "landing_page": "AVERAGE"
+  },
+  {
+   "ad_group_id": "21",
+   "text": "acme plumbing",
+   "match_type": "EXACT",
+   "status": "ENABLED",
+   "serving": "ELIGIBLE",
+   "quality_score": 7,
+   "expected_ctr": "AVERAGE",
+   "ad_relevance": "AVERAGE",
+   "landing_page": "AVERAGE"
+  },
+  {
+   "ad_group_id": "21",
+   "text": "acme plumbing reviews",
+   "match_type": "PHRASE",
+   "status": "ENABLED",
+   "serving": "ELIGIBLE",
+   "quality_score": 7,
+   "expected_ctr": "AVERAGE",
+   "ad_relevance": "AVERAGE",
+   "landing_page": "AVERAGE"
+  },
+  {
+   "ad_group_id": "21",
+   "text": "water heater repair",
+   "match_type": "PHRASE",
+   "status": "ENABLED",
+   "serving": "ELIGIBLE",
+   "quality_score": 7,
+   "expected_ctr": "AVERAGE",
+   "ad_relevance": "AVERAGE",
+   "landing_page": "AVERAGE"
+  },
+  {
+   "ad_group_id": "31",
+   "text": "water heater repair",
+   "match_type": "EXACT",
+   "status": "ENABLED",
+   "serving": "ELIGIBLE",
+   "quality_score": 7,
+   "expected_ctr": "AVERAGE",
+   "ad_relevance": "AVERAGE",
+   "landing_page": "AVERAGE"
+  },
+  {
+   "ad_group_id": "31",
+   "text": "tankless water heater",
+   "match_type": "BROAD",
+   "status": "ENABLED",
+   "serving": "ELIGIBLE",
+   "quality_score": 7,
+   "expected_ctr": "AVERAGE",
+   "ad_relevance": "AVERAGE",
+   "landing_page": "AVERAGE"
+  },
+  {
+   "ad_group_id": "31",
+   "text": "40 gallon water heater",
+   "match_type": "PHRASE",
+   "status": "ENABLED",
+   "serving": "RARELY_SERVED",
+   "quality_score": 7,
+   "expected_ctr": "AVERAGE",
+   "ad_relevance": "AVERAGE",
+   "landing_page": "AVERAGE"
+  },
+  {
+   "ad_group_id": "31",
+   "text": "water heater replacement",
+   "match_type": "PHRASE",
+   "status": "ENABLED",
+   "serving": "ELIGIBLE",
+   "quality_score": 3,
+   "expected_ctr": "BELOW_AVERAGE",
+   "ad_relevance": "BELOW_AVERAGE",
+   "landing_page": "AVERAGE"
+  },
+  {
+   "ad_group_id": "32",
+   "text": "paused ad group keyword",
+   "match_type": "BROAD",
+   "status": "ENABLED",
+   "serving": "ELIGIBLE",
+   "quality_score": 7,
+   "expected_ctr": "AVERAGE",
+   "ad_relevance": "AVERAGE",
+   "landing_page": "AVERAGE"
+  },
+  {
+   "ad_group_id": "41",
+   "text": "old campaign keyword",
+   "match_type": "BROAD",
+   "status": "ENABLED",
+   "serving": "ELIGIBLE",
+   "quality_score": 7,
+   "expected_ctr": "AVERAGE",
+   "ad_relevance": "AVERAGE",
+   "landing_page": "AVERAGE"
+  }
+ ],
+ "negatives": [
+  {
+   "level": "CAMPAIGN",
+   "owner_id": "1",
+   "text": "free",
+   "match_type": "BROAD"
+  },
+  {
+   "level": "AD_GROUP",
+   "owner_id": "12",
+   "text": "plumbing repair",
+   "match_type": "PHRASE"
+  },
+  {
+   "level": "CAMPAIGN",
+   "owner_id": "3",
+   "text": "repair",
+   "match_type": null
+  },
+  {
+   "level": "CAMPAIGN",
+   "owner_id": "2",
+   "text": "jobs",
+   "match_type": "EXACT"
+  },
+  {
+   "level": "LIST",
+   "owner_id": "account negatives",
+   "text": "cheap",
+   "match_type": "BROAD"
+  }
+ ],
+ "ads": [
+  {
+   "ad_group_id": "11",
+   "type": "RESPONSIVE_SEARCH_AD",
+   "status": "ENABLED",
+   "strength": "EXCELLENT",
+   "headlines": [
+    {
+     "text": "Acme headline A",
+     "pin": null
+    },
+    {
+     "text": "Acme headline B",
+     "pin": null
+    },
+    {
+     "text": "Acme headline C",
+     "pin": null
+    },
+    {
+     "text": "Acme headline D",
+     "pin": null
+    },
+    {
+     "text": "Acme headline E",
+     "pin": null
+    },
+    {
+     "text": "Acme headline F",
+     "pin": null
+    },
+    {
+     "text": "Acme headline G",
+     "pin": null
+    },
+    {
+     "text": "Acme headline H",
+     "pin": null
+    },
+    {
+     "text": "Acme headline I",
+     "pin": null
+    },
+    {
+     "text": "Acme headline J",
+     "pin": null
+    },
+    {
+     "text": "Acme headline K",
+     "pin": null
+    },
+    {
+     "text": "Acme headline L",
+     "pin": null
+    },
+    {
+     "text": "Acme headline M",
+     "pin": null
+    },
+    {
+     "text": "Acme headline N",
+     "pin": null
+    },
+    {
+     "text": "Acme headline O",
+     "pin": null
+    }
+   ],
+   "descriptions": [
+    {
+     "text": "Acme description A",
+     "pin": null
+    },
+    {
+     "text": "Acme description B",
+     "pin": null
+    },
+    {
+     "text": "Acme description C",
+     "pin": null
+    },
+    {
+     "text": "Acme description D",
+     "pin": null
+    }
+   ]
+  },
+  {
+   "ad_group_id": "11",
+   "type": "RESPONSIVE_SEARCH_AD",
+   "status": "ENABLED",
+   "strength": "GOOD",
+   "headlines": [
+    {
+     "text": "Acme headline A",
+     "pin": "HEADLINE_1"
+    },
+    {
+     "text": "Acme headline B",
+     "pin": null
+    },
+    {
+     "text": "Acme headline C",
+     "pin": null
+    },
+    {
+     "text": "Acme headline D",
+     "pin": null
+    },
+    {
+     "text": "Acme headline E",
+     "pin": null
+    },
+    {
+     "text": "Acme headline F",
+     "pin": null
+    },
+    {
+     "text": "Acme headline G",
+     "pin": null
+    },
+    {
+     "text": "Acme headline H",
+     "pin": null
+    },
+    {
+     "text": "Acme headline I",
+     "pin": null
+    },
+    {
+     "text": "Acme headline J",
+     "pin": null
+    },
+    {
+     "text": "Acme headline K",
+     "pin": null
+    },
+    {
+     "text": "Acme headline L",
+     "pin": null
+    },
+    {
+     "text": "Acme headline M",
+     "pin": null
+    },
+    {
+     "text": "Acme headline N",
+     "pin": null
+    },
+    {
+     "text": "Acme headline O",
+     "pin": null
+    }
+   ],
+   "descriptions": [
+    {
+     "text": "Acme description A",
+     "pin": null
+    },
+    {
+     "text": "Acme description B",
+     "pin": null
+    },
+    {
+     "text": "Acme description C",
+     "pin": null
+    },
+    {
+     "text": "Acme description D",
+     "pin": null
+    }
+   ]
+  },
+  {
+   "ad_group_id": "12",
+   "type": "RESPONSIVE_SEARCH_AD",
+   "status": "ENABLED",
+   "strength": "POOR",
+   "headlines": [
+    {
+     "text": "Acme headline A",
+     "pin": null
+    },
+    {
+     "text": "Acme headline B",
+     "pin": null
+    },
+    {
+     "text": "Acme headline C",
+     "pin": null
+    },
+    {
+     "text": "Acme headline D",
+     "pin": null
+    },
+    {
+     "text": "Acme headline E",
+     "pin": null
+    },
+    {
+     "text": "Acme headline F",
+     "pin": null
+    }
+   ],
+   "descriptions": [
+    {
+     "text": "Acme description A",
+     "pin": null
+    },
+    {
+     "text": "Acme description B",
+     "pin": null
+    }
+   ]
+  },
+  {
+   "ad_group_id": "13",
+   "type": "RESPONSIVE_SEARCH_AD",
+   "status": "ENABLED",
+   "strength": "AVERAGE",
+   "headlines": [
+    {
+     "text": "Acme headline A",
+     "pin": "HEADLINE_1"
+    },
+    {
+     "text": "Acme headline B",
+     "pin": "HEADLINE_1"
+    },
+    {
+     "text": "Acme headline C",
+     "pin": "HEADLINE_1"
+    },
+    {
+     "text": "Acme headline D",
+     "pin": "HEADLINE_1"
+    },
+    {
+     "text": "Acme headline E",
+     "pin": "HEADLINE_2"
+    },
+    {
+     "text": "Acme headline F",
+     "pin": "HEADLINE_2"
+    },
+    {
+     "text": "Acme headline G",
+     "pin": "HEADLINE_2"
+    },
+    {
+     "text": "Acme headline H",
+     "pin": "HEADLINE_3"
+    },
+    {
+     "text": "Acme headline I",
+     "pin": "HEADLINE_3"
+    },
+    {
+     "text": "Acme headline J",
+     "pin": "HEADLINE_3"
+    }
+   ],
+   "descriptions": [
+    {
+     "text": "Acme description A",
+     "pin": null
+    },
+    {
+     "text": "Acme description B",
+     "pin": null
+    },
+    {
+     "text": "Acme description C",
+     "pin": null
+    }
+   ]
+  },
+  {
+   "ad_group_id": "21",
+   "type": "RESPONSIVE_SEARCH_AD",
+   "status": "ENABLED",
+   "strength": "EXCELLENT",
+   "headlines": [
+    {
+     "text": "Acme headline A",
+     "pin": null
+    },
+    {
+     "text": "Acme headline B",
+     "pin": null
+    },
+    {
+     "text": "Acme headline C",
+     "pin": null
+    },
+    {
+     "text": "Acme headline D",
+     "pin": null
+    },
+    {
+     "text": "Acme headline E",
+     "pin": null
+    },
+    {
+     "text": "Acme headline F",
+     "pin": null
+    },
+    {
+     "text": "Acme headline G",
+     "pin": null
+    },
+    {
+     "text": "Acme headline H",
+     "pin": null
+    },
+    {
+     "text": "Acme headline I",
+     "pin": null
+    },
+    {
+     "text": "Acme headline J",
+     "pin": null
+    },
+    {
+     "text": "Acme headline K",
+     "pin": null
+    },
+    {
+     "text": "Acme headline L",
+     "pin": null
+    },
+    {
+     "text": "Acme headline M",
+     "pin": null
+    },
+    {
+     "text": "Acme headline N",
+     "pin": null
+    },
+    {
+     "text": "Acme headline O",
+     "pin": null
+    }
+   ],
+   "descriptions": [
+    {
+     "text": "Acme description A",
+     "pin": null
+    },
+    {
+     "text": "Acme description B",
+     "pin": null
+    },
+    {
+     "text": "Acme description C",
+     "pin": null
+    },
+    {
+     "text": "Acme description D",
+     "pin": null
+    }
+   ]
+  },
+  {
+   "ad_group_id": "21",
+   "type": "RESPONSIVE_SEARCH_AD",
+   "status": "ENABLED",
+   "strength": "EXCELLENT",
+   "headlines": [
+    {
+     "text": "Acme headline A",
+     "pin": null
+    },
+    {
+     "text": "Acme headline B",
+     "pin": null
+    },
+    {
+     "text": "Acme headline C",
+     "pin": null
+    },
+    {
+     "text": "Acme headline D",
+     "pin": null
+    },
+    {
+     "text": "Acme headline E",
+     "pin": null
+    },
+    {
+     "text": "Acme headline F",
+     "pin": null
+    },
+    {
+     "text": "Acme headline G",
+     "pin": null
+    },
+    {
+     "text": "Acme headline H",
+     "pin": null
+    },
+    {
+     "text": "Acme headline I",
+     "pin": null
+    },
+    {
+     "text": "Acme headline J",
+     "pin": null
+    },
+    {
+     "text": "Acme headline K",
+     "pin": null
+    },
+    {
+     "text": "Acme headline L",
+     "pin": null
+    },
+    {
+     "text": "Acme headline M",
+     "pin": null
+    },
+    {
+     "text": "Acme headline N",
+     "pin": null
+    },
+    {
+     "text": "Acme headline O",
+     "pin": null
+    }
+   ],
+   "descriptions": [
+    {
+     "text": "Acme description A",
+     "pin": null
+    },
+    {
+     "text": "Acme description B",
+     "pin": null
+    },
+    {
+     "text": "Acme description C",
+     "pin": null
+    },
+    {
+     "text": "Acme description D",
+     "pin": null
+    }
+   ]
+  },
+  {
+   "ad_group_id": "31",
+   "type": "RESPONSIVE_SEARCH_AD",
+   "status": "ENABLED",
+   "strength": "GOOD",
+   "headlines": [
+    {
+     "text": "Acme headline A",
+     "pin": null
+    },
+    {
+     "text": "Acme headline B",
+     "pin": null
+    },
+    {
+     "text": "Acme headline C",
+     "pin": null
+    },
+    {
+     "text": "Acme headline D",
+     "pin": null
+    },
+    {
+     "text": "Acme headline E",
+     "pin": null
+    },
+    {
+     "text": "Acme headline F",
+     "pin": null
+    },
+    {
+     "text": "Acme headline G",
+     "pin": null
+    },
+    {
+     "text": "Acme headline H",
+     "pin": null
+    },
+    {
+     "text": "Acme headline I",
+     "pin": null
+    },
+    {
+     "text": "Acme headline J",
+     "pin": null
+    },
+    {
+     "text": "Acme headline K",
+     "pin": null
+    },
+    {
+     "text": "Acme headline L",
+     "pin": null
+    }
+   ],
+   "descriptions": [
+    {
+     "text": "Acme description A",
+     "pin": null
+    },
+    {
+     "text": "Acme description B",
+     "pin": null
+    },
+    {
+     "text": "Acme description C",
+     "pin": null
+    }
+   ]
+  },
+  {
+   "ad_group_id": "41",
+   "type": "RESPONSIVE_SEARCH_AD",
+   "status": "ENABLED",
+   "strength": "POOR",
+   "headlines": [
+    {
+     "text": "Acme headline A",
+     "pin": null
+    },
+    {
+     "text": "Acme headline B",
+     "pin": null
+    },
+    {
+     "text": "Acme headline C",
+     "pin": null
+    }
+   ],
+   "descriptions": [
+    {
+     "text": "Acme description A",
+     "pin": null
+    },
+    {
+     "text": "Acme description B",
+     "pin": null
+    }
+   ]
+  }
+ ],
+ "assets": [
+  {
+   "level": "ACCOUNT",
+   "owner_id": "",
+   "type": "SITELINK",
+   "status": "ENABLED"
+  },
+  {
+   "level": "ACCOUNT",
+   "owner_id": "",
+   "type": "SITELINK",
+   "status": "ENABLED"
+  },
+  {
+   "level": "ACCOUNT",
+   "owner_id": "",
+   "type": "CALLOUT",
+   "status": "ENABLED"
+  },
+  {
+   "level": "CAMPAIGN",
+   "owner_id": "2",
+   "type": "SITELINK",
+   "status": "ENABLED"
+  },
+  {
+   "level": "CAMPAIGN",
+   "owner_id": "2",
+   "type": "SITELINK",
+   "status": "ENABLED"
+  },
+  {
+   "level": "CAMPAIGN",
+   "owner_id": "2",
+   "type": "CALLOUT",
+   "status": "ENABLED"
+  },
+  {
+   "level": "CAMPAIGN",
+   "owner_id": "2",
+   "type": "CALLOUT",
+   "status": "ENABLED"
+  },
+  {
+   "level": "CAMPAIGN",
+   "owner_id": "2",
+   "type": "CALLOUT",
+   "status": "ENABLED"
+  },
+  {
+   "level": "CAMPAIGN",
+   "owner_id": "2",
+   "type": "STRUCTURED_SNIPPET",
+   "status": "ENABLED"
+  },
+  {
+   "level": "CAMPAIGN",
+   "owner_id": "3",
+   "type": "SITELINK",
+   "status": "ENABLED"
+  },
+  {
+   "level": "CAMPAIGN",
+   "owner_id": "3",
+   "type": "SITELINK",
+   "status": "ENABLED"
+  }
+ ]
+}

@@ -1,0 +1,19 @@
+{
+  "meta": {
+    "currency": "USD",
+    "window": "July 2026 vs June 2026",
+    "business_model": "plumbing (lead-gen)"
+  },
+  "current": {
+    "spend": 4973.64,
+    "impressions": 9852,
+    "clicks": 732,
+    "conversions": 85
+  },
+  "prior": {
+    "spend": 5210.0,
+    "impressions": 11890,
+    "clicks": 760,
+    "conversions": 71
+  }
+}

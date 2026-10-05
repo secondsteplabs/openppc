@@ -1,0 +1,52 @@
+# Keys and secrets (never commit)
+.env
+.env.*
+!.env.example
+Keys*.json
+*.pem
+*.key
+credentials*.json
+token*.json
+client_secret*.json
+service-account*.json
+
+# Installed packages
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Build output and caches
+dist/
+build/
+.next/
+.turbo/
+.vercel/
+.cache/
+coverage/
+*.log
+
+# OS and editor junk
+.DS_Store
+._*
+Thumbs.db
+.idea/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.pytest_cache/
+dist/
+build/
+
+# Real account exports never enter this repo. Put them in exports/ (ignored).
+exports/
+private/
+*.real.csv
+
+# Local editor and preview settings
+.claude/
+.code-review-graph/

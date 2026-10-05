@@ -1,0 +1,22 @@
+name: client-denylist
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    # Runs only where the private list is stored (repository variable DENYLIST_CHECK=on, secret CLIENT_DENYLIST).
+    # Pull requests from forks cannot read secrets, so they are scanned when a maintainer merges them.
+    if: vars.DENYLIST_CHECK == 'on' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: No client names or account IDs in any file
+        env:
+          CLIENT_DENYLIST: ${{ secrets.CLIENT_DENYLIST }}
+        run: python3 .github/scripts/denylist_scan.py

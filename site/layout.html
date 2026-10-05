@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; media-src 'self'; style-src 'self'; font-src 'self'; script-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<title>$title</title>
+<meta name="description" content="$description">
+<link rel="canonical" href="$canonical">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="OpenPPC">
+<meta property="og:title" content="$title">
+<meta property="og:description" content="$description">
+<meta property="og:url" content="$canonical">
+<meta property="og:image" content="https://openppc.si/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="OpenPPC: every number in your Google Ads audit, checked.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://openppc.si/og-image.png">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preload" href="/fonts/plus-jakarta-sans-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/site.css">
+$structured
+</head>
+<body>
+<a class="sr-only" href="#main">Skip to content</a>
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="/"><img src="/logo.svg" alt="OpenPPC" width="129" height="26"></a>
+    <nav class="nav-links" aria-label="Site">
+      <a href="/#features">Features</a>
+      <a href="/#how">How it works</a>
+      <a href="/docs/"$docs_current>Docs</a>
+      <a href="/docs/install/"$install_current>Install</a>
+    </nav>
+    <div class="nav-right">
+      <a class="btn" href="https://github.com/secondsteplabs/openppc"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.4-1.8-1.4-1.8-1.1-.8.1-.7.1-.7 1.2.1 1.9 1.2 1.9 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-6a4.7 4.7 0 0 1 1.3-3.2c-.2-.3-.6-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.7 1.7.2 2.9.1 3.2a4.7 4.7 0 0 1 1.3 3.2c0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5z"/></svg><span class="gh-label">GitHub</span></a>
+      <a class="btn btn-primary" href="/app/">Try it free</a>
+    </div>
+  </div>
+</header>
+<main id="main">
+$body
+</main>
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot-in">
+      <div class="foot-about">
+        <a class="brand" href="/"><img src="/logo.svg" alt="OpenPPC" width="129" height="26"></a>
+        <p>Open-source Google Ads audits where every number is checked against your own export. The app runs in your browser, and nothing is uploaded.</p>
+      </div>
+      <div>
+        <h3>Product</h3>
+        <ul>
+          <li><a href="/app/">Open the app</a></li>
+          <li><a href="/#features">Features</a></li>
+          <li><a href="/#how">How it works</a></li>
+        </ul>
+      </div>
+      <div>
+        <h3>Docs</h3>
+        <ul>
+          <li><a href="/docs/install/">Install and quick start</a></li>
+          <li><a href="/docs/install/#ai">Claude, Cursor and ChatGPT</a></li>
+          <li><a href="/docs/">All docs</a></li>
+        </ul>
+      </div>
+      <div>
+        <h3>Project</h3>
+        <ul>
+          <li><a href="https://github.com/secondsteplabs/openppc">GitHub</a></li>
+          <li><a href="https://github.com/secondsteplabs/openppc/blob/main/LICENSE">MIT license</a></li>
+          <li><a href="https://getsecondstep.com">Second Step Labs</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-base"><span>Built by Second Step Labs. Free and open source under the MIT license.</span><span>All account data shown on this site is a fictional sample.</span></div>
+  </div>
+</footer>
+$scripts
+</body>
+</html>

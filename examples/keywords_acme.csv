@@ -1,0 +1,15 @@
+Search keyword report
+July 1, 2026 - July 31, 2026
+Keyword status,Keyword,Match type,Campaign,Ad group,Clicks,Impr.,CTR,Currency code,Avg. CPC,Cost,Conv. rate,Conversions,Cost / conv.,Quality Score
+Eligible,plumber near me,Exact match,Search - Plumbing,Core,212,"2,150",9.86%,USD,6.42,"1,361.04",14.62%,31.00,43.90,8
+Eligible,plumbing services,Phrase match,Search - Plumbing,Core,168,"2,402",6.99%,USD,6.00,"1,008.00",13.10%,22.00,45.82,7
+Eligible,plumbing services,Broad match,Search - Plumbing,Core,140,"2,980",4.70%,USD,6.73,942.10,4.29%,6.00,157.02,5
+Eligible,water heater,Broad match,Search - Water Heaters,Water heaters,96,"1,720",5.58%,USD,6.44,618.40,5.21%,5.00,123.68,4
+Eligible,water heater prices,Phrase match,Search - Water Heaters,Water heaters,58,880,6.59%,USD,5.70,330.60,12.07%,7.00,47.23,6
+Eligible,drain cleaning,Exact match,Search - Plumbing,Drains,24,260,9.23%,USD,7.95,190.80,16.67%,4.00,47.70,7
+Eligible,pipe repair,Broad match,Search - Plumbing,Core,38,910,4.18%,USD,7.80,296.40,0.00%,0.00,--,3
+Eligible,plumbing repair,Broad match,Search - Plumbing,Core,29,640,4.53%,USD,6.95,201.55,3.45%,1.00,201.55,4
+Eligible,leak detection,Phrase match,Search - Plumbing,Core,45,610,7.38%,USD,6.30,283.50,13.33%,6.00,47.25,6
+Eligible,pipe replacement,Broad match,Search - Plumbing,Core,17,520,3.27%,USD,7.00,119.00,0.00%,0.00,--,2
+Eligible,faucet installation,Broad match,Search - Plumbing,Core,8,150,5.33%,USD,5.60,44.80,0.00%,0.00,--,--
+Total: Keywords,,,,,835,"13,222",6.32%,USD,6.46,"5,396.19",9.82%,82.00,65.81,
