@@ -122,6 +122,8 @@ pre.code .p { color: var(--accent-soft); user-select: none; }
 
 /* works inside your AI */
 .works { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--faint); }
+.ph-badge { display: flex; justify-content: center; margin-top: 18px; }
+.ph-badge img { display: block; }
 .works b { padding: 5px 13px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); color: var(--ink2); font-weight: 700; }
 .ai-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
 .card.ai { gap: 14px; }
