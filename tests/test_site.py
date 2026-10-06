@@ -67,7 +67,7 @@ def test_analytics_runs_on_the_website_and_never_in_the_app(tmp_path):
     tag = (dist / "analytics.js").read_text()
     assert "GTM-MKK8JT53" in tag and tag.index("'consent', 'default'") < tag.index("gtm.js?id=")
     for page in ("index.html", "docs/index.html", "docs/install/index.html", "404.html"):
-        assert '<script src="/analytics.js" async></script>' in (dist / page).read_text(), page
+        assert re.search(r'<script src="/analytics\.js\?v=[0-9a-f]{12}" async></script>', (dist / page).read_text()), page
     app = (dist / "app" / "index.html").read_text()
     assert "analytics.js" not in app and "googletagmanager" not in app
     assert "connect-src https://cdn.jsdelivr.net;" in app   # the app may fetch the Python runtime and nothing else
@@ -96,10 +96,22 @@ def test_pages_name_their_images_and_video_by_content(tmp_path):
     assert not re.search(r'(?:src|poster)="/(?:img|media)/[^"?]+"', home)  # none left unversioned
 
 
+def test_pages_name_their_stylesheet_and_scripts_by_content(tmp_path):
+    # browsers keep CSS and JS for hours: a changed stylesheet must get a new address, or pages render with the old one
+    import hashlib
+    _site().build(tmp_path)
+    for page in (tmp_path / "index.html", tmp_path / "articles" / "index.html"):
+        html = page.read_text(encoding="utf-8")
+        for ref, attr in (("/site.css", "href"), ("/analytics.js", "src")):
+            tag = hashlib.sha256((tmp_path / ref.lstrip("/")).read_bytes()).hexdigest()[:12]
+            assert f'{attr}="{ref}?v={tag}"' in html, (page, ref)
+            assert f'{attr}="{ref}"' not in html
+
+
 def test_articles_are_listed_and_marked_up_for_search_and_answer_engines(tmp_path):
     report = _site().build(tmp_path / "dist")
     articles = [p for p in report["pages"] if p.startswith("/articles/") and p != "/articles/"]
-    assert len(articles) >= 4 and "/articles/" in report["pages"]
+    assert len(articles) >= 5 and "/articles/" in report["pages"]
     index = (tmp_path / "dist" / "articles" / "index.html").read_text(encoding="utf-8")
     llms = (tmp_path / "dist" / "llms.txt").read_text(encoding="utf-8")
     sitemap = (tmp_path / "dist" / "sitemap.xml").read_text(encoding="utf-8")

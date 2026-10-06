@@ -1,0 +1,89 @@
+<!--
+title: GPT vs Gemini for Google Ads audits: we checked 1,371 numbers · OpenPPC
+description: GPT-6 Luna and two Gemini models wrote 36 Google Ads audits, with and without code. We checked all 1,371 numbers: where each model slipped, and what code fixed.
+headline: GPT vs Gemini for Google Ads audits: we checked 1,371 numbers
+schema: article
+date: 2026-10-06
+author: Shivendra Rawat
+-->
+<div class="wrap doc">
+  <nav class="doc-nav" aria-label="Articles">
+    <a href="/articles/">All articles</a>
+    <a class="sub" href="/articles/ai-google-ads-audit-accuracy/">How accurate are AI audits?</a>
+    <a class="sub" href="/articles/gpt-vs-gemini-google-ads-audits/">GPT vs Gemini</a>
+    <a class="sub" href="/articles/future-of-google-ads-audits/">The future of audits</a>
+    <a class="sub" href="/articles/how-to-check-a-google-ads-audit/">How to check an audit</a>
+    <a class="sub" href="/articles/google-ads-wasted-spend/">Is it really wasted spend?</a>
+  </nav>
+  <article class="doc-body">
+    <span class="label">Research</span>
+    <h1>GPT vs Gemini for Google Ads audits: we checked 1,371 numbers</h1>
+    <p class="byline">By Shivendra Rawat · 6 October 2026 · 6 min read</p>
+    <p class="doc-lead">OpenAI's GPT-6 Luna got every number right in 12 Google Ads audits. Google's Gemini 3.8 Flash and Gemini 3.1 Pro made 16 errors between them, almost all in figures they worked out themselves, and half of them came from just two wrong totals. Giving the models a Python tool cut the errors from 14 to 2, but having the tool isn't the same as using it: Gemini 3.1 Pro ran it in only two of its six audits.</p>
+
+    <div class="stat-grid">
+      <div><b>1,371</b><span>numbers checked in 36 audits</span></div>
+      <div><b>0</b><span>wrong from GPT-6 Luna</span></div>
+      <div><b>14 → 2</b><span>wrong numbers, without and with Python</span></div>
+      <div><b>8 of 16</b><span>errors came from two wrong totals</span></div>
+    </div>
+
+    <h2 id="method">How we tested it</h2>
+    <p>We took six audit requests from <a href="/articles/ai-google-ads-audit-accuracy/">our first test</a>, where Claude wrote 13 audits: a search terms audit, a table of keywords to pause and to scale, the audit section of an agency pitch, a rupee audit comparing Performance Max with Search, a short update for a founder, and a Slack note with five fixes. Each came with one of two made-up exports in Google's own format. Acme Plumbing is a US account whose search terms and keyword reports end in Google's Total rows. BrightPath is an Indian test-prep account whose report has no Total row, so any total had to be added up from its 22 rows.</p>
+    <p>Three models answered every request twice: once with the export pasted into the chat and nothing else, and once with a Python tool that could read the same export as a file. The models decided for themselves whether to use the tool. We called OpenAI's GPT-6 Luna, Google's Gemini 3.8 Flash and Gemini 3.1 Pro (preview) through their APIs via OpenRouter, with default settings, in October 2026. That made 36 audits, which cost $1.02 in all.</p>
+    <p>Then we checked every number. Labelers who didn't know which model wrote which audit worked each one out again with code from the export, and we rechecked every number marked wrong by hand. Of the 1,371 numbers, 1,334 were claims about the data. The other 37 were targets, forecasts and day counts that no export can confirm, so we left them out of the error rates.</p>
+
+    <h2 id="results">What we found</h2>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr><th>Model</th><th>Python tool</th><th class="amt">Numbers checked</th><th class="amt">Wrong</th><th class="amt">Share wrong</th></tr></thead>
+        <tbody>
+          <tr><td>GPT-6 Luna</td><td>No</td><td class="amt">207</td><td class="amt">0</td><td class="amt">0%</td></tr>
+          <tr><td>GPT-6 Luna</td><td>Yes</td><td class="amt">199</td><td class="amt">0</td><td class="amt">0%</td></tr>
+          <tr><td>Gemini 3.8 Flash</td><td>No</td><td class="amt">278</td><td class="amt">10</td><td class="amt">3.6%</td></tr>
+          <tr><td>Gemini 3.8 Flash</td><td>Yes</td><td class="amt">341</td><td class="amt">1</td><td class="amt">0.3%</td></tr>
+          <tr><td>Gemini 3.1 Pro</td><td>No</td><td class="amt">156</td><td class="amt">4</td><td class="amt">2.6%</td></tr>
+          <tr><td>Gemini 3.1 Pro</td><td>Yes</td><td class="amt">153</td><td class="amt">1</td><td class="amt">0.7%</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>1. The cheapest model made no mistakes</h3>
+    <p>GPT-6 Luna, OpenAI's fast, low-cost model, wrote 12 audits with 406 checkable numbers in them and got every one right, including the BrightPath totals it had to add up from 22 rows. It cost about a tenth of a cent per audit. Gemini 3.1 Pro cost nearly 50 times as much per audit and made five errors. In our first test it went the other way: Anthropic's smallest model, Claude Haiku, made every error. Price and size don't tell you which model will slip.</p>
+
+    <h3>2. The errors were in numbers the models worked out</h3>
+    <p>Figures read straight from a row of the export were right every time but two, and those two were real figures with a false claim attached (more on them below). The other 14 errors were all numbers the models had to work out: totals, sums, shares, costs per conversion and savings. That matches our first test, where 21 of the 22 wrong numbers were worked out by the model.</p>
+
+    <h3>3. Adding up the export is where it went wrong</h3>
+    <p>Without tools, the models had to add BrightPath's 22 rows in their heads, and three of the seven audits that stated the account's spend got it wrong. Gemini 3.8 Flash put it at ₹135,474.90 in one audit and ₹141,774.20 in another; the rows add up to ₹144,775.20. Gemini 3.1 Pro was one rupee short. With the Python tool, all nine audits that stated the spend got it right.</p>
+
+    <h3>4. One wrong total takes other numbers with it</h3>
+    <p>Eight of the 16 wrong numbers came from Gemini Flash's two wrong totals. In the first audit, every figure built on the total moved with it: the cost per conversion came out at ₹1,302.64 instead of ₹1,392.07, the share of spend wasted at 18.67% instead of 17.47%, and Search's cost per conversion at ₹1,239.30 instead of ₹1,329.60. Each was correct arithmetic on a wrong starting figure, so each looked consistent with the rest of the audit.</p>
+
+    <h3>5. Python helps, if the model runs it</h3>
+    <p>Gemini 3.8 Flash called the tool 37 times across its six audits and went from 10 wrong numbers to 1. GPT-6 Luna called it 15 times and stayed at zero. Gemini 3.1 Pro called it twice in six audits and wrote the rest in its head, so its drop from 4 errors to 1 is closer to a second try than a test of the tool. Having a code tool switched on is not the same as using it.</p>
+
+    <h3>6. Code doesn't check what the model says in words</h3>
+    <p>The two errors that got through with Python were claims written around the numbers, not numbers the code worked out. One audit called $7.80 the account's highest cost per click, when another keyword cost $7.95. Another said its list of negative keywords would filter out "over $1,100" of spend; the search terms on that list cost $880.70. Gemini 3.1 Pro made the same "highest" mistake without tools. Claims like "the highest", "the cheapest" and "would save" need checking whatever the model ran.</p>
+
+    <h2 id="what-to-do">What this means if you use ChatGPT or Gemini for audits</h2>
+    <ul>
+      <li><b>Turn on code, and check it ran.</b> Ask for the calculation behind every total. If there's no working, treat the totals as unchecked.</li>
+      <li><b>Re-add the total yourself when the export has no Total row.</b> It's the number every share and cost per conversion is divided by.</li>
+      <li><b>Check the claims in words:</b> "the highest", "the lowest", "would save". Code that adds up rows doesn't test them.</li>
+      <li><b>Don't pick a model and stop checking.</b> The best result here, no errors in 406 numbers, is one model on 12 audits. Another prompt, export or model update can change it.</li>
+    </ul>
+    <div class="callout">OpenPPC checks any audit against the export it came from, whether ChatGPT, Gemini, Claude or a person wrote it. On these 36 audits it flagged 10 of the 16 wrong numbers, including all 8 from the two wrong totals, and showed 24 of the 1,318 correct numbers (1.8%) as worth a second look. It missed the two one-rupee slips, both "highest" claims and both savings claims. <a href="/app/">Check an audit now</a></div>
+
+    <h2 id="limits">The limits of this test</h2>
+    <p>36 audits, two made-up accounts, three models, one run of each. Six audits per model and setting is small: a difference of a few errors between two rows of the table could be chance. We used the APIs, not the ChatGPT or Gemini apps, which add their own instructions and may choose a different model. And we didn't test OpenAI's flagship, GPT-6 Astra, in this round. Read the results as a direction, and check the numbers whichever model you use.</p>
+
+    <h2 id="questions">Questions</h2>
+    <div class="faq">
+      <details><summary>Is ChatGPT or Gemini better for Google Ads audits?</summary><p>In our test, OpenAI's GPT-6 Luna made no errors in 406 numbers, while Google's Gemini 3.8 Flash and Gemini 3.1 Pro made 16 between them, mostly in totals they added up without code. It's a small test, so treat it as a direction and check the numbers whichever you use.</p></details>
+      <details><summary>Does Python or a code interpreter make AI audits accurate?</summary><p>It helps when the model uses it: errors fell from 14 to 2 in our test. But one model mostly ignored the tool, and claims written in words, like "the highest" or "would save", slipped through either way.</p></details>
+      <details><summary>Is this the same as using the ChatGPT or Gemini apps?</summary><p>Not exactly. We used the models through their APIs with default settings, the same way for each. The apps add their own instructions and may pick a different model, so results there can differ.</p></details>
+      <details><summary>Which numbers should I check first in an AI audit?</summary><p>The account totals, especially when the export has no Total row. Then every number divided by them, like cost per conversion and shares of spend, and anything described as the highest, the lowest or a saving.</p></details>
+    </div>
+  </article>
+</div>
