@@ -221,3 +221,21 @@ def test_reading_rows_by_name_and_by_value_finds_what_reading_every_row_finds():
         assert type(facts).__name__ == "FactList" and len(facts.parts) > 1  # rows are held as a block
         for text in (report, nudged, (examples / "ai_audit_sample.md").read_text(encoding="utf-8")):
             assert trace(text, facts) == trace(text, list(facts))
+
+
+def test_the_row_index_holds_exactly_the_figures_each_row_has():
+    # RowFacts builds its value index a column at a time; figures() says what a row's facts are. They must agree.
+    import itertools
+    from openppc.checkfacts import RowFacts
+    from openppc.templates._common import Totals, figures
+    sums = [Totals(c, k, i, v) for c in (0, 2.5) for k in (0, 3.0) for i in (0, 40.0) for v in (0, 1.0)]
+    for grand in (Totals(100.0, 50.0, 500.0, 5.0), Totals(0, 0, 0, 0), Totals(10.0, 0, 0, 0)):
+        block = RowFacts("USD", grand)
+        for n, t in enumerate(sums):
+            block.add(f"term {n}", t)
+        assert len(block) == sum(len(figures(t, grand)) for t in sums)
+        assert list(block._first) == list(itertools.accumulate((len(figures(t, grand)) for t in sums[:-1]), initial=0))
+        want = sorted((kind, metric, e, value) for e, t in enumerate(sums) for _, value, kind, metric in figures(t, grand))
+        got = sorted((kind, metric, e, value) for (kind, metric), (values, entries) in block._columns.items()
+                     for value, e in zip(values, entries))
+        assert got == want

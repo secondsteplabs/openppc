@@ -9,6 +9,7 @@ we chose is not a fact about your account.
 The rows themselves are kept as plain numbers (RowFacts) and become facts only when the
 checker reads them, so an export of 250,000 search terms stays small in memory.
 """
+import itertools
 import re
 from array import array
 from bisect import bisect_left, bisect_right
@@ -83,24 +84,33 @@ class RowFacts:
         return [self._fact(e, figure) for figure in self._figures(e)]
 
     def _build(self):
-        """Where each entry's facts start, and every figure sorted by value within its kind and metric."""
-        first, count, columns = array("q"), 0, {}
-        for e in range(len(self.names)):
-            first.append(count)
-            figs = self._figures(e)
-            for j, (_, value, kind, metric) in enumerate(figs):
-                if value == value:  # never NaN: it matches nothing, and would break the sort
-                    column = columns.get((kind, metric)) or columns.setdefault((kind, metric), (
-                        array("d"), array("q"), array("b")))
-                    column[0].append(value)
-                    column[1].append(e)
-                    column[2].append(j)
-            count += len(figs)
-        self._first, self._count, self._columns = first, count, {}
-        for key, (values, entries, offsets) in columns.items():
-            order = sorted(range(len(values)), key=values.__getitem__)
-            self._columns[key] = (array("d", (values[i] for i in order)), array("q", (entries[i] for i in order)),
-                                  array("b", (offsets[i] for i in order)))
+        """Where each entry's facts start, and each kind and metric's figures sorted by value. Computed a column at a
+        time with figures()' own sums and conditions (a test holds the two together): a big export has 300,000."""
+        cost, clicks, impr, conv = (column.tolist() for column in self.sums)
+        g, nan = self.grand, float("nan")
+        shares = bool(g.cost) + bool(g.clicks) + bool(g.conversions)
+        starts = list(itertools.accumulate((3 + 2 * bool(i) + 2 * bool(k) + bool(v) + shares
+                                            for k, i, v in zip(clicks, impr, conv)), initial=0))
+        self._first, self._count, self._columns = array("q", starts[:-1]), starts[-1], {}
+        columns = (
+            (("money", "cost"), lambda: cost),
+            (("count", "clicks"), lambda: clicks),
+            (("count", "impressions"), lambda: [i if i else nan for i in impr]),
+            (("count", "conversions"), lambda: conv),
+            (("pct", "ctr"), lambda: [k / i * 100 if i else nan for k, i in zip(clicks, impr)]),
+            (("money", "cpc"), lambda: [c / k if k else nan for c, k in zip(cost, clicks)]),
+            (("pct", "cvr"), lambda: [v / k * 100 if k else nan for v, k in zip(conv, clicks)]),
+            (("money", "cpa"), lambda: [c / v if v else nan for c, v in zip(cost, conv)]),
+            (("pct", "cost"), lambda: [c / g.cost * 100 for c in cost] if g.cost else None),
+            (("pct", "clicks"), lambda: [k / g.clicks * 100 for k in clicks] if g.clicks else None),
+            (("pct", "conversions"), lambda: [v / g.conversions * 100 for v in conv] if g.conversions else None))
+        for key, make in columns:  # one column at a time, so a big export never holds them all as Python floats
+            values = make()
+            if values is None:
+                continue
+            order = sorted((e for e in range(len(values)) if values[e] == values[e]), key=values.__getitem__)
+            if order:  # NaN marks a figure the entry doesn't have (no impressions, clicks or conversions)
+                self._columns[key] = (array("d", map(values.__getitem__, order)), array("q", order))
 
     def __len__(self):
         if self._first is None:
@@ -148,12 +158,12 @@ class RowFacts:
             self._build()
         slack = 1e-9 * max(1.0, abs(value), tol)  # the window only narrows the search; the exact test below decides
         out = []
-        for (k, _), (values, entries, offsets) in self._columns.items():
-            if kind != "plain" and k != kind:
+        for key, (values, entries) in self._columns.items():
+            if kind != "plain" and key[0] != kind:
                 continue
 
             def free(j):
-                return offset + self._first[entries[j]] + offsets[j] not in taken
+                return offset + self._first[entries[j]] + self._offset(entries[j], key) not in taken
 
             i = bisect_left(values, value)
             hi, lo = bisect_right(values, value + tol + slack), bisect_left(values, value - tol - slack)
@@ -164,13 +174,17 @@ class RowFacts:
             best = None
             for j in (up, down):
                 if j is not None and abs(values[j] - value) <= tol:
-                    key = (abs(values[j] - value), self._first[entries[j]] + offsets[j])
-                    best = min(best, (key, j)) if best else (key, j)
+                    rank = (abs(values[j] - value), self._first[entries[j]] + self._offset(entries[j], key))
+                    best = min(best, (rank, j)) if best else (rank, j)
             if best:
-                j = best[1]
-                e = entries[j]
-                out.append((self._first[e] + offsets[j], self._fact(e, self._figures(e)[offsets[j]])))
+                e = entries[best[1]]
+                at = self._offset(e, key)
+                out.append((self._first[e] + at, self._fact(e, self._figures(e)[at])))
         return out
+
+    def _offset(self, e, key):
+        """Where entry e's figure of this kind and metric sits among its facts."""
+        return next(j for j, (_, _, kind, metric) in enumerate(self._figures(e)) if (kind, metric) == key)
 
 
 
@@ -247,14 +261,15 @@ def facts_for_report(report, settings=None):
     return FactList([[f for f in head if f.metric != "rule"], block, tail])
 
 
-def facts_for_check(text, paths, industry=None):
+def facts_for_check(text, paths, industry=None, load=load_report):
     """Facts to check `text` against: the exports' figures, and when the text is an OpenPPC report, the figures
     of the same audit run with that report's settings."""
     settings = report_settings(text)
-    return facts_for_paths(paths, industry or settings.get("industry"), settings)
+    return facts_for_paths(paths, industry or settings.get("industry"), settings, load)
 
 
-def facts_for_paths(paths, industry=None, settings=None):
+def facts_for_paths(paths, industry=None, settings=None, load=load_report):
+    """load reads a report file: the app passes one that hands over a file it has already read."""
     facts = FactList()
     for path in paths:
         if str(path).lower().endswith(".json"):
@@ -265,7 +280,7 @@ def facts_for_paths(paths, industry=None, settings=None):
                 _, book = account_read.run(account_read.load_metrics(path))
             facts += [f for f in book.facts if f.metric != "rule"]
         else:
-            facts += facts_for_report(load_report(path), settings)
+            facts += facts_for_report(load(path), settings)
     facts += industry_facts(industry)
     return facts
 

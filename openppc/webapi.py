@@ -64,7 +64,7 @@ def inspect_file(path):
             fits = [t.NAME for t in TEMPLATES.values() if t.INPUT_KIND == "metrics" and t.accepts(data)]
             return _json({"ok": True, "name": name, "kind": "Two-period totals", "rows": None, "start": None,
                           "end": None, "days": None, "currency": None, "templates": fits})
-        report = load_report(path)
+        report = _report(path)
     except READ_ERRORS as e:
         error = _clean(e, [path])
         if error.startswith(name + ": "):  # the file chip already shows the name, right above the error
@@ -86,13 +86,34 @@ def inspect_file(path):
 
 
 _EXPORT_FACTS = {}  # the attached exports' facts, so counting as the text changes never re-reads them
+_READ = {}  # report files already read (by path, size and time), for the next step that needs one: at most two
+
+
+def _key(path):
+    return path, os.stat(path).st_size, os.stat(path).st_mtime_ns  # a re-upload is a new key
+
+
+def _report(path, keep=True):
+    """A report file, read once: adding a file shows its chip, then counting or an audit reads the same rows.
+    keep=False hands it over for good, so a big export's rows are gone before the checker builds its index."""
+    key = _key(path)
+    report = _READ.pop(key, None) or load_report(path)
+    if keep:
+        _READ[key] = report
+        while len(_READ) > 2:
+            _READ.pop(next(iter(_READ)))
+    return report
+
+
+def _taken(path):
+    return _report(path, keep=False)
 
 
 def _export_facts(paths):
-    key = tuple((p, os.stat(p).st_size, os.stat(p).st_mtime_ns) for p in paths)  # a re-upload is a new key
+    key = tuple(_key(p) for p in paths)
     if key not in _EXPORT_FACTS:
         _EXPORT_FACTS.clear()
-        _EXPORT_FACTS[key] = facts_for_paths(paths)
+        _EXPORT_FACTS[key] = facts_for_paths(paths, load=_taken)
     return _EXPORT_FACTS[key]
 
 
@@ -113,7 +134,7 @@ def check(text, paths_json, industry=""):
     paths = json.loads(paths_json)
     try:
         if report_settings(text):  # an OpenPPC report: its audit is re-run with the settings it was made with
-            facts = facts_for_check(text, paths, industry or None)
+            facts = facts_for_check(text, paths, industry or None, load=_taken)
         else:  # anyone else's audit: the exports' facts, already read when the numbers were counted
             facts = _export_facts(paths) + industry_facts(industry or None)
     except READ_ERRORS as e:
@@ -139,14 +160,14 @@ def audit(name, path, industry="", min_cost=None, brand=""):
         return _json({"ok": False, "error": f"unknown template '{name}'"})
     wrong = _json({"ok": False, "error": f"{os.path.basename(path)} is not a {template.INPUT}."})
     try:
-        data = load_input(template, path)
+        data = _report(path) if template.INPUT_KIND == "report" else load_input(template, path)
     except READ_ERRORS:
         return wrong
     if not template.accepts(data):
         return wrong
     try:
         cost = None if min_cost in (None, "") else float(min_cost)  # unset: the default in the export's currency
-        markdown, book, passed = run_template_book(name, path, industry=industry or None, min_cost=cost,
+        markdown, book, passed = run_template_book(name, path, data, industry=industry or None, min_cost=cost,
                                                    brand=brand or None)
     except READ_ERRORS as e:
         return _json({"ok": False, "error": _clean(e, [path])})
