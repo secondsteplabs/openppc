@@ -343,8 +343,8 @@ figcaption { font-size: 14px; color: var(--faint); }
 
 /* squares for numbers outside the data, and a bigger grid for a hundred */
 .cells i.n { background: #d3d9d6; }
-.cells.big { gap: 5px; max-width: 350px; }
-.cells.big i { width: 30px; height: 30px; border-radius: 6px; }
+.cells.big { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 5px; max-width: 350px; }
+.cells.big i { width: auto; height: auto; aspect-ratio: 1; border-radius: 6px; }
 .viz-key i.none { background: #d3d9d6; }
 .bar-fg.hot { fill: var(--nid); }
 
@@ -440,13 +440,6 @@ figcaption { font-size: 14px; color: var(--faint); }
 .curve-x text { font-size: 12px; fill: var(--faint); }
 .curve-xlab { margin-top: 2px; padding-left: 48px; font-size: 12.5px; color: var(--muted); }
 
-/* a chart fades in as it scrolls into view; bars never animate, so a value is never shown half-drawn */
-@media (prefers-reduced-motion: no-preference) {
-  @supports (animation-timeline: view()) {
-    .viz { animation: viz-in linear both; animation-timeline: view(); animation-range: entry 0% entry 35%; }
-  }
-}
-@keyframes viz-in { from { opacity: 0; translate: 0 18px; } to { opacity: 1; translate: 0 0; } }
 
 @media (max-width: 760px) {
   .err-row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
