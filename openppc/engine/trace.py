@@ -37,6 +37,7 @@ account-level figures count: otherwise any made-up number would find some row th
 to share it. Round numbers with no metric word can still match an account figure by chance,
 so every trace names the fact it matched. Read the "traced to" column, don't just count.
 """
+import heapq
 import re
 from dataclasses import dataclass
 
@@ -783,10 +784,72 @@ def _subject(named, unions, row, here, implied, lo, hi, a, b, start, sentence, c
     return ("account", None)
 
 
+def _mentioned(names, text):
+    """The lowercase names that occur in the text the ways trace reads names: as written, with runs of spaces closed
+    up (quotes), or with markdown stars taken out (column headers). Short pieces of the text are matched first, so
+    100,000 names take a moment, not a minute."""
+    low = text.lower()
+    hays = (low, " ".join(low.split()), " ".join(low.replace("*", " ").split()))
+    k = 6
+    pieces = {h[i:i + n] for h in hays for n in range(1, k + 1) for i in range(len(h) - n + 1)}
+    out = []
+    for name in names:
+        if len(name) <= k:
+            if name in pieces or name in MATCH_TYPES:
+                out.append(name)
+        elif all(name[i:i + k] in pieces for i in (0, (len(name) - k) // 2, len(name) - k)) \
+                and any(name in h for h in hays) or name in MATCH_TYPES:
+            out.append(name)
+    return out
+
+
+class _Lookup:
+    """The facts trace reads. A list is read whole. An export's facts (a FactList holding blocks of rows) give the
+    rows the text names, with all their facts, and for each number the block rows with a figure within reach of it:
+    exactly what reading every row in order would find, without building facts for rows the text never touches."""
+
+    def __init__(self, facts, text):
+        parts, self.blocks = getattr(facts, "parts", None), []
+        if parts is None:
+            self.facts = list(facts)
+            return
+        pairs, pos = [], 0  # (position among all the facts, fact)
+        for part in parts:
+            if isinstance(part, list):
+                pairs += [(pos + i, f) for i, f in enumerate(part)]
+            else:
+                self.blocks.append((pos, part))
+                pairs += [(pos + i, f) for i, f in part.named(_mentioned(part.lowered(), text))]
+            pos += len(part)
+        pairs.sort(key=lambda pair: pair[0])
+        self.pairs, self.taken = pairs, {i for i, _ in pairs}
+        self.facts = [f for _, f in pairs]
+
+    def near(self, value, tol, kind):
+        """Every fact a number could be, in order: all of self.facts, and the closest block figure of each kind and
+        metric within tol of it."""
+        hits = sorted((off + i, f) for off, block in self.blocks for i, f in block.near(value, tol, kind, self.taken, off))
+        if not hits:
+            return self.facts
+        return [f for _, f in heapq.merge(self.pairs, hits, key=lambda pair: pair[0])]
+
+    def first(self, label, near, here):
+        """The first fact with this label in the order of all the facts: the one a range is held against."""
+        if self.blocks:
+            names = {f.entity.lower() for f in near if f.label == label and f.entity}
+            found = [(i, f) for i, f in self.pairs if f.label == label]
+            for off, block in self.blocks:
+                found += [(off + i, f) for i, f in block.named(names) if f.label == label]
+            if found:
+                return min(found, key=lambda pair: pair[0])[1]
+        return next((f for f in self.facts + here if f.label == label), None)
+
+
 def trace(text, facts):
     """Return (claims, contradictions) for every checkable number in the text."""
-    facts = list(facts)
-    entities = sorted({f.entity.lower() for f in facts if len(f.entity) >= 4}, key=len, reverse=True)
+    look = _Lookup(facts, text)
+    facts = look.facts
+    entities = sorted({f.entity.lower() for f in facts if len(f.entity) >= 4}, key=lambda e: (-len(e), e))
     all_entities = {f.entity.lower() for f in facts if f.entity}
     base, grand = _bases(facts)
     families = {w: sorted(e for e in base if e in MATCH_TYPES and e.startswith(w)) for w in ("broad", "exact", "phrase")}
@@ -951,7 +1014,8 @@ def trace(text, facts):
                 tol = max(tol, judged * 0.001)  # "₹1,087" for 1,086.48: a slip in the last digit, not a wrong figure
             about = min(evidence, key=evidence.get) if evidence else None
             loose = about == "cost" and kind == "money" and bool(COST_WORD.search(masked[max(0, start - 20):start]))
-            verdict, detail = _judge(judged, tol, kind, evidence, seen, facts + here, implied and not here, loose)
+            near = look.near(judged, tol, kind)
+            verdict, detail = _judge(judged, tol, kind, evidence, seen, near + here, implied and not here, loose)
             if verdict != "traced":
                 a, b = next(((a, b) for a, b in sentences if a <= start < b), (0, len(line)))
                 edges = [e.start() for e in CLAUSE_EDGE.finditer(masked)]
@@ -984,7 +1048,7 @@ def trace(text, facts):
                 why = _cant_check(masked[a:b]) if verdict == "traced" else None
                 if why:  # a range is loose evidence: in a forecast or a target, never call it traced
                     verdict, detail = "can't check", why
-                fact = next((f for f in facts + here if f.label == detail), None) if verdict == "traced" else None
+                fact = look.first(detail, near, here) if verdict == "traced" else None
                 if fact:  # rows named together share the range: "X and Y show 9-14%" needs each inside it
                     fits = {}
                     for f in facts:  # a row is inside when its total or any of its rows is ("plumbing services" phrase)

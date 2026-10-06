@@ -9,7 +9,7 @@ import os
 from dataclasses import asdict
 
 from . import __version__
-from .checkfacts import facts_for_check, facts_for_paths
+from .checkfacts import facts_for_check, facts_for_paths, industry_facts, report_settings
 from .engine import benchmarks
 from .engine.trace import render_check, trace
 from .ingest import load_report
@@ -112,7 +112,10 @@ def check(text, paths_json, industry=""):
     """Check every number in an audit against the files (and optionally an industry's averages)."""
     paths = json.loads(paths_json)
     try:
-        facts = facts_for_check(text, paths, industry or None)
+        if report_settings(text):  # an OpenPPC report: its audit is re-run with the settings it was made with
+            facts = facts_for_check(text, paths, industry or None)
+        else:  # anyone else's audit: the exports' facts, already read when the numbers were counted
+            facts = _export_facts(paths) + industry_facts(industry or None)
     except READ_ERRORS as e:
         return _json({"ok": False, "error": _clean(e, paths)})
     claims, contradictions = trace(text, facts)
