@@ -82,6 +82,18 @@ def header(book, report, title):
             "_Built by OpenPPC, read-only: computed from this file alone, with no network calls._", ""]
 
 
+def settings_line(min_s, brand=None, industry=None):
+    """The settings that change a report's figures, said in the report itself, so `openppc check` can run the same
+    audit again when it checks this report against the export."""
+    bits = [f"waste threshold {min_s}"]
+    if brand and brand.strip():
+        bits.append(f"brand terms “{brand.strip()}”")
+    if industry:
+        from ..engine.benchmarks import lookup
+        bits.append(f"industry averages: {lookup(industry)['key']}")
+    return "Settings: " + " · ".join(bits)
+
+
 def fingerprint(path):
     """SHA-256 of the export, so a reader can tell exactly which file a report was computed from."""
     try:

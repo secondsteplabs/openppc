@@ -71,3 +71,18 @@ def test_flags_are_called_wrong_number_and_wrong_label(capsys):
     out = capsys.readouterr().out
     assert "3 wrong numbers, 1 wrong label" in out and "| wrong number |" in out and "| wrong label |" in out
     assert "not in data" not in out.lower() and "mismatch" not in out.lower()
+
+
+def test_openppcs_own_report_passes_its_own_check_whatever_its_settings(tmp_path, capsys):
+    # A report made with brand terms, its own threshold or an industry says so, and the check runs the same audit
+    from openppc.checkfacts import facts_for_check, report_settings
+    for opts in ([], ["--brand", "plumber, drain"], ["--min-cost", "7.50"], ["--industry", "home-services"]):
+        out = tmp_path / "own.md"
+        assert main(["audit", "search-term-waste", str(CSV), "--out", str(out), *opts]) == 0
+        text = out.read_text()
+        claims, contradictions = trace(text, facts_for_check(text, [CSV]))
+        assert not [c for c in claims if c.verdict in ("mismatch", "not in data")] and not contradictions, opts
+        assert main(["check", "--audit", str(out), "--data", str(CSV)]) == 0, opts  # can't check never fails a check
+    capsys.readouterr()
+    assert report_settings(text) == {"template": "search-term-waste", "min_cost": 20.0, "industry": "home-services"}
+    assert report_settings("Settings: waste threshold $1.00") == {}  # only OpenPPC's own reports carry settings

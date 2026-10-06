@@ -51,7 +51,7 @@ CUR = rf"(?:(?:US|AU|A|CA|C|NZ|HK|S|R|MX)\$|[$€£₹¥]|Rs\.?\s?|(?:{CODES})\s
 # ("-$0.00"), but a dash between two numbers is not one ("$5-$7").
 NUM = re.compile(rf"(?<![\w.$])(?P<sign>[-\u2212](?=\d|{CUR}))?(?P<cur>{CUR})?\s?(?P<num>\d{{1,3}}(?:,\d{{3}})+(?:\.\d+)?"
                  rf"|\d{{1,2}}(?:,\d{{2}})+,\d{{3}}(?:\.\d+)?|\d{{1,3}}(?:\.\d{{3}})+,\d{{1,2}}(?!\d)"
-                 rf"|(?<!\d,)\d+,\d{{1,2}}(?![\d,])|\d+(?:\.\d+)?)(?P<mag>[kKmM](?![A-Za-z])|\s?(?:[Ll]akhs?|[Ll]acs?|[Cc]rores?|[Cc]r)\b)?"
+                 rf"|(?<!\d,)\d+,\d{{1,2}}(?![\d,])|\d+(?:\.\d+)?)(?P<mag>[kKmM](?![A-Za-z])|\s?(?:[Ll]akhs?|[Ll]acs?|[Cc]rores?|[Cc]r|mn|bn)\b|\s(?:[Tt]housand|[Mm]illion|[Bb]illion)\b)?"
                  rf"(?P<pct>\s?%)?(?P<code>\s(?:{CODES})\b)?")
 LIST_MARKER = re.compile(r"^\s*(?:[-*>]\s*)?(\d+)[.):/]\s")
 MONTH_DAY = re.compile(r"\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})\b",
@@ -63,7 +63,8 @@ FROM_TO = re.compile(rf"\bfrom\s+~?{CUR}?\s?(\d[\d,]*(?:\.\d+)?)\s*%?\s*(?:to|�
 VERB = re.compile(r"\b(fell|falls|fall|dropped|drops|declined|decreased|shrank|slipped|down|"
                   r"rose|rises|grew|increased|climbed|jumped|up)\b", re.I)
 DOWN_VERBS = {"fell", "falls", "fall", "dropped", "drops", "declined", "decreased", "shrank", "slipped", "down"}
-MAG = {"k": 1e3, "m": 1e6, "lakh": 1e5, "lakhs": 1e5, "lac": 1e5, "lacs": 1e5, "crore": 1e7, "crores": 1e7, "cr": 1e7}
+MAG = {"k": 1e3, "m": 1e6, "lakh": 1e5, "lakhs": 1e5, "lac": 1e5, "lacs": 1e5, "crore": 1e7, "crores": 1e7, "cr": 1e7,
+       "thousand": 1e3, "million": 1e6, "billion": 1e9, "mn": 1e6, "bn": 1e9}
 GENERIC = ("", "rule")  # facts that fit any wording: account-level unlabeled figures and our own thresholds
 MONEY_METRICS = {"cost", "cpc", "cpa"}  # a dollar figure is a cost, a cost per click or a cost per conversion
 ACCOUNT_ONLY = {"days"}  # no search term or keyword has a figure in days
@@ -174,9 +175,10 @@ NOT_A_SUBSET = {"all", "the", "your", "our", "their", "its", "these", "those", "
 PER_UNIT_GAP = re.compile(r"\s*(?:(?:to|-|–|and)\s*~?[$€£₹]?\s?[\d,.]+[kKmM]?\s*)?")
 LABEL_COLON = re.compile(r"[\s*_]*:[\s*_]*")
 # "$44 to $48", "9-14%": the two ends of a range share their words
-BETWEEN = re.compile(rf"\bbetween\s+~?{CUR}?\s?(\d[\d,.]*)\s*%?\s*(?:and|&)\s*~?{CUR}?\s?(\d[\d,.]*)")
+RANGE_MAG = r"(?:[km]|\s?(?:thousand|million|lakhs?|crores?))?"  # "$2.5k to $3k": the first end's own magnitude
+BETWEEN = re.compile(rf"\bbetween\s+~?{CUR}?\s?(\d[\d,.]*){RANGE_MAG}\s*%?\s*(?:and|&)\s*~?{CUR}?\s?(\d[\d,.]*)")
 EU_DECIMAL = re.compile(r",\d{1,2}$")  # "58,51" and "4.973,64"; "4,200" and "1,44,775" are grouped thousands
-RANGE = re.compile(rf"(\d[\d,]*(?:\.\d+)?)\s*%?\s*(?:to|–|-)\s*~?{CUR}?\s?(\d[\d,]*(?:\.\d+)?)")
+RANGE = re.compile(rf"(\d[\d,]*(?:\.\d+)?){RANGE_MAG}\s*%?\s*(?:to|–|-)\s*~?{CUR}?\s?(\d[\d,]*(?:\.\d+)?)")
 COST_WORD = re.compile(r"\bcosts?\b|\bcosting\b")  # "cost $157.02" may mean a price per lead as well as a total
 # a table on its side whose columns are the account: "| Metric | July |", "| | Value |"
 PERIOD_HEADER = re.compile(r"^\W*(?:values?|totals?|account|amounts?|figures?|results?|numbers?|this month|last month|"

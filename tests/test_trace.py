@@ -140,3 +140,14 @@ def test_a_waste_figure_over_a_slice_is_never_compared_with_all_of_it():
         assert acme(text) == [("$751.70", "can't check")], text
     assert acme("You wasted $751.70 on search terms with zero conversions.") == [("$751.70", "not in data")]
     assert acme("You wasted $784.70 on search terms with zero conversions.") == [("$784.70", "traced")]
+
+
+def test_magnitudes_in_words_and_ranges_with_k():
+    facts = [Fact("cost of the account", 2700, "money", "cost")]
+    assert verdicts_of("The account cost $2.5k to $3k.", facts) == [("$2.5k", "traced"), ("$3k", "traced")]
+    assert verdicts_of("The account cost $2.7 thousand.", facts) == [("$2.7 thousand", "traced")]
+
+
+def verdicts_of(text, facts):
+    claims, _ = trace(text, facts)
+    return [(c.written, c.verdict) for c in claims]

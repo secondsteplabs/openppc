@@ -5,7 +5,8 @@ the Quality Score section. Every figure below is computed from that file alone.
 """
 from ..engine import benchmarks
 from ..facts import FactBook
-from ._common import brand_matcher, conv_dp, esc, header, min_cost_for, need, plural, totals, val
+from ._common import (brand_matcher, conv_dp, esc, header, min_cost_for, need, plural, settings_line, totals,
+                      val)
 
 NAME = "keyword-audit"
 TITLE = "Keyword audit"
@@ -34,6 +35,7 @@ def run(report, min_cost=None, industry=None, low_qs=4, top=25, brand=None, **_)
     out = header(book, report, TITLE)
     total_cost = book.money("total cost", grand.cost)
     min_s = book.money("minimum cost for a no-conversion flag (rule)", min_cost, "rule")
+    out[4:4] = [settings_line(min_s, brand, industry), ""]  # before the "Built by OpenPPC" line
     cpa = grand.cost / grand.conversions if grand.conversions else None
     if not known_default:
         out += [f"_OpenPPC has no default threshold for {report.currency}, so it used {min_s}. "
