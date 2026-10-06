@@ -60,6 +60,48 @@ def _automated(row):
     return (row.get("campaign_type") or "search").strip().lower() not in ("search", "")
 
 
+class _Term:
+    """One search term's rows added up. Reads like the dict it replaces (t["cost"], t.get("campaign")) at under half
+    its memory: an export can hold 100,000 search terms."""
+    __slots__ = ("search_term", "cost", "clicks", "impressions", "conversions", "search_cost", "automated_cost",
+                 "search_rows", "automated_rows", "group", "match_type", "campaign_type", "campaign", "added_excluded")
+
+    def __init__(self, search_term):
+        self.search_term = search_term
+        self.cost = self.clicks = self.impressions = self.conversions = self.search_cost = self.automated_cost = 0.0
+        self.search_rows = self.automated_rows = 0
+        self.group = self.match_type = self.campaign_type = self.campaign = self.added_excluded = None
+
+    def __getitem__(self, key):
+        if key in _FIELDS:
+            return getattr(self, key)
+        raise KeyError(key)
+
+    def get(self, key, default=None):
+        return getattr(self, key) if key in _FIELDS else default
+
+    def __contains__(self, key):
+        return key in _FIELDS
+
+    def note(self, field, value):
+        """Remember a column's value, once each, in the order first seen: one value as itself, more as a list."""
+        seen = getattr(self, field)
+        if seen is None:
+            setattr(self, field, value)
+        elif isinstance(seen, str):
+            if value != seen:
+                setattr(self, field, [seen, value])
+        elif value not in seen:
+            seen.append(value)
+
+    def noted(self, field):
+        seen = getattr(self, field)
+        return [] if seen is None else [seen] if isinstance(seen, str) else seen
+
+
+_FIELDS = frozenset(_Term.__slots__)
+
+
 def _by_term(rows):
     """One row per search term. Google's report lists a term once for each campaign, ad group and match type it
     showed in, so the rows are added up before anything is judged: a term that converts on any of its rows is
@@ -69,29 +111,30 @@ def _by_term(rows):
         key = " ".join(r["search_term"].lower().split())
         m = merged.get(key)
         if m is None:
-            m = merged[key] = {"search_term": r["search_term"].strip(), "cost": 0.0, "clicks": 0.0, "impressions": 0.0,
-                               "conversions": 0.0, "search_cost": 0.0, "automated_cost": 0.0, "search_rows": 0,
-                               "automated_rows": 0, "_match": [], "_type": [], "_campaign": [], "_added": []}
-        for k in ("cost", "clicks", "impressions", "conversions"):
-            m[k] += val(r, k)
-        side = "automated" if _automated(r) else "search"
-        m[side + "_cost"] += val(r, "cost")
-        m[side + "_rows"] += 1
-        for field, column in (("_match", "match_type"), ("_type", "campaign_type"), ("_campaign", "campaign"),
-                              ("_added", "added_excluded")):
+            m = merged[key] = _Term(r["search_term"].strip())
+        m.cost += val(r, "cost")
+        m.clicks += val(r, "clicks")
+        m.impressions += val(r, "impressions")
+        m.conversions += val(r, "conversions")
+        if _automated(r):
+            m.automated_cost += val(r, "cost")
+            m.automated_rows += 1
+        else:
+            m.search_cost += val(r, "cost")
+            m.search_rows += 1
+        for column in ("match_type", "campaign_type", "campaign", "added_excluded"):
             v = (r.get(column) or "").strip()
-            if v and v not in m[field]:
-                m[field].append(v)
-    terms = []
-    for m in merged.values():
-        m["group"] = "search" if not m["automated_rows"] else "automated" if not m["search_rows"] else "both"
-        m["match_type"] = ", ".join(m.pop("_match"))
-        m["campaign_type"] = ", ".join(m.pop("_type"))
-        campaigns = m.pop("_campaign")
-        m["campaign"] = campaigns[0] if len(campaigns) == 1 else f"{len(campaigns)} campaigns" if campaigns else ""
-        added = [a for a in m.pop("_added") if a.lower() != "none"]
-        m["added_excluded"] = added[0] if added else "None"
-        terms.append(m)
+            if v:
+                m.note(column, v)
+    terms = list(merged.values())
+    for m in terms:
+        m.group = "search" if not m.automated_rows else "automated" if not m.search_rows else "both"
+        m.match_type = ", ".join(m.noted("match_type"))
+        m.campaign_type = ", ".join(m.noted("campaign_type"))
+        campaigns = m.noted("campaign")
+        m.campaign = campaigns[0] if len(campaigns) == 1 else f"{len(campaigns)} campaigns" if campaigns else ""
+        added = [a for a in m.noted("added_excluded") if a.lower() != "none"]
+        m.added_excluded = added[0] if added else "None"
     return terms
 
 

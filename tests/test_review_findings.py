@@ -147,3 +147,15 @@ def test_an_export_with_no_spend_and_a_threshold_of_0_has_no_shares_to_divide(tm
     assert {r["share"] for r in book.cards["waste"]} == {"--"}
     claims, _ = trace(text, [f for f in book.facts if f.metric != "rule"])
     assert not [c for c in claims if c.verdict in ("not in data", "mismatch")]
+
+
+def test_a_search_term_added_up_reads_like_a_row():
+    from openppc.templates.search_term_waste import _by_term
+    rows = [{"search_term": "pipe repair", "cost": 12.0, "clicks": 4.0, "campaign": "Search - Plumbing",
+             "match_type": "Exact match", "campaign_type": "Search", "added_excluded": "None"},
+            {"search_term": "Pipe  repair ", "cost": 11.0, "clicks": 3.0, "campaign": "PMax - Plumbing",
+             "match_type": "Broad match", "campaign_type": "Performance Max", "added_excluded": "Added"}]
+    (t,) = _by_term(rows)
+    assert (t["cost"], t.get("clicks"), t["group"], t["campaign"], t["match_type"], t["added_excluded"]) == (
+        23.0, 7.0, "both", "2 campaigns", "Exact match, Broad match", "Added")
+    assert t.get("quality_score") is None and "cost" in t and "quality_score" not in t
