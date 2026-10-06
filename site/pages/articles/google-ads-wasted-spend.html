@@ -18,32 +18,30 @@ author: Shivendra Rawat
   <article class="doc-body">
     <span class="label">Guide</span>
     <h1>Is that search term really wasting money? The math most Google Ads audits skip</h1>
-    <p class="byline">By Shivendra Rawat · 6 October 2026 · 6 min read</p>
+    <p class="byline">By Shivendra Rawat · 6 October 2026 · 7 min read</p>
     <p class="doc-lead">Most audits call every search term that spent money and never converted "wasted spend", and tell you to add it as a negative. Two checks are usually missing: judging each term on its total across every row Google lists it on, and asking whether it has had enough clicks to tell a bad term from bad luck. Skip them and you block terms that would have converted.</p>
 
     <h2 id="sample">The example: one month of a plumbing account</h2>
     <p>Acme Plumbing is the made-up sample account that ships with OpenPPC. In July it spent $4,973.64 on 732 clicks and got 85 conversions: an 11.6% conversion rate, at $58.51 per conversion. Seven search terms spent money with no conversion:</p>
-    <div class="table-scroll">
-      <table class="data-table">
-        <thead><tr><th>Search term</th><th class="amt">Cost</th><th class="amt">Clicks</th><th class="amt">Conversions</th></tr></thead>
-        <tbody>
-          <tr><td>free plumbing estimate</td><td class="amt">$312.00</td><td class="amt">41</td><td class="amt">0</td></tr>
-          <tr><td>plumber jobs hiring</td><td class="amt">$188.00</td><td class="amt">22</td><td class="amt">0</td></tr>
-          <tr><td>how to unclog a drain yourself</td><td class="amt">$121.00</td><td class="amt">19</td><td class="amt">0</td></tr>
-          <tr><td>plumbing franchise cost</td><td class="amt">$64.80</td><td class="amt">9</td><td class="amt">0</td></tr>
-          <tr><td>plumbing supply store</td><td class="amt">$48.40</td><td class="amt">11</td><td class="amt">0</td></tr>
-          <tr><td>plumber reviews</td><td class="amt">$33.00</td><td class="amt">6</td><td class="amt">0</td></tr>
-          <tr><td>pvc pipe bulk</td><td class="amt">$17.50</td><td class="amt">5</td><td class="amt">0</td></tr>
-        </tbody>
-      </table>
-    </div>
+    <figure class="viz">
+      <div class="viz-head"><b>Seven search terms that spent money and never converted</b><span>Acme Plumbing, July: cost and clicks. A typical audit calls every one of them waste.</span></div>
+      <div class="bars" aria-hidden="true">
+      <div class="bar-row"><span class="bar-name">free plumbing estimate</span><span class="bar-track"><svg width="100%" height="14"><rect class="bar-bg" width="100%" height="14" rx="7"/><rect class="bar-fg" width="100.0%" height="14" rx="7"/></svg></span><span class="bar-val"><b>$312.00</b> 41 clicks</span></div>
+      <div class="bar-row"><span class="bar-name">plumber jobs hiring</span><span class="bar-track"><svg width="100%" height="14"><rect class="bar-bg" width="100%" height="14" rx="7"/><rect class="bar-fg" width="60.3%" height="14" rx="7"/></svg></span><span class="bar-val"><b>$188.00</b> 22 clicks</span></div>
+      <div class="bar-row"><span class="bar-name">how to unclog a drain yourself</span><span class="bar-track"><svg width="100%" height="14"><rect class="bar-bg" width="100%" height="14" rx="7"/><rect class="bar-fg" width="38.8%" height="14" rx="7"/></svg></span><span class="bar-val"><b>$121.00</b> 19 clicks</span></div>
+      <div class="bar-row"><span class="bar-name">plumbing franchise cost</span><span class="bar-track"><svg width="100%" height="14"><rect class="bar-bg" width="100%" height="14" rx="7"/><rect class="bar-fg" width="20.8%" height="14" rx="7"/></svg></span><span class="bar-val"><b>$64.80</b> 9 clicks</span></div>
+      <div class="bar-row"><span class="bar-name">plumbing supply store</span><span class="bar-track"><svg width="100%" height="14"><rect class="bar-bg" width="100%" height="14" rx="7"/><rect class="bar-fg" width="15.5%" height="14" rx="7"/></svg></span><span class="bar-val"><b>$48.40</b> 11 clicks</span></div>
+      <div class="bar-row"><span class="bar-name">plumber reviews</span><span class="bar-track"><svg width="100%" height="14"><rect class="bar-bg" width="100%" height="14" rx="7"/><rect class="bar-fg" width="10.6%" height="14" rx="7"/></svg></span><span class="bar-val"><b>$33.00</b> 6 clicks</span></div>
+      <div class="bar-row"><span class="bar-name">pvc pipe bulk</span><span class="bar-track"><svg width="100%" height="14"><rect class="bar-bg" width="100%" height="14" rx="7"/><rect class="bar-fg" width="5.6%" height="14" rx="7"/></svg></span><span class="bar-val"><b>$17.50</b> 5 clicks</span></div>
+      </div>
+    </figure>
     <p>A typical audit says: six terms spent at least $20 each with no conversions, $767.20 in all, 15.4% of the budget. Add them as negatives and save about $9,000 a year. The arithmetic is right. The conclusion is premature.</p>
 
     <h2 id="per-term">Check 1: judge each term on its total, not its rows</h2>
     <p>Google's search terms report lists a term once for every campaign, ad group and match type it showed in. A term can have no conversions in one ad group and four in another. Judged row by row, it looks like waste in the first. Judged on its total, it's one of your converters. Add the rows up per search term before you judge anything.</p>
 
     <h2 id="bad-luck">Check 2: is it a bad term, or bad luck?</h2>
-    <p>Take "free plumbing estimate": 41 clicks, no conversions. If it converted like the account average, 11.6% of the time, going 41 clicks without one would happen only about 1% of the time. It looks proven.</p>
+    <p>Take "free plumbing estimate": 41 clicks, no conversions. If it converted like the account average, 11.6% of the time, going 41 clicks without one would happen less than 1% of the time. It looks proven.</p>
     <p>But that sum assumes the term is average, and search terms aren't. In most accounts some terms convert at several times the average and others at a fraction of it, and a term can convert below average and still be worth paying for. The useful question is narrower: <b>is this term converting at less than half the account's rate?</b> That depends on how much this account's terms differ from each other, which the export itself can tell you.</p>
     <p>OpenPPC's waste model asks exactly that question, using what the account's other terms show about how much terms vary. For this account its answer is:</p>
     <ul>
@@ -51,9 +49,23 @@ author: Shivendra Rawat
       <li>A term here needs <b>about 59 clicks with no conversion</b>, about $400.88 at this account's prices, before the model is 90% sure it's bad.</li>
       <li>None of the six terms has reached that yet. The honest recommendation is to give them more clicks, with a budget in mind, before adding negatives.</li>
     </ul>
+    <figure class="viz">
+      <div class="viz-head"><b>How sure can you be?</b><span>The chance a search term is bad, meaning it converts at under half the account's rate, as clicks pile up with no conversion. OpenPPC's waste model, fitted to this account.</span></div>
+      <div class="curve" aria-hidden="true"><div class="curve-y"><span>100%</span><span>50%</span><span>0%</span></div><div class="curve-area"><svg class="curve-plot" viewBox="0 0 100 100" preserveAspectRatio="none"><line class="c-grid" x1="0" x2="100" y1="0" y2="0" vector-effect="non-scaling-stroke"/><line class="c-grid" x1="0" x2="100" y1="50" y2="50" vector-effect="non-scaling-stroke"/><line class="c-grid" x1="0" x2="100" y1="100" y2="100" vector-effect="non-scaling-stroke"/><line class="c-bar" x1="0" x2="100" y1="10.0" y2="10.0" vector-effect="non-scaling-stroke"/><polyline class="c-line" points="0.00,80.21 1.25,78.47 2.50,76.71 3.75,74.94 5.00,73.15 6.25,71.35 7.50,69.55 8.75,67.74 10.00,65.95 11.25,64.15 12.50,62.37 13.75,60.61 15.00,58.86 16.25,57.13 17.50,55.42 18.75,53.74 20.00,52.08 21.25,50.44 22.50,48.84 23.75,47.27 25.00,45.72 26.25,44.21 27.50,42.73 28.75,41.29 30.00,39.88 31.25,38.50 32.50,37.15 33.75,35.84 35.00,34.57 36.25,33.32 37.50,32.12 38.75,30.94 40.00,29.80 41.25,28.70 42.50,27.62 43.75,26.58 45.00,25.57 46.25,24.60 47.50,23.65 48.75,22.73 50.00,21.85 51.25,20.99 52.50,20.17 53.75,19.37 55.00,18.59 56.25,17.85 57.50,17.13 58.75,16.44 60.00,15.77 61.25,15.12 62.50,14.50 63.75,13.90 65.00,13.33 66.25,12.77 67.50,12.24 68.75,11.72 70.00,11.23 71.25,10.75 72.50,10.30 73.75,9.86 75.00,9.44 76.25,9.03 77.50,8.64 78.75,8.27 80.00,7.91 81.25,7.56 82.50,7.23 83.75,6.92 85.00,6.61 86.25,6.32 87.50,6.04 88.75,5.77 90.00,5.52 91.25,5.27 92.50,5.04 93.75,4.81 95.00,4.59 96.25,4.39 97.50,4.19 98.75,4.00 100.00,3.82" vector-effect="non-scaling-stroke"/></svg><svg class="curve-over" width="100%" height="100%" overflow="visible"><text class="c-bar-lab" x="0" y="10.0%" dx="6" dy="-6">90% sure: block it</text><circle class="c-dot" cx="51.25%" cy="20.99%" r="6"><title>41 clicks: 79% likely bad</title></circle><text class="c-lab" x="51.25%" y="20.99%" dx="10" dy="20">41 clicks: 79%</text><circle class="c-dot sure" cx="73.75%" cy="9.86%" r="6"><title>59 clicks: 90% sure</title></circle><text class="c-lab" x="73.75%" y="9.86%" dx="10" dy="20">59 clicks: 90%</text></svg></div><div></div><svg class="curve-x" width="100%" height="18"><text x="0.0%" y="13" text-anchor="start">0</text><text x="25.0%" y="13" text-anchor="middle">20</text><text x="50.0%" y="13" text-anchor="middle">40</text><text x="75.0%" y="13" text-anchor="middle">60</text><text x="100.0%" y="13" text-anchor="end">80</text></svg></div>
+      <div class="curve-xlab">Clicks with no conversion</div>
+      <figcaption>Before a single click, any term here has about a 20% chance of being bad. "free plumbing estimate" is at 79% after 41 clicks. 90% takes 59 clicks.</figcaption>
+    </figure>
 
     <h2 id="meaning">Check 3: some terms are wrong whatever the numbers say</h2>
     <p>Statistics tells you when results prove a term bad. Meaning tells you when a term is wrong for you whatever its results. "plumber jobs hiring" is job seekers. "plumbing franchise cost" is someone buying a business, and "plumbing supply store" is a shopper looking for parts. A plumbing company doesn't need 59 clicks of evidence to block those. Use meaning for intent that can never convert, and the math for everything else.</p>
+    <figure class="viz">
+      <div class="viz-head"><b>Meaning first, then the math</b><span>The seven terms, sorted by intent and by evidence. The percentage is each term's chance of being bad.</span></div>
+      <div class="matrix">
+        <div class="span2 m-block"><span class="m-h">Can never become a customer: block now</span><span class="m-sub">The numbers alone wouldn't block these yet. Their meaning does.</span><div class="m-chips"><span>plumber jobs hiring<b>57%</b></span><span>plumbing franchise cost<b>36%</b></span><span>plumbing supply store<b>39%</b></span></div></div>
+        <div><span class="m-h">Could convert, proven bad: block</span><span class="m-sub">At least 90% sure, which takes about 59 clicks here</span><span class="m-none">None yet in this account</span></div>
+        <div class="m-wait"><span class="m-h">Could convert, too early: keep watching</span><span class="m-sub">Give them more clicks, with a budget in mind</span><div class="m-chips"><span>free plumbing estimate<b>79%</b></span><span>how to unclog a drain yourself<b>53%</b></span><span>plumber reviews<b>30%</b></span><span>pvc pipe bulk<b>29%</b></span></div></div>
+      </div>
+    </figure>
 
     <h2 id="other">Three more traps</h2>
     <ul>
