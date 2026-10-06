@@ -18,27 +18,50 @@ author: Shivendra Rawat
   <article class="doc-body">
     <span class="label">Guide</span>
     <h1>How do you check a Google Ads audit? A 10-minute method</h1>
-    <p class="byline">By Shivendra Rawat · 6 October 2026 · 5 min read</p>
+    <p class="byline">By Shivendra Rawat · 6 October 2026 · 6 min read</p>
     <p class="doc-lead">Get the export the audit was written from, then check the numbers the audit worked out, not just the ones it copied: the totals first, then every group of search terms, then shares and ratios. Set aside targets and forecasts, which no export can confirm. Here is the method step by step, with the slips to look for at each step.</p>
+    <figure class="viz">
+      <div class="viz-head"><b>The check, at a glance</b><span>Eight steps, about ten minutes for a short audit</span></div>
+      <ol class="vsteps">
+        <li><b>Get the export</b>Same report, same dates<em>1 min</em></li>
+        <li><b>Sort the numbers</b>Copied, worked out, or outside the data<em>1 min</em></li>
+        <li><b>Re-add the totals</b>Cost, clicks, conversions<em>2 min</em></li>
+        <li><b>Check group sums</b>Every "these terms" figure<em>2 min</em></li>
+        <li><b>Ask "a share of what?"</b>The right total under every %<em>1 min</em></li>
+        <li><b>Check the labels</b>Clicks aren't conversions<em>1 min</em></li>
+        <li><b>Check direction words</b>"Fell" has to mean lower<em>1 min</em></li>
+        <li><b>Ask for the working</b>Targets, forecasts, benchmarks<em>1 min</em></li>
+      </ol>
+    </figure>
 
     <h2 id="export">1. Get the same export the audit used</h2>
     <p>A number can only be checked against the data it came from. Ask for the report and the date range, or download them yourself: in Google Ads, open Campaigns, then Insights and reports, then Search terms, pick the same dates, and choose Download, then .csv. A report for a different week will disagree with a correct audit.</p>
 
     <h2 id="sort">2. Sort the numbers into three kinds</h2>
-    <ul>
-      <li><b>Copied:</b> a figure that sits in one row of the export, like a search term's cost. These are usually right.</li>
-      <li><b>Worked out:</b> totals, sums of several terms, shares of spend, cost per conversion, "x times the average". This is where <a href="/articles/ai-google-ads-audit-accuracy/">almost all the errors are</a>.</li>
-      <li><b>Outside the data:</b> targets, forecasts and industry benchmarks. No export can confirm these, so they need a source instead.</li>
-    </ul>
+    <figure class="viz">
+      <div class="viz-head"><b>Three kinds of number</b><span>And how often each was wrong when AI wrote 13 audits in <a href="/articles/ai-google-ads-audit-accuracy/">our test</a></span></div>
+      <div class="kinds3">
+        <div><b>Copied</b><strong>1 in 345</strong><span>was wrong. A figure that sits in one row of the export, like a search term's cost or Google's Total row.</span></div>
+        <div class="amber"><b>Worked out</b><strong>21 in 315</strong><span>were wrong. Totals the audit added up itself, sums of several terms, shares of spend, cost per conversion.</span></div>
+        <div class="grey"><b>Outside the data</b><strong>22</strong><span>numbers no export can confirm: targets, forecasts and industry benchmarks. They need a source.</span></div>
+      </div>
+    </figure>
 
     <h2 id="totals">3. Re-add the totals first</h2>
     <p>Add up cost, clicks and conversions yourself. If the export ends in Google's Total rows, use those, but don't count them twice. If it has no Total row, an audit had to add the rows itself, which is exactly where we saw a total go wrong and take the cost per conversion and every share with it.</p>
 
     <h2 id="groups">4. Check every "these terms" sum</h2>
-    <p>When an audit says "these eight terms wasted ₹25,287", add up the eight terms it lists. In one AI audit we tested, they came to ₹24,427: the total quietly included a ninth term that wasn't in the list. Check that each term is counted once, too. Google lists a search term once per campaign, ad group and match type, so the same term can sit on several rows.</p>
+    <p>When an audit says "these nine terms wasted ₹24,427", count the terms it lists and add them up. In one AI audit we tested, the list had only eight. They did add up to ₹24,427, but the ninth search term with no conversions, worth ₹860, was missing from both the list and the total. Check that each term is counted once, too. Google lists a search term once per campaign, ad group and match type, so the same term can sit on several rows.</p>
 
     <h2 id="shares">5. Ask "a share of what?"</h2>
     <p>"15% of spend" is only right against the right total. Check whether the audit divided by total cost, by search cost only, or by the waste it found. A share computed against the wrong total looks perfectly reasonable on the page.</p>
+    <figure class="viz">
+      <div class="viz-head"><b>The same waste, two shares</b><span>BrightPath's Performance Max spent ₹4,706.35 on search terms with no conversions. Both shares are true; an audit has to say which one it means.</span></div>
+      <div class="bars" aria-hidden="true">
+      <div class="bar-row"><span class="bar-name">Of Performance Max spend</span><span class="bar-track"><svg width="100%" height="14"><rect class="bar-bg" width="100%" height="14" rx="7"/><rect class="bar-fg" width="60.1%" height="14" rx="7"/></svg></span><span class="bar-val"><b>60.1%</b> of ₹7,826.85</span></div>
+      <div class="bar-row"><span class="bar-name">Of all spend</span><span class="bar-track"><svg width="100%" height="14"><rect class="bar-bg" width="100%" height="14" rx="7"/><rect class="bar-fg" width="3.3%" height="14" rx="7"/></svg></span><span class="bar-val"><b>3.3%</b> of ₹144,775.20</span></div>
+      </div>
+    </figure>
 
     <h2 id="labels">6. Check the label on each number</h2>
     <p>A right number can carry the wrong label. "22 conversions" when 22 is that term's clicks is a real figure, on the wrong metric. Look for clicks reported as conversions, cost reported as cost per conversion, and one search term's figures credited to another.</p>
@@ -48,6 +71,16 @@ author: Shivendra Rawat
 
     <h2 id="working">8. Ask for the working on everything else</h2>
     <p>For targets, forecasts and benchmarks, ask where each one comes from. A saving forecast should show the spend it assumes and how it was worked out. An industry average should name its source.</p>
+
+
+    <figure class="viz">
+      <div class="viz-head"><b>Try it: spot the slip</b><span>Three lines, one slip in each, of the kinds this method catches. The third is from a real AI audit in our test.</span></div>
+      <div class="quiz">
+        <details><summary>"plumber jobs hiring brought in 22 conversions."</summary><p>Wrong label. 22 is the term's clicks. It had no conversions at all.</p></details>
+        <details><summary>"Conversion rate fell from 9% to 14%."</summary><p>Wrong direction. 14% is higher than 9%, so the rate rose. The word and the numbers disagree.</p></details>
+        <details><summary>"These nine terms burned ₹24,427."</summary><p>Wrong group sum. The audit listed eight terms, and they add up to ₹24,427. The ninth term with no conversions, worth ₹860, was missing from both the list and the total.</p></details>
+      </div>
+    </figure>
 
     <h2 id="automate">Or let code do it</h2>
     <p>Done by hand, this takes about ten minutes for a short audit and much longer for a long one. OpenPPC does it in seconds: paste the audit, add the export, and every number comes back <b>traced</b>, a <b>wrong number</b> (with the real figure), a <b>wrong label</b>, or <b>can't check</b> when no export can confirm it. Sentences that contradict their own numbers are flagged, and <b>Copy fix list</b> gives you a note to send back to whoever wrote the audit.</p>
