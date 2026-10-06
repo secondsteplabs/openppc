@@ -24,12 +24,12 @@ def run_template(name, path, **params):
     return markdown, book.facts, passed
 
 
-def run_template_book(name, path, **params):
-    """Same as run_template, but hands back the whole FactBook, cards included."""
+def run_template_book(name, path, data=None, **params):
+    """Same as run_template, but hands back the whole FactBook, cards included. data: the file, already read."""
     if name not in TEMPLATES:
         raise ValueError(f"unknown template '{name}'. Available: {', '.join(TEMPLATES)}")
     template = TEMPLATES[name]
-    lines, book = template.run(load_input(template, path), **params)
+    lines, book = template.run(load_input(template, path) if data is None else data, **params)
     markdown = "\n".join(lines)
     claims, contradictions = trace(markdown, book.facts)
     passed = all(c.verdict == "traced" for c in claims) and not contradictions

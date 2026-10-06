@@ -4,6 +4,7 @@ import hashlib
 import os
 import re
 from collections import namedtuple
+from operator import methodcaller
 
 Totals = namedtuple("Totals", "cost clicks impressions conversions")
 
@@ -31,7 +32,10 @@ def val(row, key):
 
 
 def totals(rows):
-    return Totals(*(sum(val(r, k) for r in rows) for k in ("cost", "clicks", "impressions", "conversions")))
+    # Each column summed in row order, as sum(val(r, k) for r in rows) would, but read in C: a blank or zero is
+    # left out because adding it changes no sum (sum() starts at 0 and adds 0 as 0.0, which leaves it as it is).
+    return Totals(*(sum(filter(None, map(methodcaller("get", k), rows)))
+                    for k in ("cost", "clicks", "impressions", "conversions")))
 
 
 def conv_dp(*values):

@@ -88,3 +88,25 @@ def test_the_count_before_a_check_is_the_checks_own():
     paths = json.dumps([str(ROOT / "examples" / "search_terms_acme.csv")])
     total = json.loads(webapi.check(text, paths))["counts"]["total"]
     assert webapi.count_numbers(text, paths) == total == webapi.count_numbers(text) + 1
+
+
+def test_adding_counting_checking_and_auditing_read_a_file_once(tmp_path, monkeypatch):
+    import os
+    import shutil
+    path = tmp_path / "terms.csv"
+    shutil.copy(SAMPLE_CSV, path)
+    reads = []
+    real = webapi.load_report
+    monkeypatch.setattr(webapi, "load_report", lambda p: reads.append(p) or real(p))
+    webapi._READ.clear()
+    webapi._EXPORT_FACTS.clear()
+    text = "The account spent $4,973.64."
+    assert json.loads(webapi.inspect_file(str(path)))["ok"]
+    assert webapi.count_numbers(text, json.dumps([str(path)])) == 1
+    assert json.loads(webapi.check(text, json.dumps([str(path)])))["counts"]["traced"] == 1
+    assert len(reads) == 1  # the chip, the count and the check share one read
+    assert json.loads(webapi.audit("search-term-waste", str(path)))["passed"]
+    assert len(reads) == 2  # the rows were handed to the count; the audit reads them again, once
+    path.write_bytes(path.read_bytes() + b"\n")  # a new upload under the same name
+    os.utime(path, ns=(1, 1))
+    assert json.loads(webapi.inspect_file(str(path)))["ok"] and len(reads) == 3

@@ -39,6 +39,7 @@ so every trace names the fact it matched. Read the "traced to" column, don't jus
 """
 import heapq
 import re
+from bisect import bisect_left, bisect_right
 from dataclasses import dataclass
 
 from ..facts import Fact, fmt_money
@@ -824,14 +825,20 @@ class _Lookup:
         pairs.sort(key=lambda pair: pair[0])
         self.pairs, self.taken = pairs, {i for i, _ in pairs}
         self.facts = [f for _, f in pairs]
+        # the same facts by value, so a number reads the few near it, not thousands of campaign and template figures
+        self.order = sorted((k for k, f in enumerate(self.facts) if f.value == f.value), key=lambda k: self.facts[k].value)
+        self.values = [self.facts[k].value for k in self.order]
 
     def near(self, value, tol, kind):
-        """Every fact a number could be, in order: all of self.facts, and the closest block figure of each kind and
-        metric within tol of it."""
-        hits = sorted((off + i, f) for off, block in self.blocks for i, f in block.near(value, tol, kind, self.taken, off))
-        if not hits:
+        """Every fact a number could be, in order: the facts within tol of it, and the closest block figure of each
+        kind and metric. A list is read whole, as before."""
+        if not self.blocks:
             return self.facts
-        return [f for _, f in heapq.merge(self.pairs, hits, key=lambda pair: pair[0])]
+        slack = 1e-9 * max(1.0, abs(value), tol)  # the window only narrows the search; _judge's own test decides
+        lo, hi = bisect_left(self.values, value - tol - slack), bisect_right(self.values, value + tol + slack)
+        mine = [self.pairs[k] for k in sorted(self.order[lo:hi])]
+        hits = sorted((off + i, f) for off, block in self.blocks for i, f in block.near(value, tol, kind, self.taken, off))
+        return [f for _, f in heapq.merge(mine, hits, key=lambda pair: pair[0])]
 
     def first(self, label, near, here):
         """The first fact with this label in the order of all the facts: the one a range is held against."""
