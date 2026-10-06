@@ -105,6 +105,20 @@ def broken_links(out):
     return broken
 
 
+MEDIA_REF = re.compile(r'\b(src|poster)="(/(?:img|media)/[^"?#]+)"')
+
+
+def version_media(html, out):
+    """Point a page at its images and video by content too: /media/openppc-demo.mp4?v=<hash>. Cloudflare keeps
+    media for days, so a replaced demo video or screenshot would otherwise wait out the old file's cache."""
+    def tag(m):
+        path = out / m.group(2).lstrip("/")
+        if not path.is_file():
+            return m.group(0)  # broken_links reports it
+        return f'{m.group(1)}="{m.group(2)}?v={hashlib.sha256(path.read_bytes()).hexdigest()[:12]}"'
+    return MEDIA_REF.sub(tag, html)
+
+
 def version_app(app):
     """Point the app at its files by content: style.css?v=<hash>. Cloudflare tells browsers to keep scripts for
     hours, and the page itself is never cached, so a fresh page must name the exact files it was built with, or a
@@ -145,7 +159,7 @@ def build(out=DIST):
             docs_current=' aria-current="page"' if docs and url == "/docs/" else "",
             install_current=' aria-current="page"' if url == "/docs/install/" else "")
         (out / dest).parent.mkdir(parents=True, exist_ok=True)
-        (out / dest).write_text(html, encoding="utf-8")
+        (out / dest).write_text(version_media(html, out), encoding="utf-8")
         if url != "/404.html":
             urls.append(url)
     urls.append("/app/")
