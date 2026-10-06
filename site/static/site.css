@@ -381,6 +381,9 @@ figcaption { font-size: 14px; color: var(--faint); }
 .doc-body .vsteps li::before { content: counter(vstep); position: absolute; left: 14px; top: 13px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: #fff; font-size: 13px; font-weight: 800; }
 .doc-body .vsteps li b { font-size: 15px; line-height: 1.3; color: var(--ink); }
 .doc-body .vsteps li em { font-style: normal; font-size: 12.5px; font-weight: 700; color: var(--accent-ink); }
+.doc-body .vsteps.rows { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.doc-body .vsteps.rows li { flex-direction: row; flex-wrap: wrap; align-items: baseline; column-gap: 6px; padding: 12px 14px 12px 50px; font-size: 14.5px; }
+.doc-body .vsteps.rows li::before { top: 9px; }
 
 /* two lists side by side */
 .compare { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
@@ -423,7 +426,7 @@ figcaption { font-size: 14px; color: var(--faint); }
 
 /* a line over a grid: the line is drawn in a stretched viewBox, labels and dots in a plain one */
 .curve { display: grid; grid-template-columns: 40px minmax(0, 1fr); column-gap: 8px; }
-.curve-y { height: 220px; margin-block: -8px; display: flex; flex-direction: column; justify-content: space-between; font-size: 12px; text-align: right; color: var(--faint); }
+.curve-y { height: 236px; margin-block: -8px; display: flex; flex-direction: column; justify-content: space-between; font-size: 12px; text-align: right; color: var(--faint); }
 .curve-area { display: grid; height: 220px; }
 .curve-area > svg { grid-area: 1 / 1; display: block; width: 100%; height: 220px; overflow: visible; }
 .c-grid { stroke: var(--line); stroke-width: 1; }
