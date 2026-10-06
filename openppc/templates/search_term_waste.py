@@ -231,7 +231,7 @@ def _cards(book, grand, waste, sure, chance, top, wc, share, d, y, cpa_s, indust
         rows.append({"term": t, "cost": book.money(f"cost of '{t}'", val(r, "cost"), "cost", t),
                      "clicks": book.count(f"clicks of '{t}'", val(r, "clicks"), "clicks", t),
                      "share": book.pct(f"'{t}' share of total cost", val(r, "cost") / grand.cost * 100, "cost", t),
-                     "chance": _chance_text(book, t, p), "p": p, "sure": any(r is x for x in sure),
+                     "chance": _chance_text(book, t, p), "p": round(p, 4) if p is not None else None, "sure": any(r is x for x in sure),
                      "match_type": r.get("match_type", ""), "campaign": r.get("campaign", ""),
                      "campaign_type": r.get("campaign_type", ""), "automated": r["group"] != "search"})
     return {"template": NAME, "kpis": kpis, "actions": actions, "waste": rows, "waste_total": len(waste)}

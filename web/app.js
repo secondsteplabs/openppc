@@ -27,6 +27,14 @@ const state = {
   lastAudit: null, autorun: false, wantIndustry: '',
 };
 const el = {};
+// The sample's results, computed when this page was built by the same engine (tools/build_web.py), so "Try the
+// sample" shows them at once while the engine downloads. Used only for the untouched sample, never for your files.
+const SAMPLE = () => window.OPENPPC_BUNDLE.sample;
+const SAMPLE_PATH = () => window.OPENPPC_BUNDLE.sample_path;
+let sampleText = null;
+let markReady;
+const engineReady = new Promise((resolve, reject) => { markReady = { resolve, reject }; });
+engineReady.catch(() => {});  // a page that never waits for the engine must not report its failure twice
 
 /* ---------- tiny DOM helpers (text always goes in as text, never as HTML) ---------- */
 function h(tag, attrs, ...kids) {
@@ -166,12 +174,16 @@ async function boot() {
     renderFiles();
     return;
   }
-  status('Downloading the checker, about 6 MB. First visit only, then your browser keeps it.', 'loading');
+  state.meta = SAMPLE().meta;  // the pickers and the sample work before the engine has loaded
+  fillIndustries();
+  status('Downloading the checker, about 6 MB. The sample opens right away; your own files need the checker.', 'loading');
   try {
     state.meta = await startEngine();
-    for (const i of state.meta.industries) el.industry.append(h('option', { value: i.key }, i.name));
+    fillIndustries();
+    for (const f of state.files) if (f.sample) await engineWrite(f.path, f.bytes);  // added while it was starting
     if (state.wantIndustry && !el.industry.value) el.industry.value = state.wantIndustry;
     status('Ready. Everything runs on this device.', 'ok');
+    markReady.resolve();
     const queued = state.queue.splice(0);
     for (const q of queued) addBytes(q.name, q.bytes);
     if (queued.length === 0) renderFiles();
@@ -180,14 +192,28 @@ async function boot() {
     state.engine = 'error';
     console.error(e);
     status(`The checker could not start: ${e.message}`, 'error');
+    markReady.reject(e);
   }
+}
+function fillIndustries() {
+  const have = new Set([...el.industry.options].map((o) => o.value));
+  for (const i of state.meta.industries) if (!have.has(i.key)) el.industry.append(h('option', { value: i.key }, i.name));
 }
 
 /* ---------- files ---------- */
 async function addFile(file) {
   addBytes(file.name, new Uint8Array(await file.arrayBuffer()));
 }
-async function addBytes(name, bytes) {
+async function addBytes(name, bytes, sample = false) {
+  if (sample && state.engine !== 'ready') {  // shown at once; the engine gets the file when it starts
+    const path = SAMPLE_PATH();
+    state.files = state.files.filter((f) => f.path !== path).concat([{ name, path, info: SAMPLE().info, bytes, sample: true }]);
+    if (state.mode === 'audit') autoTemplate();
+    syncThreshold();
+    renderFiles();
+    refresh();
+    return;
+  }
   if (state.engine !== 'ready') {
     state.queue.push({ name, bytes });
     renderFiles();
@@ -200,7 +226,7 @@ async function addBytes(name, bytes) {
   try {
     await engineWrite(path, bytes);
     const info = JSON.parse(await engineCall('inspect_file', path));
-    state.files = state.files.filter((f) => f.path !== path).concat([{ name, path, info, bytes }]);
+    state.files = state.files.filter((f) => f.path !== path).concat([{ name, path, info, bytes, sample }]);
   } catch (e) {
     if (!(e instanceof Stopped)) throw e;
   } finally {
@@ -257,11 +283,21 @@ function loadSample() {
   if (state.mode === 'check') {
     el.text.value = new TextDecoder().decode(b64bytes(samples['ai_audit_sample.md']));
   }
-  if (!el.industry.value) {
-    if (state.engine === 'ready') el.industry.value = 'home-services'; else state.wantIndustry = 'home-services';
-  }
-  addBytes('search_terms_acme.csv', b64bytes(samples['search_terms_acme.csv']));
+  if (!el.industry.value) el.industry.value = 'home-services';  // the industries are listed before the engine loads
+  addBytes('search_terms_acme.csv', b64bytes(samples['search_terms_acme.csv']), true);
   updateCount();
+}
+// The sample's result computed in advance, when what is on the page is exactly the untouched sample; else null.
+function sampleResult() {
+  const files = goodFiles();
+  if (files.length !== 1 || !files[0].sample || el.industry.value !== 'home-services') return null;
+  if (state.mode === 'check') {
+    sampleText ??= new TextDecoder().decode(b64bytes(window.OPENPPC_BUNDLE.samples['ai_audit_sample.md']));
+    return el.text.value === sampleText ? SAMPLE().check : null;
+  }
+  const brand = el.brandWrap.hidden ? '' : el.brand.value.trim();
+  const fits = state.template === 'search-term-waste' && !brand && parseFloat(el.minCost.value) === SAMPLE().info.min_cost;
+  return fits ? SAMPLE().audit : null;
 }
 
 /* ---------- compose ---------- */
@@ -273,11 +309,13 @@ async function updateCount() {
     const paths = JSON.stringify(goodFiles().map((f) => f.path));  // the export's row names change the count
     try { count = Number(await engineCall('count_numbers', text, paths)); } catch { count = 0; }
     if (run !== state.countRun) return;  // a later edit is being counted
+  } else if (text.trim() && sampleResult()) {
+    count = SAMPLE().count;
   }
   state.count = count;
   state.counting = false;
   el.count.textContent = !text.trim() ? ''
-    : state.engine !== 'ready' ? 'The numbers get counted once the checker loads.'
+    : state.engine !== 'ready' && !count ? 'The numbers get counted once the checker loads.'
       : state.count ? `${plural(state.count, 'number')} found in this text` : 'No numbers found in this text yet.';
   refresh();
 }
@@ -304,14 +342,14 @@ function refresh() {
   let enabled;
   let label;
   if (state.mode === 'check') {
-    enabled = ready && goodFiles().length > 0 && state.count > 0;
+    enabled = (ready || !!sampleResult()) && goodFiles().length > 0 && state.count > 0;
     label = state.count && !state.counting ? `Check ${plural(state.count, 'number')}` : 'Check numbers';
   } else {
-    const f = auditFile();
-    enabled = ready && !!f && !!state.template && f.info.templates.includes(state.template);
-    label = 'Run audit';
     el.threshold.hidden = !['search-term-waste', 'keyword-audit'].includes(state.template);
     el.brandWrap.hidden = el.threshold.hidden;
+    const f = auditFile();
+    enabled = (ready || !!sampleResult()) && !!f && !!state.template && f.info.templates.includes(state.template);
+    label = 'Run audit';
     renderTemplates();
   }
   if (!state.busy) {  // while a run is going, the button keeps its "Checking…" label
@@ -392,14 +430,15 @@ async function runCheck() {
   const text = el.text.value;
   const files = goodFiles();
   const industry = el.industry.value;
+  const pre = sampleResult();
   const t0 = performance.now();
-  const res = JSON.parse(await engineCall('check', text, JSON.stringify(files.map((f) => f.path)), industry));
+  const res = pre ? structuredClone(pre) : JSON.parse(await engineCall('check', text, JSON.stringify(files.map((f) => f.path)), industry));
   const ms = performance.now() - t0;
   if (!res.ok) { toast(capital(res.error)); return; }
   const title = firstTitle(text);
   const left = h('div', { class: 'col' },
     bubble(files, industry, title, `Pasted audit · ${plural(res.counts.total, 'number')} found`),
-    h('div', { class: 'col', style: 'gap:10px' }, who(`Number check · ${secs(ms)} · on this device`), message(res)),
+    h('div', { class: 'col', style: 'gap:10px' }, who(pre ? 'Number check · the sample, checked in advance' : `Number check · ${secs(ms)} · on this device`), message(res)),
     annotated(text, res),
     numbersTable(res.claims),
     h('div', { class: 'chips' }, h('button', { class: 'btn', type: 'button', onclick: showCompose }, 'Edit the audit and check again')));
@@ -657,8 +696,10 @@ async function runAudit() {
   const minCost = parseFloat(el.minCost.value);
   const brand = el.brandWrap.hidden ? '' : el.brand.value.trim();
   try { localStorage.setItem('openppc.brand', brand); } catch { /* storage can be off; the field still works */ }
+  const pre = sampleResult();
   const t0 = performance.now();
-  const res = JSON.parse(await engineCall('audit', template.name, file.path, industry, Number.isFinite(minCost) ? minCost : null, brand));
+  const res = pre ? structuredClone(pre)
+    : JSON.parse(await engineCall('audit', template.name, file.path, industry, Number.isFinite(minCost) ? minCost : null, brand));
   const ms = performance.now() - t0;
   if (!res.ok) { toast(capital(res.error)); return; }
   const cards = res.cards && res.cards.template === 'search-term-waste' ? res.cards : null;
@@ -683,7 +724,7 @@ async function runAudit() {
     bubble([file], industry, `Run the ${template.title.toLowerCase()}`,
       [!el.threshold.hidden && minCost >= 0 ? `Waste threshold ${el.minCostSign.textContent}${minCost.toLocaleString('en-US')}` : 'Free template',
         brand ? `Brand: ${brand}` : ''].filter(Boolean).join(' · ')),
-    h('div', { class: 'col', style: 'gap:10px' }, who(`${template.title} · ${secs(ms)} · on this device`), blocks[0]),
+    h('div', { class: 'col', style: 'gap:10px' }, who(pre ? `${template.title} · the sample, run in advance` : `${template.title} · ${secs(ms)} · on this device`), blocks[0]),
     blocks.slice(1));
   const checkCard = res.passed
     ? h('div', { class: 'green' }, h('span', { class: 'ok-dot' }, (() => { const t = icon('check', 18, 3); t.setAttribute('stroke', '#ffffff'); return t; })()),
@@ -747,12 +788,12 @@ function wasteCard(cards) {
         h('button', { class: 'btn btn-dark', type: 'button', onclick: () => copyNegatives(chosen()) }, icon('copy'), 'Copy as negatives'))),
     h('div', { class: 'table-wrap' }, h('table', { class: 't waste' },
       h('thead', {}, h('tr', {}, h('th', { class: 'pick' }, h('label', { class: 'hit' }, all)), h('th', {}, 'Search term'), h('th', {}, 'Cost'),
-        h('th', {}, 'Clicks'), h('th', { class: 'wide-only' }, 'Share'), h('th', {}, "Chance it's bad"), h('th', { class: 'wide-only' }, 'Match type'), h('th', { class: 'wide-only' }, 'Suggested'))),
+        h('th', { class: 'clicks' }, 'Clicks'), h('th', { class: 'wide-only' }, 'Share'), h('th', {}, "Chance it's bad"), h('th', { class: 'wide-only' }, 'Match type'), h('th', { class: 'wide-only' }, 'Suggested'))),
       h('tbody', {}, rows.map((r, i) => h('tr', {},
         h('td', { class: 'pick' }, h('label', { class: 'hit' }, boxes[i])),
         h('td', {}, h('span', { class: 'term' }, r.term),
           r.campaign ? h('span', { class: 'term-c' }, r.automated && r.campaign_type ? `${r.campaign} · ${r.campaign_type}` : r.campaign) : null),
-        h('td', { class: 'num' }, r.cost), h('td', { class: 'num' }, r.clicks), h('td', { class: 'num wide-only' }, r.share),
+        h('td', { class: 'num' }, r.cost), h('td', { class: 'num clicks' }, r.clicks), h('td', { class: 'num wide-only' }, r.share),
         h('td', {}, chanceBar(r)), h('td', { class: 'muted wide-only' }, r.match_type || '--'),
         h('td', { class: 'wide-only' }, h('span', { class: 'pill ' + (r.sure ? 'p-nid' : 'p-mis') }, r.sure ? 'Negative' : 'Watch'))))))),
     h('p', { class: 'foot' }, (more > 0 ? `Plus ${plural(more, 'more term')} in the full report. ` : '') +
@@ -1134,6 +1175,21 @@ async function relayout() {
   if (run !== pdf.run || state.view !== 'branded') return;
   const { sheets, clipped } = paginate(pdf.model, kit, measureHost());
   const names = [kit.agency, kit.client, kit.title].filter(Boolean);
+  if (!pdf.audit.token) {  // the sample's audit was run in advance: run it once in the engine, which keeps it to check against
+    pdf.status.textContent = 'Checking the numbers once the checker has loaded…';
+    try {
+      await engineReady;
+      await engineWrite(SAMPLE_PATH(), b64bytes(window.OPENPPC_BUNDLE.samples['search_terms_acme.csv']));
+      const real = JSON.parse(await engineCall('audit', 'search-term-waste', SAMPLE_PATH(), 'home-services', SAMPLE().info.min_cost, ''));
+      pdf.audit.token = real.token;
+    } catch (e) {
+      console.error(e);
+      pdf.status.className = 'pdf-status bad';
+      pdf.status.replaceChildren(h('b', {}, 'Saving is off.'), ' The checker could not start in this browser.');
+      return;
+    }
+    if (run !== pdf.run || state.view !== 'branded') return;
+  }
   const res = JSON.parse(await engineCall('verify', pdf.audit.token, pagesText(sheets), JSON.stringify(names)));
   if (run !== pdf.run || state.view !== 'branded') return;
   el.pdfPages.replaceChildren(...sheets.map((s) => h('div', { class: 'sheet-wrap' }, s)));
