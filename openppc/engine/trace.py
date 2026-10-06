@@ -70,6 +70,14 @@ MONEY_METRICS = {"cost", "cpc", "cpa"}  # a dollar figure is a cost, a cost per 
 ACCOUNT_ONLY = {"days"}  # no search term or keyword has a figure in days
 NEVER_METRICS = {"cost", "clicks", "impressions", "terms"}  # what the terms that never converted add up to
 GROUP = "__group__"  # the rows a sentence takes together; its figures are worked out per sentence
+# Campaign types, under the names audits use for them ("Performance Max campaigns took ₹7,115"); checkfacts registers
+# each type's totals under these names. Never plain "Search": that word is everywhere ("search terms").
+CAMPAIGN_TYPES = {"performance max": ("Performance Max", "PMax"), "search": ("Search campaigns", "Search campaign"),
+                  "shopping": ("Shopping campaigns", "Shopping campaign"), "display": ("Display campaigns", "Display campaign"),
+                  "video": ("Video campaigns", "Video campaign"), "demand gen": ("Demand Gen",)}
+TYPE_NAMES = {n.lower() for names in CAMPAIGN_TYPES.values() for n in names}
+EMPHASIS = re.compile(r"\b(?:only|just)\s+(?=\d[\d,]*\s+[a-z])")  # "delivered only 1 signup": emphasis, not a slice
+TYPE_ALIAS = {n.lower(): names[0].lower() for names in CAMPAIGN_TYPES.values() for n in names}  # "PMax" is Performance Max
 
 # Longer phrases win over the words inside them ("cost per click" is CPC, not cost).
 METRIC_WORDS = [(metric, re.compile(pattern)) for metric, pattern in (
@@ -112,7 +120,14 @@ MATCH_ALIAS = re.compile(r"\b(broad|exact|phrase)\s*(?:and|&|/|or|\+)\s*(broad|e
                          r"\(\s*\d+\s*(?:keywords?|search terms?|terms?)))",
                          re.I)
 SENTENCE = re.compile(r"(?<=[.!?])[*_]{0,2}\s+(?=\S)")
-ANAPHORA = re.compile(r"\b(?:this|it|its|these|those|they|their|both)\b", re.I)
+ANAPHORA = re.compile(r"\b(?:this|these)\b(?!\s+(?:exports?|accounts?|reports?|audits?|periods?|months?|weeks?|"
+                      r"years?|quarters?|date range|data|files?|time|window|analysis|review|summary|section|tables?))|"
+                      r"\b(?:it|its|those|they|their|both)\b", re.I)
+# "5 of them" is part of a set bigger than five: never the two rows named before it
+PART_OF = re.compile(r"\b(two|three|four|five|six|seven|eight|nine|ten|\d{1,3})\s+of\s+(?:them|these|those)\b", re.I)
+# "8% more", "12% cheaper": how two figures compare, which no single figure in an export is
+COMPARED = re.compile(r"\s*(?:more|less|higher|lower|cheaper|fewer|greater|costlier|pricier|bigger|smaller|larger|"
+                      r"better|worse|above|below)\b")
 GROUP_CUE = re.compile(r"\b(?:combined|together|altogether|in total|between them|both|these|those)\b", re.I)
 THESE_N = re.compile(r"\b(?:these|those|the|all)\s+(two|three|four|five|six|seven|eight|nine|ten|\d{1,2})\b", re.I)
 WORD_NUM = {"two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
@@ -430,6 +445,8 @@ def _bases(facts):
     """Each row's own cost, clicks, conversions and impressions, and the account's: what group figures add up."""
     base, grand = {}, {}
     for f in facts:
+        if f.metric == "campaigns" and f.entity:  # how many campaigns a campaign type has
+            base.setdefault(f.entity.lower(), {"level": f.level})["campaigns"] = f.value
         for metric, kind in (("cost", "money"), ("clicks", "count"), ("conversions", "count"),
                              ("impressions", "count")):
             if f.metric != metric or f.kind != kind:
@@ -536,8 +553,12 @@ def _settle(value, kind, about, subject, facts, sentence, detail=""):
         return "can't check", "an earlier figure: an export of one period cannot confirm it"
     if about is None:
         if subject[0] == "row":  # a named row, and none of its figures is this number
-            return "not in data", (detail if detail.startswith("that figure is the")
-                                   else f"none of the figures for '{subject[1]}' is this number")
+            if detail.startswith("that figure is the"):
+                return "not in data", detail
+            cost = next((f for f in facts if f.entity.lower() == subject[1] and f.label == f"cost of '{f.entity}'"), None)
+            if kind == "money" and cost:  # "PMax took ₹7,115": say what it really spent
+                return "not in data", f"none of the figures for '{cost.entity}' is this number; its cost is {_show(cost)}"
+            return "not in data", f"none of the figures for '{subject[1]}' is this number"
         return open_calc
     fact = _canonical(subject, about, kind, facts, sentence)
     if fact is None:
@@ -631,7 +652,7 @@ def _names(line, low, entities, all_entities, families, loose=frozenset()):
     # Campaign and ad group names are labels people chose, and count as written ("Brand converts at 14%").
     ents = [(s, e, n) for s, e, n in ents if n not in loose or _pointed(low, s, e) or any(c.isdigit() for c in n)]
     row = _row_name(line, all_entities)
-    named = [(s, e, n) for s, e, n in ents if n not in loose or _pointed(low, s, e)]
+    named = [(s, e, TYPE_ALIAS.get(n, n)) for s, e, n in ents if n not in loose or _pointed(low, s, e)]
     if row and not any(n == row for _, _, n in named):
         named.append((0, 0, row))
     unions = []
@@ -719,8 +740,14 @@ def _subject(named, unions, row, here, implied, lo, hi, a, b, start, sentence, c
     sentence_union = any(a <= s < b for s, _, _ in unions)
 
     def one(name):
-        if base.get(name, {}).get("level") != "row" and (QUALIFIER.search(sentence) or _subset_noun(sentence)):
+        if base.get(name, {}).get("level") != "row" and (QUALIFIER.search(EMPHASIS.sub("", sentence))
+                                                          or _subset_noun(sentence)):
             return None  # "Search broad match", "water heater keywords ... broad": a slice of the match type
+        if name in TYPE_NAMES and (WASTE_WORDS.search(sentence) or NEVER.search(sentence)
+                                   or SUBSET.search(re.sub(r"\bcampaigns?\b", "", EMPHASIS.sub("", sentence)))):
+            return None  # "PMax wasted ₹1,019 on terms that never converted": a slice of that campaign type
+        if name in TYPE_NAMES and base.get(name, {}).get("campaigns", 1) > 1 and re.search(r"\bcampaign\b", line[a:b].lower()):
+            return None  # "the Search campaign spent ₹2,000": one of several, not all of them
         return ("row", name)
 
     def together():
@@ -738,7 +765,8 @@ def _subject(named, unions, row, here, implied, lo, hi, a, b, start, sentence, c
     if not in_sentence and ANAPHORA_START.search(sentence) and len(named_before) == 1:
         return one(named_before[0])
     if about in NEVER_METRICS and (NEVER.search(sentence) or WASTE_WORDS.search(sentence)):
-        return None if NEVER_SLICE.search(sentence) or NEVER_SLICE.search(heading) else ("never", None)
+        typed = any(n in TYPE_NAMES for n in in_sentence)  # "In Search campaigns, terms with zero conversions ..."
+        return None if typed or NEVER_SLICE.search(sentence) or NEVER_SLICE.search(heading) else ("never", None)
     if UNNAMED.search(clause):
         return ("unnamed", None)
     if WHATIF.search(sentence) or TARGET.search(sentence) or _labelled(before):
@@ -803,7 +831,8 @@ def trace(text, facts):
         if row:  # a table row is about its first cell; its match type column is a description, not a subject
             names = {n for n in names if n not in MATCH_TYPES or n == row}
         implied = False
-        if not names and ANAPHORA.search(low) and carried:
+        part = [WORD_NUM.get(k.lower()) or (int(k) if k.isdigit() else 0) for k in PART_OF.findall(low)]
+        if not names and ANAPHORA.search(low) and carried and not any(k >= len(carried) for k in part):
             names, implied = set(carried), True  # "This term generated 2 conversions": the row named just before
         numbers = [(m.start("cur") if m.group("cur") else m.start("num"), m.end()) for m in NUM.finditer(line)]
         partners = {}  # "from $45 to $58" and "60 of 85 conversions": one number may use its partner's words
@@ -933,6 +962,8 @@ def trace(text, facts):
                 lo, hi = max(lo, a), min(hi, b)
                 anchored = bool(ACCOUNT_ANCHOR.search(masked[lo:start]))
                 why = None if anchored else _cant_check(masked[lo:hi])  # names blanked: "free ... estimate" is a term
+                if not why and pct and COMPARED.match(masked, m.end()):  # "cost 8% more ($6.78 vs. $6.28)"
+                    why = "a comparison between two figures, not a figure in your data"
                 if why:
                     verdict, detail = "can't check", why
                 elif not anchored and detail.startswith("only a row the text doesn't name") and tol < 0.005 * judged:

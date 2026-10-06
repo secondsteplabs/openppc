@@ -1,7 +1,7 @@
 """Facts for `openppc check`: every figure a reasonable audit of your files could cite.
 
-For each export we register the account totals, every row, and every campaign, ad group
-and match type group: cost, clicks, impressions, conversions, CTR, CPC, cost per
+For each export we register the account totals, every row, and every campaign, ad group,
+match type and campaign type: cost, clicks, impressions, conversions, CTR, CPC, cost per
 conversion, conversion rate, and each one's share of the total. Then we add every number
 our own templates would print. Template thresholds are left out on purpose: a threshold
 we chose is not a fact about your account.
@@ -10,6 +10,7 @@ import re
 from dataclasses import replace
 
 from .engine import benchmarks
+from .engine.trace import CAMPAIGN_TYPES
 from .facts import Fact, FactBook
 from .ingest import load_report
 from .ingest.account import is_snapshot, read_json, snapshot
@@ -43,6 +44,7 @@ def report_settings(text):
         found["industry"] = m.group(1)
     return found
 GROUP_KEYS = ("campaign", "ad_group", "match_type")
+
 
 
 def facts_for_report(report, settings=None):
@@ -94,6 +96,18 @@ def facts_for_report(report, settings=None):
                         book.pct(f"'{name}' share of the cost of {word} with no conversions", mine / waste * 100,
                                  "cost", name)
             book.facts[start:] = [replace(f, level="group") for f in book.facts[start:]]
+    if report.has("campaign_type"):
+        kinds = {}
+        for row in report.rows:
+            kinds.setdefault((row.get("campaign_type") or "").strip().lower(), []).append(row)
+        start = len(book.facts)
+        for kind, members in kinds.items():
+            for name in CAMPAIGN_TYPES.get(kind, ()):
+                register_group(book, name, totals(members), grand)
+                if report.has("campaign"):  # "the Search campaign" is one of them when there are several
+                    book.count(f"campaigns in '{name}'", len({r["campaign"] for r in members if r.get("campaign")}),
+                               "campaigns", name)
+        book.facts[start:] = [replace(f, level="group") for f in book.facts[start:]]
     for template in TEMPLATES.values():
         if template.INPUT_KIND == "report" and template.accepts(report):
             same = settings and settings.get("template") == template.NAME  # the report's own settings

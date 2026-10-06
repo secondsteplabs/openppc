@@ -163,3 +163,45 @@ def test_a_one_word_name_is_a_row_only_when_the_text_points_at_it():
     assert verdicts_of("“plumbing” spent $75.00 with no conversions.", facts) == [("$75.00", "not in data")]
     assert verdicts_of("- **Brand:** ₹2,290 in July.", facts) == [("₹2,290", "traced")]  # a line's label
     assert verdicts_of("The Brand campaign spent $2,290.", facts) == [("$2,290", "traced")]
+
+
+def test_campaign_types_have_their_own_totals():
+    # "Performance Max campaigns took $615.50": a campaign type's spend is a figure an export holds
+    import datetime as dt
+    from openppc.checkfacts import facts_for_report
+    from openppc.ingest.google_ads_csv import Report
+    rows = [{"search_term": "plumber near me", "campaign": "Core", "campaign_type": "Search", "clicks": 100,
+             "impressions": 1000, "cost": 600.0, "conversions": 10},
+            {"search_term": "water heater", "campaign": "PMax All", "campaign_type": "Performance Max", "clicks": 60,
+             "impressions": 2000, "cost": 410.0, "conversions": 1},
+            {"search_term": "drain repair", "campaign": "PMax All", "campaign_type": "Performance Max", "clicks": 30,
+             "impressions": 900, "cost": 205.5, "conversions": 0},
+            {"search_term": "plumber salary", "campaign": "Jobs", "campaign_type": "Search", "clicks": 8, "impressions": 90,
+             "cost": 50.0, "conversions": 0}]
+    report = Report(rows=rows, columns={"search_term", "campaign", "campaign_type", "clicks", "impressions", "cost",
+                                        "conversions"},
+                    source="t.csv", start=dt.date(2026, 7, 1), end=dt.date(2026, 7, 31), currency="USD")
+    facts = facts_for_report(report)
+    assert verdicts_of("Those Performance Max campaigns took $615.50 and drove only 1 lead.", facts)[0] == ("$615.50", "traced")
+    claims, _ = trace("PMax took $1,000.00.", facts)
+    assert claims[0].verdict == "not in data" and claims[0].detail.endswith("its cost is $615.50")
+    assert verdicts_of("Search campaigns spent $700.00.", facts) == [("$700.00", "not in data")]  # really $650.00
+    assert verdicts_of("PMax wasted $205.50 on terms that never converted.", facts) == [("$205.50", "traced")]  # our template's
+    assert verdicts_of("PMax wasted $150.00 on terms that never converted.", facts) == [("$150.00", "can't check")]  # a slice
+    assert verdicts_of("The search terms report shows $1,265.50 spent.", facts)[0][1] == "traced"  # "search" alone is no name
+    # one PMax campaign: "the PMax campaign" is all of it; two Search campaigns: "the Search campaign" is one of them
+    assert verdicts_of("The PMax campaign took $1,000.00.", facts) == [("$1,000.00", "not in data")]
+    assert verdicts_of("The Search campaign spent $600.00.", facts) == [("$600.00", "can't check")]
+
+
+def test_comparisons_reports_and_parts_are_read_for_what_they_are():
+    kw = facts_for_paths([Path(__file__).parent.parent / "examples" / "keywords_acme.csv"])
+    # "8% more" says how two figures compare: it is not broad match's share of anything
+    assert verdicts_of("Broad clicks cost 8% more ($6.78 vs. $6.28).", kw)[:2] == [("8%", "can't check"),
+                                                                                 ("$6.78", "traced")]
+    assert verdicts_of("Broad clicks cost only 8% more ($6.78 vs. $6.28).", kw)[0] == ("8%", "can't check")
+    # "this export" is the report itself, never the campaign named before it
+    assert verdicts_of("Core spent the most.\n\nAccount totals in this export: 882 clicks.", ACME) == [("882", "not in data")]
+    # "5 of them" is part of a set bigger than the two campaigns named before it
+    claims, _ = trace("Core and Drains spent the most.\n\nThe model is sure about 5 of them, which wasted $999.00.", ACME)
+    assert [(c.written, c.verdict) for c in claims] == [("$999.00", "not in data")]
