@@ -6,6 +6,7 @@
 Pages are HTML fragments in site/pages/ with a short header comment (title, description),
 wrapped in site/layout.html. The build fails on any internal link or file that does not exist.
 """
+import hashlib
 import json
 import re
 import shutil
@@ -104,11 +105,32 @@ def broken_links(out):
     return broken
 
 
+def version_app(app):
+    """Point the app at its files by content: style.css?v=<hash>. Cloudflare tells browsers to keep scripts for
+    hours, and the page itself is never cached, so a fresh page must name the exact files it was built with, or a
+    returning visitor runs a new page on an old engine. Each file is hashed after the names inside it are set."""
+    def tag(name):
+        return f"{name}?v={hashlib.sha256((app / name).read_bytes()).hexdigest()[:12]}"
+
+    def point(name, old, new):
+        path = app / name
+        text = path.read_text(encoding="utf-8")
+        assert text.count(old) == 1, f"{name}: expected one {old!r}"
+        path.write_text(text.replace(old, new), encoding="utf-8")
+
+    point("engine-worker.js", "import('./engine.js')", f"import('./{tag('engine.js')}')")
+    point("app.js", "new Worker('engine-worker.js'", f"new Worker('{tag('engine-worker.js')}'")
+    for old in ('href="style.css"', 'src="engine.js"', 'src="app.js"'):
+        name = old.split('"')[1]
+        point("index.html", old, old.replace(name, tag(name)))
+
+
 def build(out=DIST):
     out = Path(out)
     shutil.rmtree(out, ignore_errors=True)
     shutil.copytree(SITE / "static", out)
     shutil.copytree(ROOT / "web", out / "app")
+    version_app(out / "app")
     for src, dest in BRAND.items():
         shutil.copyfile(ROOT / "brand" / src, out / dest)
     layout = Template((SITE / "layout.html").read_text(encoding="utf-8"))
