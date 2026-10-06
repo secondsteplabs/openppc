@@ -209,7 +209,7 @@ def _cards(book, grand, waste, sure, chance, top, wc, share, d, y, cpa_s, indust
     kpis = []
     if wc:
         n = book.count("search terms flagged as waste", len(waste))
-        rule = f" of {min_s} or more" if min_s else ""  # the threshold, so this never reads as every zero-conversion term
+        rule = f" of {min_s}+" if min_s else ""  # the threshold, so this never reads as every zero-conversion term
         kpis.append({"label": "Wasted spend", "value": wc,
                      "note": f"{n} {plural(len(waste), 'term')}{rule}, zero conversions"})
         kpis.append({"label": "Share of total cost", "value": share, "note": f"of {book.money('total cost', grand.cost)}"})
