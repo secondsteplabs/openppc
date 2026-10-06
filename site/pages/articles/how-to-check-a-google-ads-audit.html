@@ -1,0 +1,64 @@
+<!--
+title: How do you check a Google Ads audit? A 10-minute method · OpenPPC
+description: Before you act on a Google Ads audit, from an agency or an AI, check its numbers against the export it came from. A step-by-step method, and how to automate it.
+headline: How do you check a Google Ads audit? A 10-minute method
+schema: article
+date: 2026-10-06
+author: Shivendra Rawat
+-->
+<div class="wrap doc">
+  <nav class="doc-nav" aria-label="Articles">
+    <a href="/articles/">All articles</a>
+    <a class="sub" href="/articles/ai-google-ads-audit-accuracy/">How accurate are AI audits?</a>
+    <a class="sub" href="/articles/future-of-google-ads-audits/">The future of audits</a>
+    <a class="sub" href="/articles/how-to-check-a-google-ads-audit/">How to check an audit</a>
+    <a class="sub" href="/articles/google-ads-wasted-spend/">Is it really wasted spend?</a>
+  </nav>
+  <article class="doc-body">
+    <span class="label">Guide</span>
+    <h1>How do you check a Google Ads audit? A 10-minute method</h1>
+    <p class="byline">By Shivendra Rawat · 6 October 2026 · 5 min read</p>
+    <p class="doc-lead">Get the export the audit was written from, then check the numbers the audit worked out, not just the ones it copied: the totals first, then every group of search terms, then shares and ratios. Set aside targets and forecasts, which no export can confirm. Here is the method step by step, with the slips to look for at each step.</p>
+
+    <h2 id="export">1. Get the same export the audit used</h2>
+    <p>A number can only be checked against the data it came from. Ask for the report and the date range, or download them yourself: in Google Ads, open Campaigns, then Insights and reports, then Search terms, pick the same dates, and choose Download, then .csv. A report for a different week will disagree with a correct audit.</p>
+
+    <h2 id="sort">2. Sort the numbers into three kinds</h2>
+    <ul>
+      <li><b>Copied:</b> a figure that sits in one row of the export, like a search term's cost. These are usually right.</li>
+      <li><b>Worked out:</b> totals, sums of several terms, shares of spend, cost per conversion, "x times the average". This is where <a href="/articles/ai-google-ads-audit-accuracy/">almost all the errors are</a>.</li>
+      <li><b>Outside the data:</b> targets, forecasts and industry benchmarks. No export can confirm these, so they need a source instead.</li>
+    </ul>
+
+    <h2 id="totals">3. Re-add the totals first</h2>
+    <p>Add up cost, clicks and conversions yourself. If the export ends in Google's Total rows, use those, but don't count them twice. If it has no Total row, an audit had to add the rows itself, which is exactly where we saw a total go wrong and take the cost per conversion and every share with it.</p>
+
+    <h2 id="groups">4. Check every "these terms" sum</h2>
+    <p>When an audit says "these eight terms wasted ₹25,287", add up the eight terms it lists. In one AI audit we tested, they came to ₹24,427: the total quietly included a ninth term that wasn't in the list. Check that each term is counted once, too. Google lists a search term once per campaign, ad group and match type, so the same term can sit on several rows.</p>
+
+    <h2 id="shares">5. Ask "a share of what?"</h2>
+    <p>"15% of spend" is only right against the right total. Check whether the audit divided by total cost, by search cost only, or by the waste it found. A share computed against the wrong total looks perfectly reasonable on the page.</p>
+
+    <h2 id="labels">6. Check the label on each number</h2>
+    <p>A right number can carry the wrong label. "22 conversions" when 22 is that term's clicks is a real figure, on the wrong metric. Look for clicks reported as conversions, cost reported as cost per conversion, and one search term's figures credited to another.</p>
+
+    <h2 id="direction">7. Check the direction words</h2>
+    <p>"Conversion rate fell from 9% to 14%" contradicts itself. Every "rose", "fell", "up" and "down" should agree with the numbers next to it.</p>
+
+    <h2 id="working">8. Ask for the working on everything else</h2>
+    <p>For targets, forecasts and benchmarks, ask where each one comes from. A saving forecast should show the spend it assumes and how it was worked out. An industry average should name its source.</p>
+
+    <h2 id="automate">Or let code do it</h2>
+    <p>Done by hand, this takes about ten minutes for a short audit and much longer for a long one. OpenPPC does it in seconds: paste the audit, add the export, and every number comes back <b>traced</b>, a <b>wrong number</b> (with the real figure), a <b>wrong label</b>, or <b>can't check</b> when no export can confirm it. Sentences that contradict their own numbers are flagged, and <b>Copy fix list</b> gives you a note to send back to whoever wrote the audit.</p>
+    <figure><div class="shot"><img src="/img/docs/06-check-results.jpg" alt="OpenPPC's check of a sample AI audit: 4 of 11 numbers don't hold up, with each problem explained" width="2880" height="1800" loading="lazy"></div><figcaption>The sample audit in the app: 4 of 11 numbers don't hold up, and one sentence contradicts itself.</figcaption></figure>
+    <div class="callout">It runs in your browser, uploads nothing and needs no sign-up. <a href="/app/">Check an audit now</a></div>
+
+    <h2 id="questions">Questions</h2>
+    <div class="faq">
+      <details><summary>What do I need to check a Google Ads audit?</summary><p>The audit, and the Google Ads export it was written from: usually the search terms report or the keywords report for the same date range, downloaded as a CSV.</p></details>
+      <details><summary>Can I check an audit that came as a PDF?</summary><p>Yes. Copy the text out of the PDF and paste it next to the export. The numbers are checked the same way whatever wrote the audit.</p></details>
+      <details><summary>Is this only for AI-written audits?</summary><p>No. The same steps work for an agency's audit, a freelancer's report or your own. The checker doesn't care who wrote the numbers, only whether the export backs them up.</p></details>
+      <details><summary>What if a number can't be checked?</summary><p>Treat it as a claim, not a fact, and ask for the working. Targets, forecasts and industry benchmarks can be perfectly reasonable, but no export can confirm them.</p></details>
+    </div>
+  </article>
+</div>

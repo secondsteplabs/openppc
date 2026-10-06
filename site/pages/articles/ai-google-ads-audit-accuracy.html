@@ -1,0 +1,89 @@
+<!--
+title: How accurate are AI-written Google Ads audits? We checked 682 numbers · OpenPPC
+description: We had AI write 13 Google Ads audits and checked every number against the export. 94% were right. Almost every wrong one was a number the AI worked out itself.
+headline: How accurate are AI-written Google Ads audits? We checked 682 numbers
+schema: article
+date: 2026-10-06
+author: Shivendra Rawat
+-->
+<div class="wrap doc">
+  <nav class="doc-nav" aria-label="Articles">
+    <a href="/articles/">All articles</a>
+    <a class="sub" href="/articles/ai-google-ads-audit-accuracy/">How accurate are AI audits?</a>
+    <a class="sub" href="/articles/future-of-google-ads-audits/">The future of audits</a>
+    <a class="sub" href="/articles/how-to-check-a-google-ads-audit/">How to check an audit</a>
+    <a class="sub" href="/articles/google-ads-wasted-spend/">Is it really wasted spend?</a>
+  </nav>
+  <article class="doc-body">
+    <span class="label">Research</span>
+    <h1>How accurate are AI-written Google Ads audits? We checked 682 numbers</h1>
+    <p class="byline">By Shivendra Rawat · 6 October 2026 · 6 min read</p>
+    <p class="doc-lead">Mostly right, and wrong exactly where it hurts. In 13 Google Ads audits written by AI, 94% of the numbers matched the export they came from. Almost every wrong one was a number the AI had worked out itself: a total, a sum, a share or a ratio. Nothing in the writing told the right numbers from the wrong ones.</p>
+
+    <div class="stat-grid">
+      <div><b>682</b><span>numbers checked</span></div>
+      <div><b>94%</b><span>matched the export</span></div>
+      <div><b>3%</b><span>were wrong</span></div>
+      <div><b>21 of 22</b><span>wrong numbers were worked out by the AI</span></div>
+    </div>
+
+    <h2 id="method">How we tested it</h2>
+    <p>We gave three tiers of Anthropic's Claude (Haiku, the small and fast one, then Sonnet and Opus) a Google Ads search terms export and asked for the kinds of audit people actually ask for: a summary for a CEO, a pitch to win the account, a monthly update, a Slack message to a client, a second opinion on another agency's work. Thirteen audits in all. The models wrote without tools: no code and no spreadsheet, only the export pasted in.</p>
+    <p>The exports were made up, in Google's own format, so no real account is in this study. One is Acme Plumbing, a US account that spent $4,973.64 across 18 search terms. The other is BrightPath, an Indian test-prep account that spent ₹144,775.20 across 22. Then we checked every number in every audit against its export: 682 numbers, each worked out again with code and labelled correct, wrong, or not something an export can confirm.</p>
+
+    <h2 id="results">What we found</h2>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr><th>Result</th><th class="amt">Numbers</th><th class="amt">Share</th></tr></thead>
+        <tbody>
+          <tr><td>Matched the export</td><td class="amt">638</td><td class="amt">93.5%</td></tr>
+          <tr><td>Wrong</td><td class="amt">22</td><td class="amt">3.2%</td></tr>
+          <tr><td>Not something an export can confirm (targets, forecasts, benchmarks)</td><td class="amt">22</td><td class="amt">3.2%</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>1. Numbers copied from the export were almost always right</h3>
+    <p>When an audit quoted a figure that sits in the export, such as a search term's cost, clicks or conversions, it was right in every case but one. The models read data well.</p>
+
+    <h3>2. The errors lived in the numbers the AI worked out</h3>
+    <p>21 of the 22 wrong numbers were figures the AI had to compute: account totals it added up itself, sums of groups of search terms, shares of spend and ratios. Two from the test set:</p>
+    <ul>
+      <li><b>"These eight terms wasted ₹25,287."</b> The eight terms listed add up to ₹24,427. ₹25,287 is what all nine zero-conversion terms cost: the audit dropped one term from its list but kept it in the total.</li>
+      <li><b>"Performance Max campaigns took ₹7,115."</b> The four Performance Max rows in the export add up to ₹7,826.85.</li>
+    </ul>
+
+    <h3>3. One wrong total spreads through the whole audit</h3>
+    <p>The BrightPath export has no Total row, so the audit had to add up 22 rows itself, and it got the account's spend wrong. Everything built on that total went wrong with it: the cost per conversion (₹1,608 instead of ₹1,392), the share of spend wasted, and a claim that the account's average cost per conversion was 18 times its best search term's, which is 15.6 times with the real figures. One slip in the addition, and a chain of confident, wrong numbers.</p>
+
+    <h3>4. The smallest model made every error</h3>
+    <p>All 22 wrong numbers came from Haiku: 22 of its 201 numbers, about 1 in 9. Sonnet and Opus got none wrong across 481 numbers between them. This is a small test of one model family, so read it as a direction rather than a law: the faster and cheaper the model, the more you should check what it calculated.</p>
+
+    <h3>5. Some numbers can't be checked at all</h3>
+    <p>Another 22 numbers were not in the export to begin with: targets, forecasts and industry benchmarks. They aren't errors, but no export can confirm them either, and the bigger models wrote them too (8 of the 22). A good audit says where each one comes from. Most don't.</p>
+
+    <h3>6. Nothing in the writing flags the wrong ones</h3>
+    <p>The wrong numbers sat in the same confident sentences as the right ones: no hedging, no "about", no change of tone. Reading an AI audit, you cannot tell which 3% to doubt.</p>
+
+    <h2 id="what-to-do">What this means if you use AI audits</h2>
+    <ul>
+      <li><b>Trust copied figures more than computed ones.</b> A term's cost is probably right. "These terms wasted" and "18 times cheaper" need checking.</li>
+      <li><b>Re-add the totals first,</b> especially when the export has no Total row. A wrong total quietly breaks every share and average built on it.</li>
+      <li><b>Check every group sum against the terms it lists.</b> Dropped and doubled rows are the most common slip.</li>
+      <li><b>Ask for the working</b> on anything that isn't in the export: a target, a forecast or a benchmark.</li>
+      <li><b>Or let code check it.</b> Our <a href="/articles/how-to-check-a-google-ads-audit/">step-by-step method</a> takes about ten minutes by hand.</li>
+    </ul>
+    <div class="callout">OpenPPC checks any audit against the export it came from. Paste the audit, add the export, and every number comes back traced, a wrong number (with the real figure) or a wrong label. It runs in your browser and uploads nothing. <a href="/app/">Open the app</a></div>
+
+    <h2 id="limits">The limits of this test</h2>
+    <p>Thirteen audits, two made-up accounts and one model family. The models had no tools; with a code interpreter or a spreadsheet, the arithmetic slips would probably drop, and we'd like to measure by how much. We plan to rerun the test with other models and with tools, and to publish the results here.</p>
+
+    <h2 id="questions">Questions</h2>
+    <div class="faq">
+      <details><summary>Can AI write a Google Ads audit?</summary><p>Yes, and quickly. In our test the numbers AI copied from the export were almost always right. The numbers it worked out itself, like totals, group sums, shares and ratios, are the ones to check before you act.</p></details>
+      <details><summary>Which numbers in an AI audit should I check first?</summary><p>The account totals, then every sum of a group of search terms, then shares of spend and ratios such as cost per conversion. In our test 21 of the 22 wrong numbers were of these kinds.</p></details>
+      <details><summary>Did the bigger AI models make mistakes?</summary><p>Not in our test: Sonnet and Opus got none of their 481 numbers wrong. They did still write numbers no export can confirm, such as targets and forecasts, so those need a source either way.</p></details>
+      <details><summary>How can I check an AI audit's numbers quickly?</summary><p>Get the export the audit was written from, then check the totals, group sums and shares against it. OpenPPC does this automatically in your browser: it marks every number as traced, a wrong number or a wrong label.</p></details>
+    </div>
+  </article>
+</div>

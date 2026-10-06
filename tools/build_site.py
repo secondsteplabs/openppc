@@ -19,6 +19,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SITE = ROOT / "site"
 DIST = ROOT / "dist"
 ORIGIN = "https://openppc.si"
+AUTHOR_URL = "https://www.linkedin.com/in/shivendrarawat"  # the byline on every article
 GITHUB = "https://github.com/secondsteplabs/openppc"
 # brand/ is the one source of the logo; the site serves copies of these files at its root
 BRAND = {"openppc-logo.svg": "logo.svg", "openppc-icon.svg": "favicon.svg", "png/favicon.ico": "favicon.ico",
@@ -48,6 +49,13 @@ OpenPPC does two things. It checks any audit (from ChatGPT, Claude, an agency or
 - [Install and quick start]({ORIGIN}/docs/install/): browser, command line, self-hosting
 - [Claude, Cursor and ChatGPT]({ORIGIN}/docs/install/#ai): MCP server on your computer (`uvx --from "openppc[mcp]" openppc-mcp`), or a web connector you run with `openppc-mcp --http` (a hosted one is coming soon)
 - [Source code]({GITHUB}): MIT license
+
+## Articles
+
+- [How accurate are AI-written Google Ads audits? We checked 682 numbers]({ORIGIN}/articles/ai-google-ads-audit-accuracy/): 13 AI-written audits, 94% of numbers matched the export; 21 of the 22 wrong numbers were totals, sums, shares or ratios the AI worked out
+- [AI will write every Google Ads audit. Who checks the numbers?]({ORIGIN}/articles/future-of-google-ads-audits/): how audits change when writing them is free: verified numbers, continuous checks, judgment and read-only tools
+- [How do you check a Google Ads audit? A 10-minute method]({ORIGIN}/articles/how-to-check-a-google-ads-audit/): eight checks against the export: totals, group sums, shares, labels, direction words, and the working for targets and forecasts
+- [Is that search term really wasting money?]({ORIGIN}/articles/google-ads-wasted-spend/): judge terms on their total across rows, tell a bad term from bad luck (about 59 clicks in the sample account), and block wrong intent on meaning
 """
 
 
@@ -82,6 +90,14 @@ def structured(meta, url, body):
                        "applicationCategory": "BusinessApplication", "operatingSystem": "Web browser, macOS, Windows, Linux",
                        "description": meta["description"], "url": ORIGIN + url, "license": "https://opensource.org/licenses/MIT",
                        "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "codeRepository": GITHUB})
+    if meta.get("schema") == "article":
+        blocks.append({"@context": "https://schema.org", "@type": "Article", "headline": meta["headline"],
+                       "description": meta["description"], "datePublished": meta["date"],
+                       "dateModified": meta.get("updated", meta["date"]), "mainEntityOfPage": ORIGIN + url,
+                       "image": ORIGIN + "/og-image.png", "inLanguage": "en",
+                       "author": {"@type": "Person", "name": meta["author"], "url": AUTHOR_URL},
+                       "publisher": {"@type": "Organization", "name": "OpenPPC", "url": ORIGIN,
+                                     "logo": {"@type": "ImageObject", "url": ORIGIN + "/logo.svg"}}})
     faqs = re.findall(r"<details><summary>(.*?)</summary><p>(.*?)</p></details>", body, re.S)
     if faqs:
         blocks.append({"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
@@ -157,7 +173,8 @@ def build(out=DIST):
             title=escape(meta["title"]), description=escape(meta["description"]),
             canonical=ORIGIN + url, body=body, structured=structured(meta, url, body), scripts="",
             docs_current=' aria-current="page"' if docs and url == "/docs/" else "",
-            install_current=' aria-current="page"' if url == "/docs/install/" else "")
+            install_current=' aria-current="page"' if url == "/docs/install/" else "",
+            articles_current=' aria-current="page"' if url == "/articles/" else "")
         (out / dest).parent.mkdir(parents=True, exist_ok=True)
         (out / dest).write_text(version_media(html, out), encoding="utf-8")
         if url != "/404.html":

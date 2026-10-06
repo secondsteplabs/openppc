@@ -1,0 +1,75 @@
+<!--
+title: Is that search term really wasting money? The math most Google Ads audits skip · OpenPPC
+description: 41 clicks and no conversions looks like obvious waste. Often it isn't proven yet. How to judge wasted spend in your search terms report without blocking terms that work.
+headline: Is that search term really wasting money? The math most Google Ads audits skip
+schema: article
+date: 2026-10-06
+author: Shivendra Rawat
+-->
+<div class="wrap doc">
+  <nav class="doc-nav" aria-label="Articles">
+    <a href="/articles/">All articles</a>
+    <a class="sub" href="/articles/ai-google-ads-audit-accuracy/">How accurate are AI audits?</a>
+    <a class="sub" href="/articles/future-of-google-ads-audits/">The future of audits</a>
+    <a class="sub" href="/articles/how-to-check-a-google-ads-audit/">How to check an audit</a>
+    <a class="sub" href="/articles/google-ads-wasted-spend/">Is it really wasted spend?</a>
+  </nav>
+  <article class="doc-body">
+    <span class="label">Guide</span>
+    <h1>Is that search term really wasting money? The math most Google Ads audits skip</h1>
+    <p class="byline">By Shivendra Rawat · 6 October 2026 · 6 min read</p>
+    <p class="doc-lead">Most audits call every search term that spent money and never converted "wasted spend", and tell you to add it as a negative. Two checks are usually missing: judging each term on its total across every row Google lists it on, and asking whether it has had enough clicks to tell a bad term from bad luck. Skip them and you block terms that would have converted.</p>
+
+    <h2 id="sample">The example: one month of a plumbing account</h2>
+    <p>Acme Plumbing is the made-up sample account that ships with OpenPPC. In July it spent $4,973.64 on 732 clicks and got 85 conversions: an 11.6% conversion rate, at $58.51 per conversion. Seven search terms spent money with no conversion:</p>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr><th>Search term</th><th class="amt">Cost</th><th class="amt">Clicks</th><th class="amt">Conversions</th></tr></thead>
+        <tbody>
+          <tr><td>free plumbing estimate</td><td class="amt">$312.00</td><td class="amt">41</td><td class="amt">0</td></tr>
+          <tr><td>plumber jobs hiring</td><td class="amt">$188.00</td><td class="amt">22</td><td class="amt">0</td></tr>
+          <tr><td>how to unclog a drain yourself</td><td class="amt">$121.00</td><td class="amt">19</td><td class="amt">0</td></tr>
+          <tr><td>plumbing franchise cost</td><td class="amt">$64.80</td><td class="amt">9</td><td class="amt">0</td></tr>
+          <tr><td>plumbing supply store</td><td class="amt">$48.40</td><td class="amt">11</td><td class="amt">0</td></tr>
+          <tr><td>plumber reviews</td><td class="amt">$33.00</td><td class="amt">6</td><td class="amt">0</td></tr>
+          <tr><td>pvc pipe bulk</td><td class="amt">$17.50</td><td class="amt">5</td><td class="amt">0</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>A typical audit says: six terms spent at least $20 each with no conversions, $767.20 in all, 15.4% of the budget. Add them as negatives and save about $9,000 a year. The arithmetic is right. The conclusion is premature.</p>
+
+    <h2 id="per-term">Check 1: judge each term on its total, not its rows</h2>
+    <p>Google's search terms report lists a term once for every campaign, ad group and match type it showed in. A term can have no conversions in one ad group and four in another. Judged row by row, it looks like waste in the first. Judged on its total, it's one of your converters. Add the rows up per search term before you judge anything.</p>
+
+    <h2 id="bad-luck">Check 2: is it a bad term, or bad luck?</h2>
+    <p>Take "free plumbing estimate": 41 clicks, no conversions. If it converted like the account average, 11.6% of the time, going 41 clicks without one would happen only about 1% of the time. It looks proven.</p>
+    <p>But that sum assumes the term is average, and search terms aren't. In most accounts some terms convert at several times the average and others at a fraction of it, and a term can convert below average and still be worth paying for. The useful question is narrower: <b>is this term converting at less than half the account's rate?</b> That depends on how much this account's terms differ from each other, which the export itself can tell you.</p>
+    <p>OpenPPC's waste model asks exactly that question, using what the account's other terms show about how much terms vary. For this account its answer is:</p>
+    <ul>
+      <li>"free plumbing estimate" is <b>79% likely to be bad</b> after 41 clicks. Probably bad, not proven.</li>
+      <li>A term here needs <b>about 59 clicks with no conversion</b>, about $400.88 at this account's prices, before the model is 90% sure it's bad.</li>
+      <li>None of the six terms has reached that yet. The honest recommendation is to give them more clicks, with a budget in mind, before adding negatives.</li>
+    </ul>
+
+    <h2 id="meaning">Check 3: some terms are wrong whatever the numbers say</h2>
+    <p>Statistics tells you when results prove a term bad. Meaning tells you when a term is wrong for you whatever its results. "plumber jobs hiring" is job seekers. "plumbing franchise cost" is someone buying a business, and "plumbing supply store" is a shopper looking for parts. A plumbing company doesn't need 59 clicks of evidence to block those. Use meaning for intent that can never convert, and the math for everything else.</p>
+
+    <h2 id="other">Three more traps</h2>
+    <ul>
+      <li><b>Brand terms.</b> A brand search with no conversions this month is still your own customer looking for you. Never block your brand.</li>
+      <li><b>Performance Max.</b> Negatives work differently there than in Search, so list its waste separately and don't paste Search-style negatives into it.</li>
+      <li><b>Tiny spends.</b> "pvc pipe bulk" spent $17.50 on 5 clicks. A threshold keeps you from spending more time on a term than it costs.</li>
+    </ul>
+
+    <h2 id="openppc">How OpenPPC handles it</h2>
+    <p>The free search-term waste audit does all of this: it adds up each term across its rows before judging it, never lists the brand names you give it, splits Search from Performance Max, and gives each term the chance that it's genuinely bad. You tick the ones you agree with and copy them as exact-match negatives. Every number in the report is checked against your export before you see it.</p>
+    <div class="callout">Run it on the sample account, or on your own search terms export. It runs in your browser and uploads nothing. <a href="/app/">Open the app</a></div>
+
+    <h2 id="questions">Questions</h2>
+    <div class="faq">
+      <details><summary>What is wasted spend in Google Ads?</summary><p>Usually, money spent on search terms that never converted. The useful definition is narrower: terms that have had enough clicks to show they convert well below the account's normal rate, plus terms whose intent can never convert, like job seekers.</p></details>
+      <details><summary>How many clicks before you add a negative keyword?</summary><p>It depends on the account's conversion rate and how much its search terms differ. In the sample account, a term needs about 59 clicks with no conversion before the waste model is 90% sure it's bad. A term with clearly wrong intent can be blocked straight away.</p></details>
+      <details><summary>Should I add negatives for Performance Max search terms?</summary><p>Treat them separately. Performance Max handles negatives differently from Search campaigns, so review its zero-conversion terms on their own instead of mixing them into a Search negative list.</p></details>
+    </div>
+  </article>
+</div>

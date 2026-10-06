@@ -192,6 +192,17 @@ figcaption { font-size: 14px; color: var(--faint); }
 .doc-list b { font-size: 19px; }
 .doc-list span { font-size: 15.5px; color: var(--muted); }
 
+.byline { margin-top: -8px; font-size: 14.5px !important; color: var(--muted) !important; }
+.stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.stat-grid div { padding: 16px 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); display: flex; flex-direction: column; gap: 4px; }
+.stat-grid b { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); }
+.stat-grid span { font-size: 13.5px; color: var(--muted); line-height: 1.35; }
+.table-scroll { overflow-x: auto; }
+.data-table { width: 100%; border-collapse: collapse; font-size: 15.5px; color: var(--ink3); }
+.data-table th, .data-table td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; }
+.data-table th { font-size: 12.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.data-table .amt { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.doc-body .faq { margin: 0; max-width: none; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .faq summary::after { transition: none; } }
 @media (max-width: 960px) {
   .nav-links { display: none; }
@@ -204,6 +215,7 @@ figcaption { font-size: 14px; color: var(--faint); }
   .doc-nav .sub { display: none; }
 }
 @media (max-width: 600px) {
+  .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .wrap { padding-inline: 18px; }
   .section { padding-block: 64px; }
   .hero { padding-block: 56px 44px; }
