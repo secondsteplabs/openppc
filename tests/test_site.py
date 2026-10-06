@@ -25,7 +25,7 @@ def test_the_site_builds_with_no_broken_links(tmp_path):
 def test_the_home_page_has_the_video_the_app_and_github(tmp_path):
     _site().build(tmp_path / "dist")
     home = (tmp_path / "dist" / "index.html").read_text()
-    assert 'src="/media/openppc-demo.mp4"' in home and 'href="/app/"' in home
+    assert 'src="/media/openppc-demo.mp4?v=' in home and 'href="/app/"' in home
     assert "https://github.com/secondsteplabs/openppc" in home
     assert '<link rel="canonical" href="https://openppc.si/">' in home
     assert "Works inside Claude, Cursor and ChatGPT" in home and "cursor://anysphere.cursor-deeplink/mcp/install?name=openppc" in home
@@ -82,3 +82,15 @@ def test_the_app_names_its_files_by_content(tmp_path):
         assert re.search(rf'"{re.escape(name)}\?v=[0-9a-f]{{12}}"', index), name
     assert re.search(r"new Worker\('engine-worker\.js\?v=[0-9a-f]{12}'", appjs)
     assert re.search(r"import\('\./engine\.js\?v=[0-9a-f]{12}'\)", worker)
+
+
+def test_pages_name_their_images_and_video_by_content(tmp_path):
+    # Cloudflare keeps media for days: a new demo video must get a new address, or visitors keep the old one
+    import hashlib
+    _site().build(tmp_path)
+    home = (tmp_path / "index.html").read_text(encoding="utf-8")
+    refs = re.findall(r'(?:src|poster)="(/(?:img|media)/[^"?]+)\?v=([0-9a-f]{12})"', home)
+    assert {r for r, _ in refs} >= {"/media/openppc-demo.mp4", "/media/openppc-demo-poster.jpg"}
+    for ref, tag in refs:
+        assert hashlib.sha256((tmp_path / ref.lstrip("/")).read_bytes()).hexdigest()[:12] == tag
+    assert not re.search(r'(?:src|poster)="/(?:img|media)/[^"?]+"', home)  # none left unversioned
