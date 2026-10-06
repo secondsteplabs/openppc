@@ -94,3 +94,21 @@ def test_pages_name_their_images_and_video_by_content(tmp_path):
     for ref, tag in refs:
         assert hashlib.sha256((tmp_path / ref.lstrip("/")).read_bytes()).hexdigest()[:12] == tag
     assert not re.search(r'(?:src|poster)="/(?:img|media)/[^"?]+"', home)  # none left unversioned
+
+
+def test_articles_are_listed_and_marked_up_for_search_and_answer_engines(tmp_path):
+    report = _site().build(tmp_path / "dist")
+    articles = [p for p in report["pages"] if p.startswith("/articles/") and p != "/articles/"]
+    assert len(articles) >= 4 and "/articles/" in report["pages"]
+    index = (tmp_path / "dist" / "articles" / "index.html").read_text(encoding="utf-8")
+    llms = (tmp_path / "dist" / "llms.txt").read_text(encoding="utf-8")
+    sitemap = (tmp_path / "dist" / "sitemap.xml").read_text(encoding="utf-8")
+    for url in articles:
+        html = (tmp_path / "dist" / url.strip("/") / "index.html").read_text(encoding="utf-8")
+        blocks = [json.loads(b) for b in re.findall(r'<script type="application/ld\+json">(.*?)</script>', html, re.S)]
+        kinds = {b["@type"] for b in blocks}
+        assert {"Article", "FAQPage"} <= kinds, url
+        article = next(b for b in blocks if b["@type"] == "Article")
+        assert article["headline"] in html and article["author"]["name"] == "Shivendra Rawat"
+        assert f'href="{url}"' in index and f"https://openppc.si{url}" in llms and f"https://openppc.si{url}" in sitemap
+        assert "—" not in html and "–" not in html  # house style: no em or en dashes
