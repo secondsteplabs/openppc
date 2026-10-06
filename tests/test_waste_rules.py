@@ -158,3 +158,22 @@ def test_one_click_and_one_conversion_read_as_one():
     everything = "\n".join(lines) + json.dumps([book.cards, book.client])
     assert not re.search(r"\b1 (clicks|conversions)\b", everything)
     assert "after 1 click" in everything
+
+
+def test_no_other_0_when_every_waste_term_is_proven():
+    rows = [_row("plumbing repair", 900.0, 300, 45), _row("drain cleaning", 400.0, 100, 25),
+            _row("free plumbing course", 240.0, 150, 0), _row("plumber salary", 300.0, 160, 0)]
+    report = Report(rows=rows, columns={"search_term", "match_type", "campaign_type", "clicks", "impressions", "cost",
+                                        "conversions"},
+                    source="test.csv", start=dt.date(2026, 7, 1), end=dt.date(2026, 7, 30), currency="USD")
+    lines, book = search_term_waste.run(report)
+    everything = "\n".join(lines) + json.dumps([book.cards, book.client])
+    assert "sure about 2 of them" in everything and "The other 0" not in everything
+
+
+def test_the_client_report_ties_the_waste_figure_to_the_all_in_figure():
+    report = Report(rows=ROWS, columns={"search_term", "match_type", "campaign_type", "clicks", "impressions", "cost",
+                                        "conversions"},
+                    source="test.csv", start=dt.date(2026, 7, 1), end=dt.date(2026, 7, 30), currency="USD")
+    _, book = search_term_waste.run(report)
+    assert "whatever they cost" in json.dumps(book.client)

@@ -39,7 +39,7 @@ except ImportError:
     READ_ONLY = None
 
 from . import __version__
-from .checkfacts import facts_for_paths
+from .checkfacts import facts_for_check
 from .cli import explain
 from .engine.trace import render_check, trace
 from .templates import TEMPLATES, run_template
@@ -70,7 +70,7 @@ def check_numbers(audit_text: str, data_paths: list[str], industry: str = "") ->
     Reports which numbers trace to the data, which are wrong numbers (the data says otherwise; the real
     figure is given where known), which are wrong labels (a real figure on the wrong metric or row), and
     which sentences contradict their own numbers."""
-    claims, contradictions = trace(audit_text, facts_for_paths(data_paths, industry or None))
+    claims, contradictions = trace(audit_text, facts_for_check(audit_text, data_paths, industry or None))
     return render_check(claims, contradictions)
 
 

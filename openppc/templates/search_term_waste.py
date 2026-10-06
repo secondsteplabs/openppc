@@ -9,6 +9,7 @@ import re
 from ..engine import benchmarks, waste_model
 from ..facts import FactBook
 from ._common import (brand_matcher, conv_dp, esc, fingerprint, header, min_cost_for, month_label, need, period,
+                      settings_line,
                       plural, totals, val)
 
 NAME = "search-term-waste"
@@ -230,7 +231,7 @@ def _cards(book, grand, waste, sure, chance, top, wc, share, d, y, cpa_s, indust
         rows.append({"term": t, "cost": book.money(f"cost of '{t}'", val(r, "cost"), "cost", t),
                      "clicks": book.count(f"clicks of '{t}'", val(r, "clicks"), "clicks", t),
                      "share": book.pct(f"'{t}' share of total cost", val(r, "cost") / grand.cost * 100, "cost", t),
-                     "chance": _chance_text(book, t, p), "p": p, "sure": any(r is x for x in sure),
+                     "chance": _chance_text(book, t, p), "p": round(p, 4) if p is not None else None, "sure": any(r is x for x in sure),
                      "match_type": r.get("match_type", ""), "campaign": r.get("campaign", ""),
                      "campaign_type": r.get("campaign_type", ""), "automated": r["group"] != "search"})
     return {"template": NAME, "kpis": kpis, "actions": actions, "waste": rows, "waste_total": len(waste)}
@@ -261,7 +262,7 @@ def _client(book, report, x):
     found = []
     if wc:
         text = (f"That is {x['share']} of the {x['total_cost']} total cost in this export, and each one cost at "
-                f"least {min_s}.")
+                f"least {min_s}.") + x.get("all_in", "")
         if x["d"]:
             text += f" At the same rate that is {x['d']} a day, or {x['y']} a year."
         found.append({"type": "lead", "strong": f"{n_s} {plural(n, 'search term')} spent {wc} and never converted.",
@@ -494,6 +495,7 @@ def run(report, min_cost=None, industry=None, top=25, brand=None, **_):
     out = header(book, report, TITLE)
     total_cost = book.money("total cost", grand.cost)
     min_s = book.money("minimum cost for a waste flag (rule)", min_cost, "rule")
+    out[4:4] = [settings_line(min_s, brand, industry), ""]  # before the "Built by OpenPPC" line
     cpa = grand.cost / grand.conversions if grand.conversions else None
     zero = [t for t in others if not val(t, "conversions")]  # not one conversion on any of the term's rows
     waste = sorted((t for t in zero if val(t, "cost") >= min_cost), key=lambda t: -val(t, "cost"))
@@ -513,6 +515,7 @@ def run(report, min_cost=None, industry=None, top=25, brand=None, **_):
         out += [f"_OpenPPC has no default waste threshold for {report.currency}, so it used {min_s}. "
                 "Set your own with `--min-cost`._", ""]
     wc = share = d = y = cpa_s = bar = needed = sw = aw = need_s = need_cost = None
+    all_in = ""  # how the waste figure ties to every term with no conversions, when they differ
     pricey = harvest = []
     if waste and grand.cost:
         n = book.count("search terms flagged as waste", len(waste))
@@ -524,8 +527,9 @@ def run(report, min_cost=None, industry=None, top=25, brand=None, **_):
             az = book.count("search terms with no conversions", len(every_zero), "terms")
             ac = book.money("cost of all search terms with no conversions", totals(every_zero).cost, "cost")
             brand_too = any(is_brand(t["search_term"]) for t in every_zero)
-            out[-1] += (f" All {az} search terms with no conversions, whatever they cost"
-                        + (" and brand terms included" if brand_too else "") + f", spent {ac}.")
+            all_in = (f" All {az} search terms with no conversions, whatever they cost"
+                      + (" and brand terms included" if brand_too else "") + f", spent {ac}.")
+            out[-1] += all_in
         search_cost, auto_cost = sum(t["search_cost"] for t in waste), sum(t["automated_cost"] for t in waste)
         if search_cost and auto_cost:
             sw = book.money("wasted cost in Search campaigns", search_cost, "cost")
@@ -545,9 +549,11 @@ def run(report, min_cost=None, industry=None, top=25, brand=None, **_):
                 doubt = round(sum(1 - chance[id(r)] for r in sure))
                 maybe = (f" (about {book.count('sure waste terms that may still be fine', doubt)} of them may still turn "
                          "out fine)" if doubt else "")
+                left = len(waste) - len(sure)
+                rest = (f" The other {book.count('waste terms too early to judge', left)} {'has' if left == 1 else 'have'} "
+                        "too few clicks to tell a bad term from bad luck." if left else "")
                 out += ["", f"The waste model is at least {bar} sure about {m} of them, which spent {mc}{maybe}: add "
-                            f"{'it as a negative' if len(sure) == 1 else 'those as negatives'}. The other {book.count('waste terms too early to judge', len(waste) - len(sure))} "
-                            f"{'has' if len(waste) - len(sure) == 1 else 'have'} too few clicks to tell a bad term from bad luck."]
+                            f"{'it as a negative' if len(sure) == 1 else 'those as negatives'}.{rest}"]
             else:
                 out += ["", f"None of them has enough clicks for the waste model to be {bar} sure it is bad rather "
                             "than unlucky, so give them more clicks before adding negatives."
@@ -670,7 +676,7 @@ def run(report, min_cost=None, industry=None, top=25, brand=None, **_):
     book.client = _client(book, report, {
         "waste": waste, "sure": sure, "chance": chance, "prior": prior, "needed": needed, "bar": bar, "wc": wc,
         "share": share, "d": d, "y": y, "cpa_s": cpa_s, "min_s": min_s, "total_cost": total_cost, "clicks": clicks,
-        "convs": convs, "sw": sw, "aw": aw, "need_s": need_s, "need_cost": need_cost, "small": small,
+        "convs": convs, "sw": sw, "aw": aw, "need_s": need_s, "need_cost": need_cost, "small": small, "all_in": all_in,
         "brand_rows": brand_rows, "brand": brand, "names": names, "found": found, "pricey": pricey,
         "harvest": harvest, "in_auto": in_auto + in_both, "grand": grand, "industry": industry, "top": top})
 

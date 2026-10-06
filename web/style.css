@@ -195,7 +195,7 @@ mark.U { padding: 1px 5px; border-radius: 4px; background: #eef0ef; color: #5b64
 .seg { padding: 4px; border-radius: 10px; background: var(--soft2); display: flex; gap: 4px; }
 .seg button { height: 44px; padding: 0 14px; border: 0; border-radius: 7px; background: transparent; font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer; }
 .seg button[aria-pressed="true"] { background: #ffffff; color: var(--ink); font-weight: 700; box-shadow: 0 1px 2px rgba(17, 24, 28, 0.08); }
-.table-wrap { overflow-x: auto; }
+.table-wrap { overflow-x: auto; container: tablewrap / inline-size; }
 table.t { width: 100%; border-collapse: collapse; font-size: 14px; }
 table.t th { padding: 10px 16px; border-bottom: 1px solid var(--line2); background: #fafbfa; font-size: 11px; font-weight: 700; letter-spacing: 0.07em; text-align: left; text-transform: uppercase; color: var(--faint); }
 table.t td { padding: 12px 16px; border-bottom: 1px solid var(--line3); line-height: 1.45; vertical-align: middle; }
@@ -261,6 +261,18 @@ table.t tr:last-child td { border-bottom: 0; }
 table.waste { min-width: 760px; }
 table.waste th, table.waste td { padding-left: 12px; padding-right: 12px; }
 table.waste th.pick, table.waste td.pick { width: 54px; padding: 0 0 0 10px; }
+/* A narrow card (a phone, a tablet, or a laptop with the side panel open) keeps term, cost, clicks and chance;
+   ticked rows are the suggested negatives. The card's width decides, not the screen's. */
+@container tablewrap (max-width: 700px) {
+  table.waste { min-width: 0; }
+  table.waste .wide-only { display: none; }
+  table.waste th, table.waste td { padding-left: 8px; padding-right: 8px; }
+  table.waste th.pick, table.waste td.pick { width: 36px; padding-left: 8px; }
+  table.waste .chance-bar { display: none; }  /* the percentage says it */
+}
+@container tablewrap (max-width: 320px) {  /* the smallest phones: the chance already weighs the clicks */
+  table.waste .clicks { display: none; }
+}
 .hit { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .hit input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); cursor: pointer; }
 .term { display: block; font-weight: 600; overflow-wrap: anywhere; }
@@ -444,11 +456,6 @@ ul.pdf-html, ol.pdf-html { padding-left: 20px; }
   .hero h1 { font-size: 36px; }
 }
 @media (max-width: 720px) {
-  .wide-only { display: none; }  /* phones: the waste table keeps term, cost, clicks and chance; ticked rows are the suggested negatives */
-  table.waste { min-width: 0; }
-  table.waste th, table.waste td { padding-left: 8px; padding-right: 8px; }
-  table.waste th.pick, table.waste td.pick { width: 36px; padding-left: 8px; }
-  table.waste .chance-bar { display: none; }  /* the percentage says it */
   .app { flex-direction: column; }
   .rail { position: fixed; top: auto; bottom: 0; left: 0; right: 0; width: auto; height: 72px; padding: 6px 12px; flex-direction: row; justify-content: space-around; }
   .rail-logo { margin: 0; }

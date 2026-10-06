@@ -6,6 +6,7 @@ conversion, conversion rate, and each one's share of the total. Then we add ever
 our own templates would print. Template thresholds are left out on purpose: a threshold
 we chose is not a fact about your account.
 """
+import re
 from dataclasses import replace
 
 from .engine import benchmarks
@@ -16,10 +17,35 @@ from .templates import TEMPLATES, account_read, account_structure
 from .templates._common import register_group, totals
 
 ROW_KEYS = ("search_term", "keyword", "ad_group", "campaign")
+SETTINGS = re.compile(r"^Settings: (.+)$", re.M)
+
+
+def report_settings(text):
+    """The settings an OpenPPC report says it ran with ({} for any other text), so checking that report against its
+    export runs the same audit: a report made with brand terms or its own threshold has different, correct figures.
+    Only settings are read from the text, never results: every number is still checked against the export."""
+    title = re.search(r"^# (.+)$", text, re.M)
+    line = SETTINGS.search(text)
+    if "_Built by OpenPPC" not in text or not title or not line:
+        return {}
+    name = next((n for n, t in TEMPLATES.items() if getattr(t, "TITLE", None) == title.group(1).strip()), None)
+    if name is None:
+        return {}
+    found = {"template": name}
+    m = re.search(r"waste threshold \D*?(\d[\d,]*(?:\.\d+)?)", line.group(1))
+    if m:
+        found["min_cost"] = float(m.group(1).replace(",", ""))
+    m = re.search(r"brand terms “([^”]{1,300})”", line.group(1))
+    if m:
+        found["brand"] = m.group(1)
+    m = re.search(r"industry averages: ([a-z][a-z-]{1,40})", line.group(1))
+    if m and m.group(1) in benchmarks.TABLE:
+        found["industry"] = m.group(1)
+    return found
 GROUP_KEYS = ("campaign", "ad_group", "match_type")
 
 
-def facts_for_report(report):
+def facts_for_report(report, settings=None):
     book = FactBook(report.currency)
     grand = totals(report.rows)
     register_group(book, "", grand, grand)
@@ -70,12 +96,21 @@ def facts_for_report(report):
             book.facts[start:] = [replace(f, level="group") for f in book.facts[start:]]
     for template in TEMPLATES.values():
         if template.INPUT_KIND == "report" and template.accepts(report):
-            _, template_book = template.run(report)
+            same = settings and settings.get("template") == template.NAME  # the report's own settings
+            opts = {k: settings[k] for k in ("min_cost", "brand", "industry") if same and settings.get(k) is not None}
+            _, template_book = template.run(report, **opts)
             book.facts.extend(template_book.facts)
     return [f for f in book.facts if f.metric != "rule"]
 
 
-def facts_for_paths(paths, industry=None):
+def facts_for_check(text, paths, industry=None):
+    """Facts to check `text` against: the exports' figures, and when the text is an OpenPPC report, the figures
+    of the same audit run with that report's settings."""
+    settings = report_settings(text)
+    return facts_for_paths(paths, industry or settings.get("industry"), settings)
+
+
+def facts_for_paths(paths, industry=None, settings=None):
     facts = []
     for path in paths:
         if str(path).lower().endswith(".json"):
@@ -86,7 +121,7 @@ def facts_for_paths(paths, industry=None):
                 _, book = account_read.run(account_read.load_metrics(path))
             facts += [f for f in book.facts if f.metric != "rule"]
         else:
-            facts += facts_for_report(load_report(path))
+            facts += facts_for_report(load_report(path), settings)
     if industry:
         b = benchmarks.lookup(industry)
         facts += [Fact(f"{b['name']} average CPC", b["cpc"], "money", "cpc", currency="USD"),

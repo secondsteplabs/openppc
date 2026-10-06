@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 
 from . import __version__
-from .checkfacts import facts_for_paths
+from .checkfacts import facts_for_check
 from .engine import benchmarks
 from . import samples
 from .engine.trace import render_check, trace
@@ -94,9 +94,10 @@ def main(argv=None):
                 args.audit, args.data = samples.path(samples.AUDIT), [str(samples.path(samples.AUDIT_DATA))]
                 args.industry = args.industry or samples.INDUSTRY
             text = Path(args.audit).read_text(encoding="utf-8")
-            claims, contradictions = trace(text, facts_for_paths(args.data, args.industry))
+            claims, contradictions = trace(text, facts_for_check(text, args.data, args.industry))
             _emit(render_check(claims, contradictions), args.out)
-            clean = all(c.verdict == "traced" for c in claims) and not contradictions
+            # can't check is never held against an audit: only wrong numbers, wrong labels and contradictions fail
+            clean = not any(c.verdict in ("mismatch", "not in data") for c in claims) and not contradictions
             return 0 if clean else 2
     except (ValueError, FileNotFoundError, KeyError) as e:
         print(f"openppc: {explain(e)}", file=sys.stderr)
