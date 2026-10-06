@@ -53,6 +53,7 @@ OpenPPC does two things. It checks any audit (from ChatGPT, Claude, an agency or
 ## Articles
 
 - [How accurate are AI-written Google Ads audits? We checked 682 numbers]({ORIGIN}/articles/ai-google-ads-audit-accuracy/): 13 AI-written audits, 94% of numbers matched the export; 21 of the 22 wrong numbers were totals, sums, shares or ratios the AI worked out
+- [GPT vs Gemini for Google Ads audits: we checked 1,371 numbers]({ORIGIN}/articles/gpt-vs-gemini-google-ads-audits/): 36 audits by GPT-6 Luna, Gemini 3.8 Flash and Gemini 3.1 Pro, with and without a Python tool; GPT-6 Luna made no errors, Gemini made 16, 8 of them from two wrong totals; the tool cut errors from 14 to 2 when the model used it
 - [AI will write every Google Ads audit. Who checks the numbers?]({ORIGIN}/articles/future-of-google-ads-audits/): how audits change when writing them is free: verified numbers, continuous checks, judgment and read-only tools
 - [How do you check a Google Ads audit? A 10-minute method]({ORIGIN}/articles/how-to-check-a-google-ads-audit/): eight checks against the export: totals, group sums, shares, labels, direction words, and the working for targets and forecasts
 - [Is that search term really wasting money?]({ORIGIN}/articles/google-ads-wasted-spend/): judge terms on their total across rows, tell a bad term from bad luck (about 59 clicks in the sample account), and block wrong intent on meaning
@@ -121,18 +122,19 @@ def broken_links(out):
     return broken
 
 
-MEDIA_REF = re.compile(r'\b(src|poster)="(/(?:img|media)/[^"?#]+)"')
+ASSET_REF = re.compile(r'\b(src|poster|href)="(/(?:img|media)/[^"?#]+|/[\w.-]+\.(?:css|js))"')
 
 
-def version_media(html, out):
-    """Point a page at its images and video by content too: /media/openppc-demo.mp4?v=<hash>. Cloudflare keeps
-    media for days, so a replaced demo video or screenshot would otherwise wait out the old file's cache."""
+def version_assets(html, out):
+    """Point a page at its images, video, stylesheet and scripts by content too: /site.css?v=<hash>. Cloudflare
+    keeps media for days and tells browsers to keep CSS and JS for hours, so a replaced file would otherwise wait
+    out the old one's cache."""
     def tag(m):
         path = out / m.group(2).lstrip("/")
         if not path.is_file():
             return m.group(0)  # broken_links reports it
         return f'{m.group(1)}="{m.group(2)}?v={hashlib.sha256(path.read_bytes()).hexdigest()[:12]}"'
-    return MEDIA_REF.sub(tag, html)
+    return ASSET_REF.sub(tag, html)
 
 
 def version_app(app):
@@ -176,7 +178,7 @@ def build(out=DIST):
             install_current=' aria-current="page"' if url == "/docs/install/" else "",
             articles_current=' aria-current="page"' if url == "/articles/" else "")
         (out / dest).parent.mkdir(parents=True, exist_ok=True)
-        (out / dest).write_text(version_media(html, out), encoding="utf-8")
+        (out / dest).write_text(version_assets(html, out), encoding="utf-8")
         if url != "/404.html":
             urls.append(url)
     urls.append("/app/")
