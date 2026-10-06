@@ -71,3 +71,14 @@ def test_analytics_runs_on_the_website_and_never_in_the_app(tmp_path):
     app = (dist / "app" / "index.html").read_text()
     assert "analytics.js" not in app and "googletagmanager" not in app
     assert "connect-src https://cdn.jsdelivr.net;" in app   # the app may fetch the Python runtime and nothing else
+
+
+def test_the_app_names_its_files_by_content(tmp_path):
+    # Cloudflare lets browsers keep scripts for hours and the page is never cached: a new page must name new files
+    _site().build(tmp_path / "dist")
+    app = tmp_path / "dist" / "app"
+    index, appjs, worker = ((app / n).read_text() for n in ("index.html", "app.js", "engine-worker.js"))
+    for name in ("style.css", "engine.js", "app.js"):
+        assert re.search(rf'"{re.escape(name)}\?v=[0-9a-f]{{12}}"', index), name
+    assert re.search(r"new Worker\('engine-worker\.js\?v=[0-9a-f]{12}'", appjs)
+    assert re.search(r"import\('\./engine\.js\?v=[0-9a-f]{12}'\)", worker)
