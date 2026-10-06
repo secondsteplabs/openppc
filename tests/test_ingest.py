@@ -115,3 +115,22 @@ def test_a_note_line_with_no_numbers_is_skipped(tmp_path):
     path = tmp_path / "note.csv"
     path.write_text("\n".join(lines + ["Downloaded from Google Ads"]), encoding="utf-8")
     assert len(load_report(path).rows) == 18
+
+
+def test_line_ends_quoted_line_breaks_and_old_encodings_read_as_before(tmp_path):
+    # The reader takes the file a piece at a time; these are the cases where pieces could go wrong.
+    head = ("Search terms report\nJuly 1, 2026 - July 31, 2026\nSearch term,Match type,Campaign,Ad group,Clicks,Impr.,"
+            "Currency code,Cost,Conversions\n")
+    rows = '"pipe\nrepair",Exact match,Core,Drains,4,40,USD,12.50,1\ncafé plumber,Exact match,Core,Drains,6,60,USD,7.25,0\n'
+    for name, data in (("cr.csv", (head + rows).replace("\n", "\r").encode()),
+                       ("crlf.csv", (head + rows).replace("\n", "\r\n").encode()),
+                       ("latin1.csv", (head + rows).encode("latin-1"))):
+        path = tmp_path / name
+        path.write_bytes(data)
+        report = load_report(str(path))
+        assert [(r["search_term"], r["cost"]) for r in report.rows] == [("pipe\nrepair", 12.5), ("café plumber", 7.25)]
+        assert (report.start.day, report.end.day, report.title) == (1, 31, "Search terms report")
+    empty = tmp_path / "blank.csv"
+    empty.write_text("\n \n\t\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="the file is empty"):
+        load_report(str(empty))
