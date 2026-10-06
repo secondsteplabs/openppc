@@ -108,6 +108,16 @@ def test_pages_name_their_stylesheet_and_scripts_by_content(tmp_path):
             assert f'{attr}="{ref}"' not in html
 
 
+def test_pages_use_no_inline_styles(tmp_path):
+    # the website's CSP is style-src 'self': a style="" attribute is silently dropped, so a chart placed with one
+    # breaks (the app has its own CSP)
+    _site().build(tmp_path)
+    pages = [p for p in tmp_path.rglob("*.html") if "app" not in p.relative_to(tmp_path).parts]
+    assert len(pages) >= 10
+    for page in pages:
+        assert 'style="' not in page.read_text(encoding="utf-8"), page
+
+
 def test_articles_are_listed_and_marked_up_for_search_and_answer_engines(tmp_path):
     report = _site().build(tmp_path / "dist")
     articles = [p for p in report["pages"] if p.startswith("/articles/") and p != "/articles/"]
