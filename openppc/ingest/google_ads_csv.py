@@ -8,10 +8,12 @@ are ignored; every total is recomputed from the rows.
 
 Read-only by construction: this module opens one local file and nothing else.
 """
+import codecs
 import csv
 import datetime as dt
-import io
+import itertools
 import re
+from array import array
 from dataclasses import dataclass, field
 
 # canonical column -> header names Google has used for it (lower-case)
@@ -38,6 +40,7 @@ DATE_RANGE = re.compile(r"([A-Z][a-z]+\.? \d{1,2}, \d{4}|\d{1,2} [A-Z][a-z]+\.? 
 TOTAL_ROW = re.compile(r"^\s*total\s*:", re.I)  # "Total: Account"; a search term like "total gym" is data
 EU_NUMBER = re.compile(r"^-?[\d.]*\d,\d{1,2}%?$")  # "1.361,04", "5,23%"
 US_NUMBER = re.compile(r"^-?(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+\.\d{1,2})%?$")  # "1,361.04", "5.23%"
+DOTTED = re.compile(r"-?\d{1,3}(?:\.\d{3})+")  # "1.450": European thousands, or nothing to go on
 
 
 @dataclass
@@ -86,13 +89,45 @@ def _date(text):
     return None
 
 
-def _decode(raw):
-    if raw[:2] in (b"\xff\xfe", b"\xfe\xff"):
-        return raw.decode("utf-16")
+def _decodes(path, encoding):
+    """Whether the whole file reads as this encoding, checked a megabyte at a time."""
+    decoder = codecs.getincrementaldecoder(encoding)()
     try:
-        return raw.decode("utf-8-sig")
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(1 << 20), b""):
+                decoder.decode(chunk)
+        decoder.decode(b"", final=True)
+        return True
     except UnicodeDecodeError:
-        return raw.decode("latin-1")
+        return False
+
+
+def _encoding(path, head):
+    """UTF-16 when the file starts with its byte order mark (Excel's tab-separated exports), else UTF-8, else
+    Latin-1, which reads any bytes. The whole file decides, as if it were read in one go."""
+    if head[:2] in (b"\xff\xfe", b"\xfe\xff"):
+        if not _decodes(path, "utf-16"):
+            with open(path, "rb") as f:
+                f.read().decode("utf-16")  # raises the decoder's own error about the broken file
+        return "utf-16"
+    return "utf-8-sig" if _decodes(path, "utf-8-sig") else "latin-1"
+
+
+def _lines(f):
+    """The file's lines, as str.splitlines() splits them, read a piece at a time."""
+    for line in f:
+        yield from line.splitlines()
+
+
+def _ended(lines):
+    """Each line with the line end csv reads it by, but the last: what io.StringIO("\\n".join(lines)) would give."""
+    last = None
+    for line in lines:
+        if last is not None:
+            yield last + "\n"
+        last = line
+    if last is not None:
+        yield last
 
 
 def _canonical(header):
@@ -128,32 +163,22 @@ def _not_a_report(path, raw):
     return None
 
 
-def _european(rows, keys, path, delim):
-    """Whether the numbers are written European style ("1.361,04"). The cells decide; a semicolon file whose
-    only marks are dots between thousands ("1.450") is European too. A file that mixes both styles cannot be
-    read safely, so it is refused rather than guessed."""
-    cols = [i for i, k in enumerate(keys) if k in NUMERIC]
-    cells = [r[i].strip() for r in rows for i in cols if i < len(r) and r[i].strip()]
-    eu = sum(bool(EU_NUMBER.match(c)) for c in cells)
-    us = sum(bool(US_NUMBER.match(c)) for c in cells)
-    if eu and us:
-        raise ValueError(f"{path}: the numbers mix two styles (1,234.56 and 1.234,56), so they cannot be read "
-                         "safely. Download the report again with Download > .csv.")
-    dotted = any(re.fullmatch(r"-?\d{1,3}(?:\.\d{3})+", c) for c in cells)
-    return eu > 0 or (delim == ";" and not us and dotted)
-
-
 def load_report(path):
+    """Read the export a piece at a time: a 250,000-row file is never held as text, lines and cells at once."""
     with open(path, "rb") as f:
-        raw = f.read()
-    problem = _not_a_report(path, raw)
+        head = f.read(4)
+    problem = _not_a_report(path, head)
     if problem:
         raise ValueError(f"{path}: {problem}")
-    text = _decode(raw)
-    if not text.strip():
+    with open(path, encoding=_encoding(path, head)) as f:
+        return _read(path, _lines(f))
+
+
+def _read(path, lines):
+    first = list(itertools.islice(lines, 15))
+    if not any(line.strip() for line in first) and not any(line.strip() for line in lines):
         raise ValueError(f"{path}: the file is empty.")
-    lines = text.splitlines()
-    found = _find_header(lines)
+    found = _find_header(first)
     if not found:
         raise ValueError(
             f"{path}: no header row with Clicks and Cost columns in the first 15 lines. "
@@ -161,23 +186,27 @@ def load_report(path):
             "language, the column names will not match: switch it to English and download again.")
     idx, delim, keys = found
     report = Report(columns={k for k in keys if k}, source=str(path))
-    for line in lines[:idx]:
+    for line in first[:idx]:
         m = DATE_RANGE.search(line)
         if m:
             report.start, report.end = _date(m.group(1)), _date(m.group(2))
         elif line.strip() and not report.title:
             report.title = line.strip().strip('"').strip()
-    body = list(csv.reader(io.StringIO("\n".join(lines[idx + 1:])), delimiter=delim))
     name_at = next((keys.index(k) for k in ("search_term", "keyword") if k in keys), None)
-    data = [(n, cells) for n, cells in enumerate(body, idx + 2)
-            if any(c.strip() for c in cells)
-            and not TOTAL_ROW.match(next(c for c in cells if c.strip()))
-            and not (name_at is not None and name_at < len(cells) and TOTAL_ROW.match(cells[name_at]))]
-    names = [c.strip() for c in next(csv.reader([lines[idx]], delimiter=delim))]
+    names = [c.strip() for c in next(csv.reader([first[idx]], delimiter=delim))]
     numeric = [i for i, k in enumerate(keys) if k in NUMERIC]
-    data = [(n, cells) for n, cells in data if any(i < len(cells) and cells[i].strip() for i in numeric)]  # notes
-    for n, cells in data:  # a broken file must be refused, never read with its numbers in the wrong columns
-        again = "The file looks damaged or hand-edited: download it again with Download > .csv."
+    again = "The file looks damaged or hand-edited: download it again with Download > .csv."
+    eu = us = 0  # how the numbers are written ("1.361,04" or "1,361.04"), which decides how all of them are read
+    dotted = False
+    pool, line_of = {}, array("q")  # one copy of each text value; each row's line, for a refusal after reading
+    records = csv.reader(_ended(itertools.chain(first[idx + 1:], lines)), delimiter=delim)
+    for n, cells in enumerate(records, idx + 2):
+        if (not any(c.strip() for c in cells) or TOTAL_ROW.match(next(c for c in cells if c.strip()))
+                or name_at is not None and name_at < len(cells) and TOTAL_ROW.match(cells[name_at])):
+            continue
+        if not any(i < len(cells) and cells[i].strip() for i in numeric):
+            continue  # a note under the table, not a row
+        # a broken file must be refused, never read with its numbers in the wrong columns
         if any(c.strip() for c in cells[len(keys):]):
             raise ValueError(f"{path}: line {n} has more cells than the header row, so its numbers would land in the "
                              f"wrong columns. {again}")
@@ -192,20 +221,31 @@ def load_report(path):
         if money is not None:
             raise ValueError(f"{path}: line {n} has a money amount ({cells[money].strip()}) in the {names[money]} "
                              f"column, which only holds counts, so the columns look shifted. {again}")
-    european = _european([cells for _, cells in data], keys, path, delim)
-    pool = {}  # one copy of each text value: a match type, campaign or ad group repeats on thousands of rows
-    for n, cells in data:
+        for i in numeric:
+            c = cells[i].strip()
+            if c:
+                eu += bool(EU_NUMBER.match(c))
+                us += bool(US_NUMBER.match(c))
+                dotted = dotted or bool(DOTTED.fullmatch(c))
         row = {}
         for key, cell in zip(keys, cells):
-            if key:
-                row[key] = parse_number(cell, european) if key in NUMERIC else pool.setdefault(cell.strip(),
-                                                                                                cell.strip())
+            if key:  # numbers stay as written until the file says how to read them
+                row[key] = cell if key in NUMERIC else pool.setdefault(cell.strip(), cell.strip())
+        report.rows.append(row)
+        line_of.append(n)
+    if eu and us:
+        raise ValueError(f"{path}: the numbers mix two styles (1,234.56 and 1.234,56), so they cannot be read "
+                         "safely. Download the report again with Download > .csv.")
+    european = eu > 0 or (delim == ";" and not us and dotted)
+    for n, row in zip(line_of, report.rows):
+        for key in NUMERIC:
+            if key in row:
+                row[key] = parse_number(row[key], european)
         negative = next((k for k in ("cost", "clicks", "impressions") if (row.get(k) or 0) < 0), None)
         if negative:
             what = {"cost": "cost", "clicks": "click count", "impressions": "impression count"}[negative]
             raise ValueError(f"{path}: line {n} has a negative {what} ({row[negative]:g}). Google Ads never exports "
                              "one, so the file was edited or is damaged: download it again with Download > .csv.")
-        report.rows.append(row)
     currency = next((r.get("currency") for r in report.rows if r.get("currency")), None)
     if currency:
         report.currency = currency.upper()
