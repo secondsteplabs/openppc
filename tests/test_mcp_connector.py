@@ -71,7 +71,7 @@ def test_a_chatgpt_style_client_can_check_an_audit_over_http():
         result = call(client, 3, "tools/call", {"name": "check_audit", "arguments": {
             "audit_text": SAMPLE.read_text(), "export_text": CSV.read_text(), "industry": "home-services"}})
         text = "".join(part.get("text", "") for part in result["content"])
-        assert "6 traced to your data, 1 mismatched, 3 not in your data, 1 can't be checked from an export" in text
+        assert "6 traced to your data, 3 wrong numbers, 1 wrong label, 1 can't be checked from an export" in text
 
 
 def test_the_command_line_rejects_unknown_options():

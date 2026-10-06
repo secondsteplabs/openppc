@@ -85,9 +85,26 @@ def inspect_file(path):
                   "min_cost": min_cost_for(report.currency)[0]})
 
 
-def count_numbers(text):
-    """How many numbers in the text the check will judge."""
-    claims, _ = trace(text, [])
+_EXPORT_FACTS = {}  # the attached exports' facts, so counting as the text changes never re-reads them
+
+
+def _export_facts(paths):
+    key = tuple((p, os.stat(p).st_size, os.stat(p).st_mtime_ns) for p in paths)  # a re-upload is a new key
+    if key not in _EXPORT_FACTS:
+        _EXPORT_FACTS.clear()
+        _EXPORT_FACTS[key] = facts_for_paths(paths)
+    return _EXPORT_FACTS[key]
+
+
+def count_numbers(text, paths_json="[]"):
+    """How many numbers in the text the check will judge. With the exports it is checked against, their search
+    terms and campaigns are known, so the count is the check's own: "brought 6 conversions" counts only once the
+    text names a row that has it."""
+    try:
+        facts = _export_facts(json.loads(paths_json or "[]"))
+    except READ_ERRORS:
+        facts = []
+    claims, _ = trace(text, facts)
     return len(claims)
 
 

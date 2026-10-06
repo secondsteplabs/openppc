@@ -38,7 +38,7 @@ LLMS = f"""# OpenPPC
 
 > Open-source, read-only Google Ads audits where every number is checked against the account's own export. The app runs in the browser and uploads nothing, and it works inside Claude, Cursor and ChatGPT over MCP.
 
-OpenPPC does two things. It checks any audit (from ChatGPT, Claude, an agency or another tool) against the Google Ads export it was written from, marking every number as traced, a mismatch or not in the data. And it runs free audit templates on an export, where code computes every figure and a checker traces each one before the report is shown.
+OpenPPC does two things. It checks any audit (from ChatGPT, Claude, an agency or another tool) against the Google Ads export it was written from, marking every number as traced, a wrong number or a wrong label. And it runs free audit templates on an export, where code computes every figure and a checker traces each one before the report is shown.
 
 ## Links
 

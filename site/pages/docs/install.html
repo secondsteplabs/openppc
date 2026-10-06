@@ -65,8 +65,8 @@ description: Use OpenPPC in your browser with nothing to install, run it on your
       <h3>Check an AI audit</h3>
       <p>Click <b>Check</b>. Paste the audit, from ChatGPT, Claude, Gemini or an agency, and add the export it was written from. Click <b>Check numbers</b>.</p>
       <figure><div class="shot"><img src="/img/docs/05-check-ready.jpg" alt="The Check screen with an AI audit pasted and the export added" width="2880" height="1800" loading="lazy"></div><figcaption>The app counts the numbers it will judge as you paste.</figcaption></figure>
-      <p>Each number comes back traced, a mismatch (a real figure on the wrong metric or row), not in your data, or can't check (a target, a forecast, or the audit's own working over rows an export can't rebuild). Sentences that argue with their own numbers are flagged too. <b>Copy fix list</b> gives you a note to send back to whoever wrote the audit, and <b>Ask for the working</b> asks them to show how they got the rest.</p>
-      <figure><div class="shot"><img src="/img/docs/06-check-results.jpg" alt="Check results: 4 of 11 numbers don't hold up, with the problems listed and a score" width="2880" height="1800" loading="lazy"></div><figcaption>The sample audit: 6 numbers traced, 1 mismatch, 3 not in the data, 1 that no export can confirm, and one contradiction.</figcaption></figure>
+      <p>Each number comes back traced, a wrong number (your export says otherwise, and gives the real figure), a wrong label (a real figure on the wrong metric or row), or can't check (a target, a forecast, or the audit's own working over rows an export can't rebuild). Sentences that argue with their own numbers are flagged too. <b>Copy fix list</b> gives you a note to send back to whoever wrote the audit, and <b>Ask for the working</b> asks them to show how they got the rest.</p>
+      <figure><div class="shot"><img src="/img/docs/06-check-results.jpg" alt="Check results: 4 of 11 numbers don't hold up, with the problems listed and a score" width="2880" height="1800" loading="lazy"></div><figcaption>The sample audit: 6 numbers traced, 3 wrong numbers, 1 wrong label, 1 that no export can confirm, and one contradiction.</figcaption></figure>
     </div></div>
 
     <div class="doc-step" id="pdf"><span class="num">6</span><div>
@@ -88,7 +88,7 @@ $4,973.64 total cost in this export, and each one cost at least $20.00.</pre>
     <pre class="code"><span class="p">$ </span>openppc check --sample
 
 <span class="c"># Number check</span>
-**11 numbers found: 6 traced to your data, 1 mismatched, 3 not in your data,
+**11 numbers found: 6 traced to your data, 3 wrong numbers, 1 wrong label,
 1 can't be checked from an export.** 1 sentence contradicts its own numbers.</pre>
     <h3>Your own data</h3>
     <p>Download a report from Google Ads and pass its path. In a clone of the repo, keep exports in the <code>exports/</code> folder, which Git ignores, so they are never committed.</p>

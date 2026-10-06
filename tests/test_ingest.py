@@ -88,3 +88,30 @@ def test_a_european_export_reads_the_same_numbers(tmp_path):
         path.write_text(out.getvalue(), encoding="utf-8")
         got = load_report(path)
         assert [(r["cost"], r["clicks"]) for r in got.rows] == [(r["cost"], r["clicks"]) for r in want.rows], delim
+
+
+def test_a_row_cut_short_or_with_no_cost_is_refused(tmp_path):
+    lines = ACME_CSV.read_text(encoding="utf-8").splitlines()
+    header = next(csv.reader([lines[2]]))
+    cells = next(csv.reader([lines[4]]))[:header.index("Cost")]
+    out = io.StringIO()
+    csv.writer(out, lineterminator="").writerow(cells)
+    path = tmp_path / "short.csv"
+    path.write_text("\n".join(lines[:4] + [out.getvalue()] + lines[5:]), encoding="utf-8")
+    with pytest.raises(ValueError, match="stops before the Cost column"):
+        load_report(path)
+    with pytest.raises(ValueError, match="has no Cost figure"):
+        load_report(_edited(tmp_path, 4, "Cost", ""))
+    assert len(load_report(_edited(tmp_path, 4, "Cost", "--")).rows) == 18  # Google writes -- for none
+
+
+def test_money_in_a_count_column_is_refused(tmp_path):
+    with pytest.raises(ValueError, match=r"money amount \(₹20.00\) in the Conversions column"):
+        load_report(_edited(tmp_path, 3, "Conversions", "₹20.00"))
+
+
+def test_a_note_line_with_no_numbers_is_skipped(tmp_path):
+    lines = ACME_CSV.read_text(encoding="utf-8").splitlines()
+    path = tmp_path / "note.csv"
+    path.write_text("\n".join(lines + ["Downloaded from Google Ads"]), encoding="utf-8")
+    assert len(load_report(path).rows) == 18
