@@ -18,17 +18,18 @@ AI will happily audit a Google Ads account. When we tested language models on re
 - **wrong number**: it doesn't match your files, and the flag says what the figure really is ("no: the cost of
   'pipe repair' is $296.40")
 - **wrong label**: right number, wrong metric or row ("22 conversions" when 22 is that search term's clicks)
-- **can't check**: a target, threshold, forecast or what-if, or the audit's own working over rows an export can't
-  rebuild (brand against non-brand, "the other $3,690"). Listed apart with a prompt to ask for the working, never
-  counted against the audit
+- **can't check**: a target, threshold, comparison ("8% more"), forecast or what-if, or the audit's own working over
+  rows an export can't rebuild (brand against non-brand, "the other $3,690"). Listed apart with a prompt to ask for the
+  working, never counted against the audit
 
-A number is only flagged when the checker knows what it claims to be: a row or match type the text names, the rows it
-names together, the terms that never converted, or the whole account. Anything else it can't confirm is "can't check",
-because calling the audit's own arithmetic wrong would be a guess.
+A number is only flagged when the checker knows what it claims to be: a row, match type or campaign type the text
+names, the rows it names together, the terms that never converted, or the whole account. Anything else it can't confirm
+is "can't check", because calling the audit's own arithmetic wrong would be a guess.
 
 Besides each row and the account totals, it checks what audits usually work out: the sums, rates and shares of the
-rows a sentence names together, of a match type ("broad", "exact/phrase") and of the rows under a heading. It also
-flags sentences that contradict their own numbers ("fell from 9% to 14%").
+rows a sentence names together, of a match type ("broad", "exact/phrase"), of a campaign type ("Performance Max spent
+$1,240") and of the rows under a heading. It also flags sentences that contradict their own numbers ("fell from 9% to
+14%").
 
 ## See it
 
@@ -81,7 +82,7 @@ What it has:
 - **Branded PDF**: a client-ready report under your agency's name, logo and brand color: a cover with the headline, then what we found, what we recommend, how the account compares with its industry, and how the report was made (the export's name, dates and SHA-256 fingerprint). Pages are laid out at Letter or A4 size exactly as they print: a block that does not fit moves to the next page, and long tables continue there under their own header, so nothing is cut. Before you can save, the checker reads the text of every page and confirms each number traces to the export. Save it from the browser's print dialog (Chrome and Edge keep the layout exactly). The logo stays in the browser.
 - **Rules** (coming soon): turn a rulebook rule into a Google Ads Script you install yourself. Nothing is built for it yet.
 
-The first visit downloads about 12 MB of runtime, which your browser then keeps. After changing anything in `openppc/` or `examples/`, rebuild the bundle the page loads (a test fails if you forget):
+The first visit downloads about 6 MB of runtime, which your browser then keeps. After changing anything in `openppc/` or `examples/`, rebuild the bundle the page loads (a test fails if you forget):
 
 ```bash
 python tools/build_web.py
