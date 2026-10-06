@@ -335,6 +335,24 @@ def _entities_in(low, entities):
     return found
 
 
+# A one-word name is also an everyday word: "plumbing searches" is a theme, not the search term "plumbing". It names
+# that row only when the text points at it: in quotes, after "the search term" and the like, or as "the Brand campaign".
+QUOTES = "“”\"'‘’`"
+POINT_BEFORE = re.compile(r"\b(?:search terms?|search quer(?:y|ies)|keywords?|terms?|quer(?:y|ies)|campaigns?|"
+                          r"ad groups?)\s*:?\s*$")
+POINT_AFTER = re.compile(r"\s+(?:campaign|ad group)\b")
+LABEL_START = re.compile(r"^\s*(?:[-*+>]\s*|\d+[.)]\s*)?[*_]*\s*$")  # "- **Brand:** ₹2,290 ...": the line's label
+LABEL_END = re.compile(r"\s*[*_]*\s*:")
+
+
+def _pointed(low, s, e):
+    if s > 0 and e < len(low) and low[s - 1] in QUOTES and low[e] in QUOTES:
+        return True
+    if LABEL_START.match(low[:s]) and LABEL_END.match(low[e:]):
+        return True
+    return bool(POINT_BEFORE.search(low[max(0, s - 30):s]) or POINT_AFTER.match(low[e:]))
+
+
 def _quoted(low, all_entities, found):
     """Rows named in quotes, at any length: “日本” or "tv" is a name when it is exactly a row."""
     out = []
@@ -603,13 +621,17 @@ def _contradictions(lines):
     return found
 
 
-def _names(line, low, entities, all_entities, families):
+def _names(line, low, entities, all_entities, families, loose=frozenset()):
     """The rows a line names: in running text (four letters or more), in quotes, as a table row's first cell,
     or as a match type ("broad keywords"; "exact/phrase" names both together, as one group)."""
     ents = _entities_in(low, entities)
     ents += _quoted(low, all_entities, ents)
+    # a one-word search term or keyword the text doesn't point at is an ordinary word: not a row, and not blanked out
+    # of the sentence (so "plumbing searches" still reads as a theme), unless it has digits never to be read as a figure.
+    # Campaign and ad group names are labels people chose, and count as written ("Brand converts at 14%").
+    ents = [(s, e, n) for s, e, n in ents if n not in loose or _pointed(low, s, e) or any(c.isdigit() for c in n)]
     row = _row_name(line, all_entities)
-    named = [(s, e, n) for s, e, n in ents]
+    named = [(s, e, n) for s, e, n in ents if n not in loose or _pointed(low, s, e)]
     if row and not any(n == row for _, _, n in named):
         named.append((0, 0, row))
     unions = []
@@ -742,7 +764,9 @@ def trace(text, facts):
     families = {w: sorted(e for e in base if e in MATCH_TYPES and e.startswith(w)) for w in ("broad", "exact", "phrase")}
     lines = text.splitlines()
     tables = _tables(lines)
-    parsed = [_names(line, line.lower(), entities, all_entities, families) for line in lines]
+    groups = {f.entity.lower() for f in facts if f.entity and f.level == "group"}
+    loose = {f.entity.lower() for f in facts if f.level == "row" and " " not in f.entity.strip()} - groups
+    parsed = [_names(line, line.lower(), entities, all_entities, families, loose) for line in lines]
     under = {}  # a heading's line -> the rows its numbers usually sum up: its first list, or its whole section
     for i, line in enumerate(lines):
         if line.lstrip().startswith("#"):

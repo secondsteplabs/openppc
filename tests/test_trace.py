@@ -151,3 +151,15 @@ def test_magnitudes_in_words_and_ranges_with_k():
 def verdicts_of(text, facts):
     claims, _ = trace(text, facts)
     return [(c.written, c.verdict) for c in claims]
+
+
+def test_a_one_word_name_is_a_row_only_when_the_text_points_at_it():
+    # Real accounts have one-word search terms ("plumbing"); in an audit the same word is usually a theme
+    facts = [Fact("cost of the account", 5146.84, "money", "cost"),
+             Fact("cost of 'plumbing'", 90.0, "money", "cost", "plumbing", "row"),
+             Fact("cost of 'Brand'", 2290.0, "money", "cost", "Brand", "group")]
+    assert verdicts_of("Plumbing searches spent $1,523.20 in total.", facts) == [("$1,523.20", "can't check")]
+    assert verdicts_of("The search term plumbing spent $90.00.", facts) == [("$90.00", "traced")]
+    assert verdicts_of("“plumbing” spent $75.00 with no conversions.", facts) == [("$75.00", "not in data")]
+    assert verdicts_of("- **Brand:** ₹2,290 in July.", facts) == [("₹2,290", "traced")]  # a line's label
+    assert verdicts_of("The Brand campaign spent $2,290.", facts) == [("$2,290", "traced")]
