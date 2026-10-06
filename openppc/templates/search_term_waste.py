@@ -178,7 +178,7 @@ def _actions(book, waste, sure, chance, prior, needed, bar, pricey, harvest, cpa
                 pct = _chance_text(book, t, chance.get(id(best)))
                 clicks = book.count(f"clicks of '{t}'", val(best, "clicks"), "clicks", t)
                 need_s = book.count("clicks a search term needs before the waste model is sure it is bad", needed, "clicks")
-                detail = (f"None is proven bad yet. The closest, \u201c{t}\u201d, is {pct} likely bad after {clicks} clicks. "
+                detail = (f"None is proven bad yet. The closest, \u201c{t}\u201d, is {pct} likely bad after {clicks} {plural(val(best, 'clicks'), 'click')}. "
                           f"The waste model needs about {need_s} clicks with no conversion to be {bar} sure.")
             out.append({"kind": "watch", "title": f"Give {n_s} {plural(n, 'term')} more clicks before adding negatives",
                         "detail": detail})
@@ -197,8 +197,8 @@ def _actions(book, waste, sure, chance, prior, needed, bar, pricey, harvest, cpa
         k_s = book.count("search terms worth adding as keywords", k)
         v = book.count(f"conversions of '{t}'", val(r, "conversions"), "conversions", t, dp=conv_dp(val(r, "conversions")))
         p = book.money(f"cost per conversion of '{t}'", _cpa(r), "cpa", t)
-        out.append({"kind": "add", "title": f"Add {k_s} converting {plural(k, 'term')} as keywords",
-                    "detail": f"\u201c{t}\u201d leads with {v} conversions at {p} each."})
+        out.append({"kind": "add", "title": f"Add {k_s} converting {plural(k, 'term')} as {plural(k, 'a keyword', 'keywords')}",
+                    "detail": f"\u201c{t}\u201d leads with {v} {plural(val(r, 'conversions'), 'conversion')} at {p} each."})
     return out
 
 
@@ -321,7 +321,7 @@ def _client(book, report, x):
                         dp=conv_dp(bt.conversions))
         found.append({"type": "note", "text": f"Searches for the brand are never counted as waste: {bn} "
                                               f"{plural(len(x['brand_rows']), 'search term')} matched it, cost {bc} "
-                                              f"and brought {bv} conversions."})
+                                              f"and brought {bv} {plural(bt.conversions, 'conversion')}."})
     if x["names"]:
         found.append({"type": "h2", "text": "Words that never convert"})
         found.append({"type": "p", "text": "These words show up across several search terms that spent money without "
@@ -366,10 +366,10 @@ def _client(book, report, x):
                 pct = _chance_text(book, t, chance.get(id(best)))
                 clicks_b = book.count(f"clicks of '{t}'", val(best, "clicks"), "clicks", t)
                 if n == 1:
-                    text = f"\u201c{t}\u201d spent {wc} with no conversions, and it is {pct} likely bad after {clicks_b} clicks."
+                    text = f"\u201c{t}\u201d spent {wc} with no conversions, and it is {pct} likely bad after {clicks_b} {plural(val(best, 'clicks'), 'click')}."
                 else:
                     text = (f"They spent {wc} with no conversions, but none is {bar} likely bad yet. The closest, "
-                            f"“{t}”, is {pct} likely bad after {clicks_b} clicks.")
+                            f"“{t}”, is {pct} likely bad after {clicks_b} {plural(val(best, 'clicks'), 'click')}.")
                 text += (f" A term needs about {x['need_s']} clicks (about {x['need_cost']}) with no conversion before "
                          f"we can be {bar} sure.")
             steps.append({"kind": "watch", "title": title, "text": text})
@@ -409,7 +409,7 @@ def _client(book, report, x):
             rows.append([rt, book.count(f"conversions of '{rt}'", val(r, "conversions"), "conversions", rt,
                                         dp=conv_dp(val(r, "conversions"))),
                          book.money(f"cost per conversion of '{rt}'", _cpa(r), "cpa", rt), r.get("match_type", "")])
-        steps.append({"kind": "add", "title": f"Add {k_s} converting search {plural(k, 'term')} as keywords",
+        steps.append({"kind": "add", "title": f"Add {k_s} converting search {plural(k, 'term')} as {plural(k, 'a keyword', 'keywords')}",
                       "text": f"{'It' if k == 1 else 'They'} converted at or below the account's {cpa_s} per "
                               f"conversion and {'is not a keyword' if k == 1 else 'are not keywords'} yet.",
                       "table": {"cols": ["Search term", "Conversions", "Cost per conversion", "Match type"],
@@ -557,7 +557,8 @@ def run(report, min_cost=None, industry=None, top=25, brand=None, **_):
                    "Nothing to cut one term at a time at this threshold.")
     clicks = book.count("total clicks", grand.clicks, "clicks")
     convs = book.count("total conversions", grand.conversions, "conversions", dp=conv_dp(grand.conversions))
-    line = f"Account totals in this export: {total_cost} cost, {clicks} clicks, {convs} conversions"
+    line = (f"Account totals in this export: {total_cost} cost, {clicks} {plural(grand.clicks, 'click')}, "
+            f"{convs} {plural(grand.conversions, 'conversion')}")
     if cpa:
         cpa_s = book.money("account cost per conversion", cpa, "cpa")
         line += f", {cpa_s} per conversion"
@@ -570,7 +571,7 @@ def run(report, min_cost=None, industry=None, top=25, brand=None, **_):
                         dp=conv_dp(bt.conversions))
         verb = "matches" if len(brand_rows) == 1 else "match"
         out += ["", f"Brand terms are left out of the waste list: {bn} {plural(len(brand_rows), 'search term')} "
-                    f"{verb} your brand, cost {bc} and brought {bv} conversions. Never add them as negatives."]
+                    f"{verb} your brand, cost {bc} and brought {bv} {plural(bt.conversions, 'conversion')}. Never add them as negatives."]
 
     todo_at = len(out)  # "What to do" goes here, once everything it sums up is computed
     if waste:

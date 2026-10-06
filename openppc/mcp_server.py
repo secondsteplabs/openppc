@@ -67,8 +67,9 @@ def audit_account(template: str, data_path: str, industry: str = "", min_cost: f
 
 def check_numbers(audit_text: str, data_paths: list[str], industry: str = "") -> str:
     """Check every number in an audit, written by any AI or person, against local export files.
-    Reports which numbers trace to the data, which are attached to the wrong metric or row,
-    which are not in the data at all, and which sentences contradict their own numbers."""
+    Reports which numbers trace to the data, which are wrong numbers (the data says otherwise; the real
+    figure is given where known), which are wrong labels (a real figure on the wrong metric or row), and
+    which sentences contradict their own numbers."""
     claims, contradictions = trace(audit_text, facts_for_paths(data_paths, industry or None))
     return render_check(claims, contradictions)
 
@@ -99,8 +100,8 @@ def audit_export(template: str, export_text: str, export_name: str = "export.csv
 def check_audit(audit_text: str, export_text: str, export_name: str = "export.csv", industry: str = "") -> str:
     """Check every number in an audit, written by any AI or person, against the contents of the Google Ads
     export it was written from (pass the whole file's text). Reports which numbers trace to the data,
-    which are attached to the wrong metric or row, which are not in the data at all, and which sentences
-    contradict their own numbers."""
+    which are wrong numbers (the data says otherwise; the real figure is given where known), which are wrong
+    labels (a real figure on the wrong metric or row), and which sentences contradict their own numbers."""
     with tempfile.TemporaryDirectory(prefix="openppc-") as folder:
         return check_numbers(audit_text, [_export_file(folder, export_text, export_name)], industry)
 

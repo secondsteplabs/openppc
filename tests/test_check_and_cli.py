@@ -63,3 +63,11 @@ def test_mcp_server_registers_read_only_tools():
     # SDK 2.x names the field read_only_hint; 1.x named it readOnlyHint
     assert all(getattr(t.annotations, "read_only_hint", None) or getattr(t.annotations, "readOnlyHint", None)
                for t in tools)
+
+
+def test_flags_are_called_wrong_number_and_wrong_label(capsys):
+    # The codes stay ("not in data", "mismatch"); people read plainer names.
+    assert main(["check", "--sample"]) == 2
+    out = capsys.readouterr().out
+    assert "3 wrong numbers, 1 wrong label" in out and "| wrong number |" in out and "| wrong label |" in out
+    assert "not in data" not in out.lower() and "mismatch" not in out.lower()

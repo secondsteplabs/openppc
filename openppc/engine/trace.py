@@ -1,6 +1,7 @@
 """The checker: find every number in a piece of text and trace it back to your data.
 
-Each number gets one of four verdicts:
+Each number gets one of four verdicts. People see two of them by plainer names (VERDICT_LABEL):
+"not in data" is shown as "wrong number" and "mismatch" as "wrong label".
 
   traced        it equals a fact from your data, at the precision it was written.
                 "$1.4k" matches 1,361.04 because both round to 1,400; "$1,500" does not.
@@ -147,6 +148,13 @@ UNNAMED = re.compile(r"\b(?:one|a|an|another|some|each|any|the top|top|the best|
 QUALIFIER = re.compile(r"\b(?:non-?brand|brand(?:ed)?|search(?!\s+(?:terms?|quer(?:y|ies)))|pmax|performance max|"
                        r"display|shopping|"
                        r"video|demand gen|excluding|except|without|other than|only)\b", re.I)
+# A waste figure over a slice of the no-conversion terms (brand left out, one campaign type), which an export can't
+# rebuild without knowing the slice: never compared with the figure for all of them. "Without" alone is not one:
+# "terms without conversions" is how waste is described.
+NEVER_SLICE = re.compile(r"\bnon-?brand(?:ed)?\b|\bbrand(?:ed)?\b|\b(?:excluding|exclude[sd]?|except|other than|minus|"
+                         r"not counting|leaving out|leave out|apart from)\b|\bwithout (?:your |the |any )?brand|"
+                         r"\bsearch(?!\s+(?:terms?|quer(?:y|ies)|reports?))\b|\bpmax\b|\bperformance max\b|\bdisplay\b|"
+                         r"\bshopping\b", re.I)
 # "the rows named together" only when the text means them together; with no such rows, these words mean a subset
 GROUP_WORDS = re.compile(r"\b(?:combined|together|between them|both|these|those|they|them|their)\b", re.I)
 # "five terms drove 71 of 85 conversions": a counted set of rows, not the account, unless it is all of them
@@ -661,7 +669,7 @@ def _labelled(before):
 
 
 def _subject(named, unions, row, here, implied, lo, hi, a, b, start, sentence, clause, cell, line, base, about,
-             groups=1, before=""):
+             groups=1, before="", heading=""):
     """What a number claims to be a figure of, read from the closest words out: a table row; the one row or match
     type its own clause names, or the rows it names together; the terms that never converted; the one row or the
     rows its sentence names; or else the whole account. None when it is a slice we cannot rebuild ("Search broad
@@ -677,7 +685,7 @@ def _subject(named, unions, row, here, implied, lo, hi, a, b, start, sentence, c
         if QUALIFIER.search(first) or SUBSET.search(header + " " + first):
             return None  # "All Search", "Non-brand"
         if about in NEVER_METRICS and (NEVER.search(first) or WASTE_WORDS.search(first)):
-            return ("never", None)
+            return None if NEVER_SLICE.search(heading) else ("never", None)
         return ("account", None) if ACCOUNT_CUE.search(first) or PERIOD_HEADER.match(first) else None
     # names after "including" or "plus", when that word comes after the number, are examples of what it covers
     cut = min([a + m.start() for m in LIST_MORE.finditer(sentence) if a + m.start() > start], default=len(line) + 1)
@@ -706,7 +714,7 @@ def _subject(named, unions, row, here, implied, lo, hi, a, b, start, sentence, c
     if not in_sentence and ANAPHORA_START.search(sentence) and len(named_before) == 1:
         return one(named_before[0])
     if about in NEVER_METRICS and (NEVER.search(sentence) or WASTE_WORDS.search(sentence)):
-        return ("never", None)
+        return None if NEVER_SLICE.search(sentence) or NEVER_SLICE.search(heading) else ("never", None)
     if UNNAMED.search(clause):
         return ("unnamed", None)
     if WHATIF.search(sentence) or TARGET.search(sentence) or _labelled(before):
@@ -746,9 +754,11 @@ def trace(text, facts):
                     done = True
                 j += 1
             under[i] = [first, section]
-    claims, history, block, carried, quiet = [], [], [], set(), 0
+    claims, history, block, carried, quiet, heading = [], [], [], set(), 0, ""
     for i, line in enumerate(lines):
         low = line.lower()
+        if line.lstrip().startswith("#"):
+            heading = low
         ents, named, unions = parsed[i]
         row = _row_name(line, all_entities)
         masked = _mask(low, ents)
@@ -910,7 +920,7 @@ def trace(text, facts):
                     column = side and side[1] and (("group", GROUP) if side[1][0] == "group" else side[1])
                     subject = (("earlier", None) if pos in earlier else ("account", None) if anchored else
                                column if side else _subject(named, unions, row, here, implied, lo, hi, a, b, start, masked[a:b],
-                                        masked[lo:hi], cell, line, base, about, groups, wordless[lo:start]))
+                                        masked[lo:hi], cell, line, base, about, groups, wordless[lo:start], heading))
                     verdict, detail = _settle(judged, kind, about, subject, facts + here, masked[a:b], detail)
             if rng:
                 a, b = next(((a, b) for a, b in sentences if a <= start < b), (0, len(line)))
@@ -960,15 +970,21 @@ def _esc(text):
     return str(text).replace("|", "\\|")
 
 
+# What each verdict is called wherever people read it. The codes stay as they are in claims and in the app's data.
+VERDICT_LABEL = {"traced": "traced", "not in data": "wrong number", "mismatch": "wrong label", "can't check": "can't check"}
+
+
 def render_check(claims, contradictions):
     traced = [c for c in claims if c.verdict == "traced"]
-    flagged = [c for c in claims if c.verdict in ("mismatch", "not in data")]
+    flagged = sorted((c for c in claims if c.verdict in ("mismatch", "not in data")), key=lambda c: c.verdict != "not in data")
     unchecked = [c for c in claims if c.verdict == "can't check"]
-    mismatched = sum(c.verdict == "mismatch" for c in claims)
+    labels = sum(c.verdict == "mismatch" for c in claims)
+    wrong = len(flagged) - labels
     n, bad = len(claims), len(contradictions)
     out = ["# Number check", "",
            f"**{n:,} {'number' if n == 1 else 'numbers'} found: {len(traced):,} traced to your data, "
-           f"{mismatched:,} mismatched, {len(flagged) - mismatched:,} not in your data"
+           f"{wrong:,} {'wrong number' if wrong == 1 else 'wrong numbers'}, "
+           f"{labels:,} {'wrong label' if labels == 1 else 'wrong labels'}"
            + (f", {len(unchecked):,} can't be checked from an export" if unchecked else "") + ".** "
            + f"{bad:,} {'sentence contradicts its' if bad == 1 else 'sentences contradict their'} own numbers."]
     if not flagged and not contradictions:
@@ -977,7 +993,7 @@ def render_check(claims, contradictions):
     if flagged:
         out += ["", "## Needs attention", "", "| Line | As written | Verdict | Detail | Context |",
                 "|---|---|---|---|---|"]
-        out += [f"| {c.line} | {_esc(c.written)} | {c.verdict} | {_esc(c.detail)} | {_esc(c.context)} |"
+        out += [f"| {c.line} | {_esc(c.written)} | {VERDICT_LABEL[c.verdict]} | {_esc(c.detail)} | {_esc(c.context)} |"
                 for c in flagged]
     if contradictions:
         out += ["", "## Contradictions", "", "| Line | Problem | Context |", "|---|---|---|"]
@@ -991,8 +1007,8 @@ def render_check(claims, contradictions):
     if traced:
         out += ["", "## Traced", "", "| Line | As written | Traced to |", "|---|---|---|"]
         out += [f"| {c.line} | {_esc(c.written)} | {_esc(c.detail)} |" for c in traced]
-    out += ["", "_Not in your data means nothing in the files you provided backs that figure: no account figure "
-                "matches it, and no row the text names. It may be wrong, rounded differently, about a row the text "
-                "doesn't name, or from data you did not include. Can't be checked means it is a target, a forecast, "
-                "a what-if, or the audit's own working over rows an export can't rebuild._"]
+    out += ["", "_A wrong number doesn't match your files: where it is clear what the figure is of, Detail gives the "
+                "real one. It may also be rounded differently, about a row the text doesn't name, or from data you did "
+                "not include. A wrong label is a real figure on the wrong metric or row. Can't be checked means it is "
+                "a target, a forecast, a what-if, or the audit's own working over rows an export can't rebuild._"]
     return "\n".join(out)

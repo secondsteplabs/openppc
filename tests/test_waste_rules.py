@@ -146,3 +146,15 @@ def _run_rows(rows, **params):
     claims, contradictions = trace(text, book.facts)
     assert all(c.verdict == "traced" for c in claims) and not contradictions  # the report passes its own number check
     return text
+
+
+def test_one_click_and_one_conversion_read_as_one():
+    rows = [_row("plumbing repair", 900.0, 300, 45), _row("leak detection", 300.0, 80, 1),
+            _row("drain cleaning", 400.0, 100, 25), _row("free plumbing course", 240.0, 1, 0)]
+    report = Report(rows=rows, columns={"search_term", "match_type", "campaign_type", "clicks", "impressions", "cost",
+                                        "conversions"},
+                    source="test.csv", start=dt.date(2026, 7, 1), end=dt.date(2026, 7, 30), currency="USD")
+    lines, book = search_term_waste.run(report)
+    everything = "\n".join(lines) + json.dumps([book.cards, book.client])
+    assert not re.search(r"\b1 (clicks|conversions)\b", everything)
+    assert "after 1 click" in everything

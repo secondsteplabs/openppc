@@ -41,7 +41,8 @@ def run(report, min_cost=None, industry=None, low_qs=4, top=25, brand=None, **_)
 
     clicks = book.count("total clicks", grand.clicks, "clicks")
     convs = book.count("total conversions", grand.conversions, "conversions", dp=conv_dp(grand.conversions))
-    line = f"This export covers {total_cost} of cost, {clicks} clicks and {convs} conversions"
+    line = (f"This export covers {total_cost} of cost, {clicks} {plural(grand.clicks, 'click')} and {convs} "
+            f"{plural(grand.conversions, 'conversion')}")
     if cpa:
         line += f", or {book.money('account cost per conversion', cpa, 'cpa')} per conversion"
     out += ["## Summary", "", line + "."]

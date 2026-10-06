@@ -129,3 +129,14 @@ def test_a_range_is_never_traced_on_loose_grounds():
 def test_a_minus_sign_stays_with_its_number():
     assert [w for w, _ in acme("Spend changed by -$0.00, and CPC by −$0.12.")] == ["-$0.00", "−$0.12"]
     assert [w for w, _ in acme("The account's average CPC is $5-$7.")] == ["$5", "$7"]  # a dash between two numbers
+
+
+def test_a_waste_figure_over_a_slice_is_never_compared_with_all_of_it():
+    # brand left out, one campaign type: an export can't rebuild the slice, so the figure can't be checked
+    for text in ("Excluding brand terms, zero-conversion search terms cost $751.70.",
+                 "Non-brand search terms with zero conversions cost $751.70.",
+                 "## Non-brand waste\nSearch terms with zero conversions cost $751.70.",
+                 "In Search campaigns, terms with zero conversions cost $751.70."):
+        assert acme(text) == [("$751.70", "can't check")], text
+    assert acme("You wasted $751.70 on search terms with zero conversions.") == [("$751.70", "not in data")]
+    assert acme("You wasted $784.70 on search terms with zero conversions.") == [("$784.70", "traced")]

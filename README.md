@@ -15,9 +15,9 @@ AI will happily audit a Google Ads account. When we tested language models on re
 **Check.** Point it at any audit, from ChatGPT, Claude, a colleague or another tool, plus your export. Every number comes back marked:
 
 - **traced**: it matches your data, at the precision it was written
-- **mismatch**: right number, wrong metric or row ("22 conversions" when 22 is that search term's clicks)
-- **not in data**: nothing in your files produces it, and the flag says what the figure really is ("no: the cost of
+- **wrong number**: it doesn't match your files, and the flag says what the figure really is ("no: the cost of
   'pipe repair' is $296.40")
+- **wrong label**: right number, wrong metric or row ("22 conversions" when 22 is that search term's clicks)
 - **can't check**: a target, threshold, forecast or what-if, or the audit's own working over rows an export can't
   rebuild (brand against non-brand, "the other $3,690"). Listed apart with a prompt to ask for the working, never
   counted against the audit
@@ -32,7 +32,7 @@ flags sentences that contradict their own numbers ("fell from 9% to 14%").
 
 ## See it
 
-**Check any audit against your export.** Every number comes back traced, mismatched or not in your data, with the line it came from.
+**Check any audit against your export.** Every number comes back marked traced, wrong number or wrong label, with the line it came from.
 
 ![The number check: 4 of 11 numbers in an AI-written audit don't hold up against the export](https://raw.githubusercontent.com/secondsteplabs/openppc/main/site/static/img/docs/06-check-results.jpg)
 
@@ -75,7 +75,7 @@ python3 -m http.server 8765 --directory web
 
 What it has:
 
-- **Check**: paste any AI's audit next to the export it was written from, and see each number traced, mismatched or not in your data.
+- **Check**: paste any AI's audit next to the export it was written from, and see each number marked traced, wrong number or wrong label.
 - **Audit**: run a free template on your export. The search-term waste audit comes back as cards: the headline numbers, what to do, and the wasted terms with the chance each one is bad, ready to copy as exact-match negatives or download as a .csv.
 - **Templates**: every free template, with a link to its code.
 - **Branded PDF**: a client-ready report under your agency's name, logo and brand color: a cover with the headline, then what we found, what we recommend, how the account compares with its industry, and how the report was made (the export's name, dates and SHA-256 fingerprint). Pages are laid out at Letter or A4 size exactly as they print: a block that does not fit moves to the next page, and long tables continue there under their own header, so nothing is cut. Before you can save, the checker reads the text of every page and confirms each number traces to the export. Save it from the browser's print dialog (Chrome and Edge keep the layout exactly). The logo stays in the browser.
@@ -176,7 +176,7 @@ Every rule the tool applies is a row in [`rulebook/rules.csv`](https://github.co
 ## Known limits
 
 - With thousands of figures in a file, a number can match one by coincidence. Every trace names the fact it matched, so read the "traced to" column instead of just counting.
-- "Not in data" means not in the files you provided. The figure may come from another report or date range.
+- "Wrong number" means it doesn't match the files you provided. The figure may come from another report or date range.
 - Benchmarks are the public WordStream / LocaliQ 2026 US averages: a ballpark, not a target.
 - Google renames export columns from time to time. If a file won't load, open an issue with its header row.
 

@@ -444,6 +444,11 @@ ul.pdf-html, ol.pdf-html { padding-left: 20px; }
   .hero h1 { font-size: 36px; }
 }
 @media (max-width: 720px) {
+  .wide-only { display: none; }  /* phones: the waste table keeps term, cost, clicks and chance; ticked rows are the suggested negatives */
+  table.waste { min-width: 0; }
+  table.waste th, table.waste td { padding-left: 8px; padding-right: 8px; }
+  table.waste th.pick, table.waste td.pick { width: 36px; padding-left: 8px; }
+  table.waste .chance-bar { display: none; }  /* the percentage says it */
   .app { flex-direction: column; }
   .rail { position: fixed; top: auto; bottom: 0; left: 0; right: 0; width: auto; height: 72px; padding: 6px 12px; flex-direction: row; justify-content: space-around; }
   .rail-logo { margin: 0; }

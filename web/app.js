@@ -210,12 +210,14 @@ async function addBytes(name, bytes) {
   syncThreshold();
   renderFiles();
   refresh();
+  updateCount();  // the export's row names change which numbers the check judges
 }
 function removeFile(path) {
   state.files = state.files.filter((f) => f.path !== path);
   syncThreshold();
   renderFiles();
   refresh();
+  updateCount();
 }
 // The waste threshold is in the export's currency and starts at that currency's default (about $20),
 // until the user types their own.
@@ -268,7 +270,8 @@ async function updateCount() {
   const run = ++state.countRun;
   let count = 0;
   if (state.engine === 'ready' && text.trim()) {
-    try { count = Number(await engineCall('count_numbers', text)); } catch { count = 0; }
+    const paths = JSON.stringify(goodFiles().map((f) => f.path));  // the export's row names change the count
+    try { count = Number(await engineCall('count_numbers', text, paths)); } catch { count = 0; }
     if (run !== state.countRun) return;  // a later edit is being counted
   }
   state.count = count;
@@ -326,7 +329,7 @@ function setMode(mode) {
   el.crumbMode.textContent = check ? 'Check an AI audit' : 'Audit my account';
   el.title.textContent = check ? "Paste an AI audit. We'll check every number." : 'Run a free audit on your export.';
   el.sub.textContent = check
-    ? 'Add the Google Ads export it was written from. Each figure comes back traced, mismatched or not in your data.'
+    ? 'Add the Google Ads export it was written from. Each figure comes back marked traced, wrong number or wrong label.'
     : 'Code computes every figure in the report from your file, then traces each one back to it before you see it.';
   el.auditField.hidden = !check;
   el.templateField.hidden = check;
@@ -446,7 +449,7 @@ function message(res) {
     const pool = money.length ? money : misses;
     if (pool.length) {
       const miss = pool.reduce((a, b) => (b.value > a.value ? b : a));
-      lead.append(' The biggest miss: ', h('b', {}, miss.written), ` on line ${miss.line} is not in your data.`);
+      lead.append(' The biggest miss: ', h('b', {}, miss.written), ` on line ${miss.line} is wrong.`);
     }
   }
   if (c.cant_check) lead.append(` ${c.cant_check} more can't be checked from an export: targets, forecasts, or the audit's own working.`);
@@ -463,10 +466,10 @@ function message(res) {
         pill = h('span', { class: 'pill p-con' }, 'Contradiction');
       } else {
         const mismatch = r.kind === 'mismatch';
-        title = mismatch ? `“${r.claim.written}” is a real figure, on the wrong metric or row` : `“${r.claim.written}” is not in your data`;
+        title = mismatch ? `“${r.claim.written}” is a real figure, on the wrong metric or row` : `“${r.claim.written}” is wrong`;
         detail = capital(r.claim.detail) + '.';
         quote = r.claim.context;
-        pill = h('span', { class: 'pill ' + (mismatch ? 'p-mis' : 'p-nid') }, mismatch ? 'Mismatch' : 'Not in data');
+        pill = h('span', { class: 'pill ' + (mismatch ? 'p-mis' : 'p-nid') }, mismatch ? 'Wrong label' : 'Wrong number');
       }
       list.append(h('li', { class: 'item' },
         h('span', { class: 'step num' }, String(i + 1)),
@@ -549,15 +552,15 @@ function annotated(text, res) {
     h('div', { class: 'card-head' }, h('span', { class: 'card-title' }, 'Your audit, annotated'),
       h('div', { class: 'keys' },
         key(h('span', { style: 'width:16px;border-bottom:2px solid var(--ok)' }), 'Traced'),
-        key(h('span', { class: 'sw', style: 'background:var(--mis-bg);box-shadow:inset 0 -2px 0 var(--mis-line)' }), 'Mismatch'),
-        key(h('span', { class: 'sw', style: 'background:var(--nid)' }), 'Not in data'),
+        key(h('span', { class: 'sw', style: 'background:var(--nid)' }), 'Wrong number'),
+        key(h('span', { class: 'sw', style: 'background:var(--mis-bg);box-shadow:inset 0 -2px 0 var(--mis-line)' }), 'Wrong label'),
         key(h('span', { class: 'sw', style: 'background:#d9dedc' }), "Can't check"),
         key(h('span', { class: 'sw', style: 'background:var(--ink)' }), 'Contradiction'))),
     doc);
 }
 const FLAGGED = new Set(['mismatch', 'not in data']);
 function pillFor(verdict) {
-  const map = { traced: ['p-ok', 'Traced'], mismatch: ['p-mis', 'Mismatch'], 'not in data': ['p-nid', 'Not in data'],
+  const map = { traced: ['p-ok', 'Traced'], mismatch: ['p-mis', 'Wrong label'], 'not in data': ['p-nid', 'Wrong number'],
     "can't check": ['p-unc', "Can't check"] };
   const [cls, label] = map[verdict] || ['p-nid', verdict];
   return h('span', { class: 'pill ' + cls }, label);
@@ -589,7 +592,7 @@ function numbersTable(claims) {
       h('thead', {}, h('tr', {}, h('th', { style: 'width:56px' }, 'Line'), h('th', { style: 'width:110px' }, 'As written'),
         h('th', { style: 'width:130px' }, 'Verdict'), h('th', {}, 'What your file says'))),
       tbody)),
-    h('p', { class: 'foot' }, "Not in your data means nothing in the files you provided produces that figure. It may be wrong, rounded differently, or come from data you did not include. Can't check means a target, a forecast, a what-if, or the audit's own working over rows we can't rebuild: ask for the working. This checks numbers, not advice."));
+    h('p', { class: 'foot' }, "A wrong number doesn't match your files: where it is clear what the figure is of, the real one is shown. It may also be rounded differently or come from data you did not include. A wrong label is a real figure on the wrong metric or row. Can't check means a target, a forecast, a what-if, or the audit's own working over rows we can't rebuild: ask for the working. This checks numbers, not advice."));
 }
 function scoreCard(c) {
   const R = 48;
@@ -615,8 +618,8 @@ function scoreCard(c) {
       h('p', { class: 'small', style: 'font-size:14px;color:var(--ink3)' }, `${num(c.traced)} of ${plural(c.total, 'number')} trace to your export.`,
         bad || c.contradictions ? ` ${num(bad + c.contradictions)} ${bad + c.contradictions === 1 ? 'needs' : 'need'} attention before this audit reaches a client.` : '',
         c.cant_check ? ` ${num(c.cant_check)} can't be checked from an export.` : '')),
-    h('div', { class: 'tiles' }, tile(c.traced, '#0b8a50', 'Traced'), tile(c.mismatch, '#b86e0c', 'Mismatch'),
-      tile(c.not_in_data, '#c0362c', 'Not in data'), tile(c.contradictions, '#11181c', 'Contradiction')));
+    h('div', { class: 'tiles' }, tile(c.traced, '#0b8a50', 'Traced'), tile(c.not_in_data, '#c0362c', 'Wrong number'),
+      tile(c.mismatch, '#b86e0c', 'Wrong label'), tile(c.contradictions, '#11181c', 'Contradiction')));
 }
 function sourcesCard(files, industry) {
   return h('div', { class: 'card pad stack' }, h('span', { class: 'card-title' }, 'Checked against'),
@@ -692,7 +695,7 @@ async function runAudit() {
       h('p', { class: 'small' }, 'Put your logo and colors on this report and save it as a PDF. The numbers stay checked.'),
       h('a', { class: 'btn', href: '#branded' }, icon('print'), 'Make the branded PDF')),
     h('div', { class: 'card pad stack' }, h('span', { class: 'card-title' }, 'Got an AI audit of this account?'),
-      h('p', { class: 'small' }, 'Check it against the same export. Every figure comes back traced, mismatched or not in your data.'),
+      h('p', { class: 'small' }, 'Check it against the same export. Every figure comes back marked traced, wrong number or wrong label.'),
       h('button', { class: 'btn', type: 'button', onclick: () => { go('check'); el.text.focus(); } }, 'Check an AI audit')));
   showResults([left, right], template.title);
 }
@@ -744,14 +747,14 @@ function wasteCard(cards) {
         h('button', { class: 'btn btn-dark', type: 'button', onclick: () => copyNegatives(chosen()) }, icon('copy'), 'Copy as negatives'))),
     h('div', { class: 'table-wrap' }, h('table', { class: 't waste' },
       h('thead', {}, h('tr', {}, h('th', { class: 'pick' }, h('label', { class: 'hit' }, all)), h('th', {}, 'Search term'), h('th', {}, 'Cost'),
-        h('th', {}, 'Clicks'), h('th', {}, 'Share'), h('th', {}, "Chance it's bad"), h('th', {}, 'Match type'), h('th', {}, 'Suggested'))),
+        h('th', {}, 'Clicks'), h('th', { class: 'wide-only' }, 'Share'), h('th', {}, "Chance it's bad"), h('th', { class: 'wide-only' }, 'Match type'), h('th', { class: 'wide-only' }, 'Suggested'))),
       h('tbody', {}, rows.map((r, i) => h('tr', {},
         h('td', { class: 'pick' }, h('label', { class: 'hit' }, boxes[i])),
         h('td', {}, h('span', { class: 'term' }, r.term),
           r.campaign ? h('span', { class: 'term-c' }, r.automated && r.campaign_type ? `${r.campaign} · ${r.campaign_type}` : r.campaign) : null),
-        h('td', { class: 'num' }, r.cost), h('td', { class: 'num' }, r.clicks), h('td', { class: 'num' }, r.share),
-        h('td', {}, chanceBar(r)), h('td', { class: 'muted' }, r.match_type || '--'),
-        h('td', {}, h('span', { class: 'pill ' + (r.sure ? 'p-nid' : 'p-mis') }, r.sure ? 'Negative' : 'Watch'))))))),
+        h('td', { class: 'num' }, r.cost), h('td', { class: 'num' }, r.clicks), h('td', { class: 'num wide-only' }, r.share),
+        h('td', {}, chanceBar(r)), h('td', { class: 'muted wide-only' }, r.match_type || '--'),
+        h('td', { class: 'wide-only' }, h('span', { class: 'pill ' + (r.sure ? 'p-nid' : 'p-mis') }, r.sure ? 'Negative' : 'Watch'))))))),
     h('p', { class: 'foot' }, (more > 0 ? `Plus ${plural(more, 'more term')} in the full report. ` : '') +
       "Chance it's bad is how likely a term is to convert at under half your account's rate, given the clicks it has had. " +
       'Terms at 90% or more start ticked as negatives; the rest need more clicks before you judge them.'));

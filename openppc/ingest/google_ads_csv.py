@@ -31,6 +31,8 @@ ALIASES = {
     "currency": ["currency code", "currency"],
 }
 NUMERIC = {"clicks", "impressions", "cost", "conversions", "quality_score"}
+COUNTS = ("clicks", "impressions", "conversions", "quality_score")  # never money
+MONEY_MARK = re.compile(r"[$€£₹¥]|\bRs\.?|\b(?:USD|INR|EUR|GBP|AUD|CAD|NZD|JPY)\b")
 DATE_RANGE = re.compile(r"([A-Z][a-z]+\.? \d{1,2}, \d{4}|\d{1,2} [A-Z][a-z]+\.? \d{4})\s*[-–—]\s*"
                         r"([A-Z][a-z]+\.? \d{1,2}, \d{4}|\d{1,2} [A-Z][a-z]+\.? \d{4})")
 TOTAL_ROW = re.compile(r"^\s*total\s*:", re.I)  # "Total: Account"; a search term like "total gym" is data
@@ -171,11 +173,25 @@ def load_report(path):
             if any(c.strip() for c in cells)
             and not TOTAL_ROW.match(next(c for c in cells if c.strip()))
             and not (name_at is not None and name_at < len(cells) and TOTAL_ROW.match(cells[name_at]))]
+    names = [c.strip() for c in next(csv.reader([lines[idx]], delimiter=delim))]
+    numeric = [i for i, k in enumerate(keys) if k in NUMERIC]
+    data = [(n, cells) for n, cells in data if any(i < len(cells) and cells[i].strip() for i in numeric)]  # notes
     for n, cells in data:  # a broken file must be refused, never read with its numbers in the wrong columns
+        again = "The file looks damaged or hand-edited: download it again with Download > .csv."
         if any(c.strip() for c in cells[len(keys):]):
             raise ValueError(f"{path}: line {n} has more cells than the header row, so its numbers would land in the "
-                             "wrong columns. The file looks damaged or hand-edited: download it again with "
-                             "Download > .csv.")
+                             f"wrong columns. {again}")
+        if any(i >= len(cells) for i in numeric):
+            raise ValueError(f"{path}: line {n} stops before the {names[min(i for i in numeric if i >= len(cells))]} "
+                             f"column, so some of its numbers are missing. {again}")
+        blank = next((names[keys.index(k)] for k in ("cost", "clicks") if not cells[keys.index(k)].strip()), None)
+        if blank:
+            raise ValueError(f"{path}: line {n} has no {blank} figure. Google Ads always writes one (0 or -- when "
+                             f"there is none). {again}")
+        money = next((i for i, k in enumerate(keys) if k in COUNTS and MONEY_MARK.search(cells[i])), None)
+        if money is not None:
+            raise ValueError(f"{path}: line {n} has a money amount ({cells[money].strip()}) in the {names[money]} "
+                             f"column, which only holds counts, so the columns look shifted. {again}")
     european = _european([cells for _, cells in data], keys, path, delim)
     for n, cells in data:
         row = {}
