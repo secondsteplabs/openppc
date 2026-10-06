@@ -138,3 +138,12 @@ def test_a_table_row_names_its_row_even_when_the_name_is_short():
     pdf_line = "got | 47 | $18.81 |"
     for text in (markdown, pdf_line):
         assert [c.verdict for c in trace(text, facts)[0]] == ["traced", "traced"], text
+
+
+def test_an_export_with_no_spend_and_a_threshold_of_0_has_no_shares_to_divide(tmp_path):
+    path = _export(tmp_path, [("pipe repair cost", "Search - Plumbing", "Search", 0, 0.0, 0),
+                              ("water heater", "Search - Plumbing", "Search", 0, 0.0, 0)])
+    text, book = _audit(path, min_cost=0)
+    assert {r["share"] for r in book.cards["waste"]} == {"--"}
+    claims, _ = trace(text, [f for f in book.facts if f.metric != "rule"])
+    assert not [c for c in claims if c.verdict in ("not in data", "mismatch")]

@@ -4,6 +4,7 @@ Templates print a number only by registering it here first, as a labeled fact. T
 makes it impossible for a report to contain a figure the checker cannot trace, and it
 gives `openppc check` the same list to judge anyone else's audit against.
 """
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 SYMBOLS = {"USD": "$", "CAD": "CA$", "AUD": "A$", "NZD": "NZ$", "EUR": "€", "GBP": "£", "INR": "₹"}
@@ -49,3 +50,47 @@ class FactBook:
     def count(self, label, value, metric="", entity="", dp=0):
         self.add(label, value, "count", metric, entity)
         return f"{value:,.{dp}f}"
+
+
+class FactList(Sequence):
+    """Facts in order, where a long run of rows can be a block (checkfacts.RowFacts) that keeps each row as plain
+    numbers and builds its facts only when they are read. Reads like a list of facts; trace reads the blocks by name
+    and by value instead of end to end."""
+
+    def __init__(self, parts=()):
+        self.parts = []
+        for part in parts:
+            self += part
+
+    def __iadd__(self, other):
+        for part in other.parts if isinstance(other, FactList) else [other]:
+            if not isinstance(part, list):
+                self.parts.append(part)
+            elif self.parts and isinstance(self.parts[-1], list):
+                self.parts[-1] = self.parts[-1] + part
+            else:
+                self.parts.append(list(part))
+        return self
+
+    def __add__(self, other):
+        return FactList([self, other])
+
+    def __radd__(self, other):
+        return FactList([other, self])
+
+    def __len__(self):
+        return sum(len(part) for part in self.parts)
+
+    def __iter__(self):
+        for part in self.parts:
+            yield from part
+
+    def __getitem__(self, i):
+        if isinstance(i, slice):
+            return list(self)[i]
+        i = i + len(self) if i < 0 else i
+        for part in self.parts:
+            if i < len(part):
+                return part[i]
+            i -= len(part)
+        raise IndexError("fact index out of range")

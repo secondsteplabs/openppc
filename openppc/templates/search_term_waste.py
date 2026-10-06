@@ -142,7 +142,7 @@ def _waste_table(book, members, grand, automated, chance):
         t = r["search_term"]
         c = book.money(f"cost of '{t}'", val(r, "cost"), "cost", t)
         k = book.count(f"clicks of '{t}'", val(r, "clicks"), "clicks", t)
-        s = book.pct(f"'{t}' share of total cost", val(r, "cost") / grand.cost * 100, "cost", t)
+        s = book.pct(f"'{t}' share of total cost", val(r, "cost") / grand.cost * 100, "cost", t) if grand.cost else "--"
         b = _chance_text(book, t, chance.get(id(r)))
         row = f"| {esc(t)} | {c} | {k} | {s} | {b} | {esc(r.get('match_type', ''))} |"
         out.append(row + (f" {esc(r.get('campaign_type', ''))} |" if automated else ""))
@@ -230,7 +230,8 @@ def _cards(book, grand, waste, sure, chance, top, wc, share, d, y, cpa_s, indust
         p = chance.get(id(r))
         rows.append({"term": t, "cost": book.money(f"cost of '{t}'", val(r, "cost"), "cost", t),
                      "clicks": book.count(f"clicks of '{t}'", val(r, "clicks"), "clicks", t),
-                     "share": book.pct(f"'{t}' share of total cost", val(r, "cost") / grand.cost * 100, "cost", t),
+                     "share": (book.pct(f"'{t}' share of total cost", val(r, "cost") / grand.cost * 100, "cost", t)
+                               if grand.cost else "--"),  # an export with no spend at all (a waste threshold of 0)
                      "chance": _chance_text(book, t, p), "p": round(p, 4) if p is not None else None, "sure": any(r is x for x in sure),
                      "match_type": r.get("match_type", ""), "campaign": r.get("campaign", ""),
                      "campaign_type": r.get("campaign_type", ""), "automated": r["group"] != "search"})

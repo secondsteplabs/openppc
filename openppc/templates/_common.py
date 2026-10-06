@@ -121,26 +121,32 @@ def month_label(report):
     return f"{s:%B} {s.year}" if (s.year, s.month) == (e.year, e.month) else period(report, compact=True)
 
 
+def figures(t, grand, named=True):
+    """Every standard figure of a row or group (named) or of the account, in the order they are registered:
+    (label pattern, value, kind, metric). The pattern takes the name in quotes: "cost of {}"."""
+    out = [("cost of {}", t.cost, "money", "cost"), ("clicks of {}", t.clicks, "count", "clicks")]
+    if t.impressions:
+        out.append(("impressions of {}", t.impressions, "count", "impressions"))
+    out.append(("conversions of {}", t.conversions, "count", "conversions"))
+    if t.impressions:
+        out.append(("CTR of {}", t.clicks / t.impressions * 100, "pct", "ctr"))
+    if t.clicks:
+        out.append(("CPC of {}", t.cost / t.clicks, "money", "cpc"))
+        out.append(("conversion rate of {}", t.conversions / t.clicks * 100, "pct", "cvr"))
+    if t.conversions:
+        out.append(("cost per conversion of {}", t.cost / t.conversions, "money", "cpa"))
+    if named:
+        if grand.cost:
+            out.append(("{} share of total cost", t.cost / grand.cost * 100, "pct", "cost"))
+        if grand.clicks:
+            out.append(("{} share of total clicks", t.clicks / grand.clicks * 100, "pct", "clicks"))
+        if grand.conversions:
+            out.append(("{} share of total conversions", t.conversions / grand.conversions * 100, "pct", "conversions"))
+    return out
+
+
 def register_group(book, entity, t, grand):
     """Register every standard figure for one row or group (entity) or the account (entity '')."""
     name = f"'{entity}'" if entity else "the account"
-    book.money(f"cost of {name}", t.cost, "cost", entity)
-    book.count(f"clicks of {name}", t.clicks, "clicks", entity)
-    if t.impressions:
-        book.count(f"impressions of {name}", t.impressions, "impressions", entity)
-    book.count(f"conversions of {name}", t.conversions, "conversions", entity, dp=conv_dp(t.conversions))
-    if t.impressions:
-        book.pct(f"CTR of {name}", t.clicks / t.impressions * 100, "ctr", entity)
-    if t.clicks:
-        book.money(f"CPC of {name}", t.cost / t.clicks, "cpc", entity)
-        book.pct(f"conversion rate of {name}", t.conversions / t.clicks * 100, "cvr", entity)
-    if t.conversions:
-        book.money(f"cost per conversion of {name}", t.cost / t.conversions, "cpa", entity)
-    if entity:
-        if grand.cost:
-            book.pct(f"{name} share of total cost", t.cost / grand.cost * 100, "cost", entity)
-        if grand.clicks:
-            book.pct(f"{name} share of total clicks", t.clicks / grand.clicks * 100, "clicks", entity)
-        if grand.conversions:
-            book.pct(f"{name} share of total conversions", t.conversions / grand.conversions * 100,
-                     "conversions", entity)
+    for pattern, value, kind, metric in figures(t, grand, bool(entity)):
+        book.add(pattern.format(name), value, kind, metric, entity)

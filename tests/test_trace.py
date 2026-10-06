@@ -205,3 +205,19 @@ def test_comparisons_reports_and_parts_are_read_for_what_they_are():
     # "5 of them" is part of a set bigger than the two campaigns named before it
     claims, _ = trace("Core and Drains spent the most.\n\nThe model is sure about 5 of them, which wasted $999.00.", ACME)
     assert [(c.written, c.verdict) for c in claims] == [("$999.00", "not in data")]
+
+
+def test_reading_rows_by_name_and_by_value_finds_what_reading_every_row_finds():
+    # An export's facts keep its rows as plain numbers, and trace reads them by name and by value instead of end to
+    # end. Same claims, same reasons, as the facts in a plain list: on reports, a sample AI audit, and wrong numbers.
+    import re
+    from openppc.templates import run_template_book
+    examples = Path(__file__).parent.parent / "examples"
+    for export, template in (("search_terms_acme.csv", "search-term-waste"), ("keywords_acme.csv", "keyword-audit")):
+        path = str(examples / export)
+        report, _, _ = run_template_book(template, path)
+        nudged = re.sub(r"\d+\.\d\d", lambda m: f"{float(m.group(0)) * 1.05:.2f}", report)
+        facts = facts_for_paths([path], "home-services")
+        assert type(facts).__name__ == "FactList" and len(facts.parts) > 1  # rows are held as a block
+        for text in (report, nudged, (examples / "ai_audit_sample.md").read_text(encoding="utf-8")):
+            assert trace(text, facts) == trace(text, list(facts))

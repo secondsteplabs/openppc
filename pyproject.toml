@@ -1,6 +1,6 @@
 [project]
 name = "openppc"
-version = "0.1.6"
+version = "0.1.7"
 description = "Read-only Google Ads audits where every number is traced back to your own export."
 readme = "README.md"
 license = { text = "MIT" }

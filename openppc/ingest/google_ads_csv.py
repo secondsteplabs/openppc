@@ -193,11 +193,13 @@ def load_report(path):
             raise ValueError(f"{path}: line {n} has a money amount ({cells[money].strip()}) in the {names[money]} "
                              f"column, which only holds counts, so the columns look shifted. {again}")
     european = _european([cells for _, cells in data], keys, path, delim)
+    pool = {}  # one copy of each text value: a match type, campaign or ad group repeats on thousands of rows
     for n, cells in data:
         row = {}
         for key, cell in zip(keys, cells):
             if key:
-                row[key] = parse_number(cell, european) if key in NUMERIC else cell.strip()
+                row[key] = parse_number(cell, european) if key in NUMERIC else pool.setdefault(cell.strip(),
+                                                                                                cell.strip())
         negative = next((k for k in ("cost", "clicks", "impressions") if (row.get(k) or 0) < 0), None)
         if negative:
             what = {"cost": "cost", "clicks": "click count", "impressions": "impression count"}[negative]
