@@ -50,7 +50,7 @@ code { font-family: var(--mono); font-size: 0.9em; padding: 1px 6px; border-radi
 @media (min-width: 961px) { #results .side { position: sticky; top: 88px; } }
 .stack { display: flex; flex-direction: column; gap: 12px; }
 
-h1 { margin: 0; font-size: 34px; line-height: 1.1; font-weight: 800; letter-spacing: -0.035em; }
+h1, .h1 { margin: 0; font-size: 34px; line-height: 1.1; font-weight: 800; letter-spacing: -0.035em; }
 .sub { margin: 8px 0 0; font-size: 15px; line-height: 1.55; color: var(--muted); }
 .small { margin: 0; font-size: 13px; line-height: 1.55; color: var(--muted); }
 
@@ -286,7 +286,7 @@ table.waste th.pick, table.waste td.pick { width: 54px; padding: 0 0 0 10px; }
 .view-wide { max-width: 1120px; display: flex; flex-direction: column; align-items: stretch; gap: 24px; }
 .view-wide > .lbl { margin: 8px 0 -10px; }
 .hero { max-width: 760px; display: flex; flex-direction: column; gap: 12px; }
-.hero h1 { font-size: 44px; }
+.hero h1, .hero .h1 { font-size: 44px; }
 .hero .sub { margin: 0; font-size: 17px; }
 .home-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .home-card { padding: 24px; display: flex; flex-direction: column; gap: 10px; color: var(--ink); text-decoration: none; transition: border-color 0.15s, box-shadow 0.15s; }
@@ -453,7 +453,7 @@ ul.pdf-html, ol.pdf-html { padding-left: 20px; }
   .tpl-grid { grid-template-columns: minmax(0, 1fr); }
   .three, .steps { grid-template-columns: minmax(0, 1fr); }
   .next-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .hero h1 { font-size: 36px; }
+  .hero h1, .hero .h1 { font-size: 36px; }
 }
 @media (max-width: 720px) {
   .app { flex-direction: column; }
@@ -467,7 +467,7 @@ ul.pdf-html, ol.pdf-html { padding-left: 20px; }
   .privacy-long { display: none; }
   .privacy-short { display: inline; }
   .view { padding: 20px 16px 104px; }
-  h1 { font-size: 28px; }
+  h1, .h1 { font-size: 28px; }
   .msg { padding: 20px; }
   .lead { font-size: 16px; }
   .item { grid-template-columns: 24px minmax(0, 1fr); }
@@ -478,7 +478,7 @@ ul.pdf-html, ol.pdf-html { padding-left: 20px; }
   .rep-head, .report { padding-left: 18px; padding-right: 18px; }
   .report table { display: block; overflow-x: auto; }
   .home-grid, .gallery, .next-grid { grid-template-columns: minmax(0, 1fr); }
-  .hero h1 { font-size: 30px; }
+  .hero h1, .hero .h1 { font-size: 30px; }
   .kpis { padding-left: 18px; padding-right: 18px; }
 }
 @media print {
