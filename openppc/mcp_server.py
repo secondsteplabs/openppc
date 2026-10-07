@@ -14,9 +14,15 @@ tool is annotated read-only so clients know it never changes anything.
 """
 import argparse
 import functools
+import ipaddress
+import json
+import os
 import re
+import socket
 import tempfile
+import urllib.request
 from pathlib import Path
+from urllib.parse import urlparse
 
 try:  # MCP Python SDK 2.x
     from mcp.server.mcpserver import MCPServer as Server
@@ -37,14 +43,26 @@ try:
     READ_ONLY = ToolAnnotations(readOnlyHint=True, destructiveHint=False, openWorldHint=False)
 except ImportError:
     READ_ONLY = None
+try:  # what a ChatGPT tool returns: text for the model, data for the results view
+    from mcp.types import CallToolResult, TextContent
+except ImportError:
+    CallToolResult = TextContent = None
 
 from . import __version__
 from .checkfacts import facts_for_check
 from .cli import explain
 from .engine.trace import render_check, trace
-from .templates import TEMPLATES, run_template
+from .templates import TEMPLATES, run_template, run_template_book
 
 EXPORT_LIMIT = 3_500_000  # characters in one export sent to the web connector; a request is capped at 4 MB
+UPLOAD_LIMIT = 25_000_000  # bytes in one export uploaded in ChatGPT, fetched from the link ChatGPT gives
+RESULTS_VIEW = "ui://openppc/results-v1.html"  # the view ChatGPT shows for an audit or a check
+VIEW_MIME = "text/html;profile=mcp-app"
+UPLOADED_FILE = {  # a file the user attached in ChatGPT, as ChatGPT passes it to a tool
+    "type": "object", "description": "The Google Ads export the user uploaded in the chat.",
+    "properties": {"download_url": {"type": "string"}, "file_id": {"type": "string"},
+                   "mime_type": {"type": "string"}, "file_name": {"type": "string"}},
+    "required": ["download_url", "file_id"]}
 INSTRUCTIONS = ("OpenPPC audits Google Ads exports read-only. Code computes every number in its reports and a "
                 "checker traces each one back to the export. Quote its numbers as they are and do not add "
                 "figures of your own; use check_numbers or check_audit to verify any other audit's numbers.")
@@ -106,6 +124,108 @@ def check_audit(audit_text: str, export_text: str, export_name: str = "export.cs
         return check_numbers(audit_text, [_export_file(folder, export_text, export_name)], industry)
 
 
+def _allow_local():
+    return os.environ.get("OPENPPC_ALLOW_LOCAL_UPLOADS") == "1"  # tests only: fetch from a local server
+
+
+def _public_host(url):
+    """Only fetch from the public internet: a link to this machine or a private network is refused, so nobody can
+    use the connector to reach anything behind it."""
+    parts = urlparse(url)
+    if parts.scheme != "https" and not (_allow_local() and parts.scheme == "http"):
+        raise ValueError("The uploaded file's link must use https.")
+    if not parts.hostname:
+        raise ValueError("The uploaded file's link has no host.")
+    if _allow_local():
+        return
+    try:
+        addresses = {info[4][0] for info in socket.getaddrinfo(parts.hostname, parts.port or 443)}
+    except socket.gaierror:
+        raise ValueError(f"Can't reach {parts.hostname} to fetch the uploaded file.") from None
+    if not addresses or not all(ipaddress.ip_address(a.split("%")[0]).is_global for a in addresses):
+        raise ValueError("The uploaded file's link points at a private address.")
+
+
+class _CheckedRedirects(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        _public_host(newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def _fetch_upload(upload):
+    """The bytes of a file the user uploaded in ChatGPT, from the short-lived link ChatGPT passes with it."""
+    if not isinstance(upload, dict) or not upload.get("download_url"):
+        raise ValueError("Upload the Google Ads export in the chat, or paste its contents.")
+    url = str(upload["download_url"])
+    _public_host(url)
+    opener = urllib.request.build_opener(_CheckedRedirects)
+    request = urllib.request.Request(url, headers={"User-Agent": f"openppc/{__version__}"})
+    with opener.open(request, timeout=60) as response:
+        data = response.read(UPLOAD_LIMIT + 1)
+    if len(data) > UPLOAD_LIMIT:
+        raise ValueError(f"The uploaded export is over {UPLOAD_LIMIT // 1_000_000} MB. Export a shorter date range, "
+                         "or run OpenPPC on your computer.")
+    return data, str(upload.get("file_name") or "")
+
+
+def _export_in(folder, export_file, export_text, export_name):
+    """The export for one call, as a file in the call's temporary folder: uploaded in ChatGPT, or pasted as text."""
+    if export_file:
+        data, name = _fetch_upload(export_file)
+        path = Path(_export_file(folder, "", name or export_name))  # a safe name with a known extension
+        path.write_bytes(data)  # as uploaded: the reader works out the encoding (Google's UTF-16 exports too)
+        return str(path)
+    if not export_text:
+        raise ValueError("Upload the Google Ads export in the chat, or paste its contents.")
+    return _export_file(folder, export_text, export_name)
+
+
+def _json_safe(value):
+    return json.loads(json.dumps(value, default=str))
+
+
+def chatgpt_audit_export(template: str, export_file: dict | None = None, export_text: str = "",
+                         export_name: str = "export.csv", industry: str = "", min_cost: float | None = None,
+                         brand: str = ""):
+    """Run an audit template on a Google Ads export the user uploaded in the chat (export_file) or pasted
+    (export_text). Returns the report as markdown, with every number computed from the export and traced back
+    to it. Pass the account's brand names (comma-separated) so brand terms are never flagged as waste. Call
+    list_templates first if you don't know which template fits the export."""
+    with tempfile.TemporaryDirectory(prefix="openppc-") as folder:
+        path = _export_in(folder, export_file, export_text, export_name)
+        markdown, book, passed = run_template_book(template, path, industry=industry or None, min_cost=min_cost,
+                                                   brand=brand or None)
+    view = {"kind": "audit", "template": template, "title": TEMPLATES[template].TITLE, "passed": passed,
+            "facts": len(book.facts), "period": (book.client or {}).get("period"), "cards": _json_safe(book.cards)}
+    return CallToolResult(content=[TextContent(type="text", text=markdown)], structured_content=view)
+
+
+def chatgpt_check_audit(audit_text: str, export_file: dict | None = None, export_text: str = "",
+                        export_name: str = "export.csv", industry: str = ""):
+    """Check every number in an audit, written by any AI or person, against the Google Ads export it was written
+    from: uploaded in the chat (export_file) or pasted (export_text). Reports which numbers trace to the data,
+    which are wrong numbers (with the real figure where known), which are wrong labels, and which sentences
+    contradict their own numbers."""
+    with tempfile.TemporaryDirectory(prefix="openppc-") as folder:
+        path = _export_in(folder, export_file, export_text, export_name)
+        claims, contradictions = trace(audit_text, facts_for_check(audit_text, [path], industry or None))
+    count = lambda verdict: sum(c.verdict == verdict for c in claims)
+    view = {"kind": "check",
+            "counts": {"total": len(claims), "traced": count("traced"), "mismatch": count("mismatch"),
+                       "not_in_data": count("not in data"), "cant_check": count("can't check"),
+                       "contradictions": len(contradictions)},
+            "numbers": [{"line": c.line, "written": c.written, "verdict": c.verdict, "detail": c.detail,
+                         "context": c.context[:240]} for c in claims],
+            "contradictions": [{"line": n, "problem": p, "context": ctx[:240]} for n, p, ctx in contradictions]}
+    return CallToolResult(content=[TextContent(type="text", text=render_check(claims, contradictions))],
+                          structured_content=view)
+
+
+def results_view() -> str:
+    """The results view ChatGPT shows under an audit or a check."""
+    return (Path(__file__).parent / "ui" / "results.html").read_text(encoding="utf-8")
+
+
 def _plain_errors(tool):
     """Hand the errors a user can fix to the model as plain messages, the ones the command line prints. The SDK
     reports any other exception as only "Error executing tool <name>", which looks like OpenPPC is broken."""
@@ -122,6 +242,9 @@ def _plain_errors(tool):
 
 LOCAL_TOOLS = (list_templates, audit_account, check_numbers)
 WEB_TOOLS = (list_templates, audit_export, check_audit)  # contents in, never paths
+CHATGPT_TOOLS = (  # the web tools as ChatGPT runs them: an upload or pasted contents in, text and a view out
+    (chatgpt_audit_export, "audit_export", "Running the audit", "Audit ready"),
+    (chatgpt_check_audit, "check_audit", "Checking every number", "Numbers checked"))
 
 
 def build_server(web=False):
@@ -132,11 +255,29 @@ def build_server(web=False):
             server = Server("openppc", instructions=INSTRUCTIONS)
         except TypeError:  # an SDK without server instructions
             server = Server("openppc")
+    if web and CallToolResult is not None and hasattr(server, "resource"):
+        return _chatgpt_ready(server)
     for tool in WEB_TOOLS if web else LOCAL_TOOLS:
         try:
             server.tool(annotations=READ_ONLY)(_plain_errors(tool))
         except TypeError:  # an SDK too old for tool annotations
             server.tool()(_plain_errors(tool))
+    return server
+
+
+def _chatgpt_ready(server):
+    """The web tools with what ChatGPT needs: an uploaded file as input, and a results view linked to each tool."""
+    server.tool(annotations=READ_ONLY)(_plain_errors(list_templates))
+    for fn, name, invoking, invoked in CHATGPT_TOOLS:
+        meta = {"ui": {"resourceUri": RESULTS_VIEW}, "openai/outputTemplate": RESULTS_VIEW,
+                "openai/toolInvocation/invoking": invoking, "openai/toolInvocation/invoked": invoked,
+                "openai/fileParams": ["export_file"]}
+        server.tool(name=name, annotations=READ_ONLY, meta=meta, structured_output=False)(_plain_errors(fn))
+        params = server._tool_manager.get_tool(name).parameters
+        params["properties"]["export_file"] = UPLOADED_FILE  # inline, the shape ChatGPT looks for
+        params.pop("$defs", None)
+    server.resource(RESULTS_VIEW, name="openppc-results", title="OpenPPC results", mime_type=VIEW_MIME,
+                    meta={"ui": {"prefersBorder": True, "csp": {"connectDomains": [], "resourceDomains": []}}})(results_view)
     return server
 
 
