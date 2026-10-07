@@ -20,6 +20,13 @@ SITE = ROOT / "site"
 DIST = ROOT / "dist"
 ORIGIN = "https://openppc.si"
 AUTHOR_URL = "https://www.linkedin.com/in/shivendrarawat"  # the byline on every article
+COMPANY = {"@type": "Organization", "name": "Second Step", "url": "https://getsecondstep.com"}
+AUTHOR = {"@type": "Person", "name": "Shivendra Rawat", "url": AUTHOR_URL, "jobTitle": "Founder",
+          "worksFor": COMPANY, "sameAs": [AUTHOR_URL, "https://getsecondstep.com"]}
+AUTHOR_BIO = ('<aside class="author-bio" id="author"><span class="label">About the author</span>'
+              '<p><b>Shivendra Rawat</b> founded <a href="https://getsecondstep.com">Second Step</a>, a performance marketing '
+              'agency that runs Google Ads for businesses in the US and India, and builds OpenPPC at Second Step Labs. '
+              f'<a href="{AUTHOR_URL}">LinkedIn</a></p></aside>')
 GITHUB = "https://github.com/secondsteplabs/openppc"
 # brand/ is the one source of the logo; the site serves copies of these files at its root
 BRAND = {"openppc-logo.svg": "logo.svg", "openppc-icon.svg": "favicon.svg", "png/favicon.ico": "favicon.ico",
@@ -87,6 +94,10 @@ def structured(meta, url, body):
     """JSON-LD for search and answer engines: the product on the home page, questions where there is a FAQ."""
     blocks = []
     if meta.get("schema") == "home":
+        blocks.append({"@context": "https://schema.org", "@type": "Organization", "name": "OpenPPC", "url": ORIGIN + "/",
+                       "logo": ORIGIN + "/logo.svg", "sameAs": [GITHUB], "parentOrganization": COMPANY})
+        blocks.append({"@context": "https://schema.org", "@type": "WebSite", "name": "OpenPPC", "url": ORIGIN + "/",
+                       "publisher": {"@type": "Organization", "name": "OpenPPC", "url": ORIGIN + "/"}})
         blocks.append({"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "OpenPPC",
                        "applicationCategory": "BusinessApplication", "operatingSystem": "Web browser, macOS, Windows, Linux",
                        "description": meta["description"], "url": ORIGIN + url, "license": "https://opensource.org/licenses/MIT",
@@ -96,15 +107,41 @@ def structured(meta, url, body):
                        "description": meta["description"], "datePublished": meta["date"],
                        "dateModified": meta.get("updated", meta["date"]), "mainEntityOfPage": ORIGIN + url,
                        "image": ORIGIN + "/og-image.png", "inLanguage": "en",
-                       "author": {"@type": "Person", "name": meta["author"], "url": AUTHOR_URL},
+                       "author": AUTHOR if meta["author"] == AUTHOR["name"] else {"@type": "Person", "name": meta["author"]},
                        "publisher": {"@type": "Organization", "name": "OpenPPC", "url": ORIGIN,
                                      "logo": {"@type": "ImageObject", "url": ORIGIN + "/logo.svg"}}})
+    if meta.get("crumb"):
+        blocks.append({"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
+            {"@type": "ListItem", "position": n, "name": name, "item": ORIGIN + link}
+            for n, (name, link) in enumerate(crumbs(meta, url), 1)]})
     faqs = re.findall(r"<details><summary>(.*?)</summary><p>(.*?)</p></details>", body, re.S)
     if faqs:
         blocks.append({"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
             {"@type": "Question", "name": q, "acceptedAnswer": {"@type": "Answer", "text": re.sub(r"<[^>]+>", "", a)}}
             for q, a in faqs]})
     return "\n".join(f'<script type="application/ld+json">{json.dumps(b, ensure_ascii=False)}</script>' for b in blocks)
+
+
+def crumbs(meta, url):
+    """Home, the section (Articles or Docs) when the page sits inside one, then the page itself."""
+    trail = [("Home", "/")]
+    for section, name in (("/articles/", "Articles"), ("/docs/", "Docs")):
+        if url.startswith(section) and url != section:
+            trail.append((name, section))
+    return trail + [(meta["crumb"], url)]
+
+
+def with_crumbs_and_bio(meta, url, body):
+    """The visible breadcrumb trail at the top of a doc or article, and the author bio at the end of an article."""
+    if meta.get("crumb") and '<article class="doc-body">' in body:
+        *links, (here, _) = crumbs(meta, url)
+        trail = "".join(f'<a href="{link}">{escape(name)}</a><span aria-hidden="true">›</span>' for name, link in links)
+        body = body.replace('<article class="doc-body">', '<article class="doc-body">\n    <nav class="crumbs" aria-label="Breadcrumb">'
+                            f'{trail}<span aria-current="page">{escape(here)}</span></nav>', 1)
+    if meta.get("schema") == "article":
+        head, sep, tail = body.rpartition("</article>")
+        body = head + "  " + AUTHOR_BIO + "\n  " + sep + tail
+    return body
 
 
 def broken_links(out):
@@ -170,6 +207,7 @@ def build(out=DIST):
     for page in sorted((SITE / "pages").rglob("*.html")):
         meta, body = header(page.read_text(encoding="utf-8"))
         url, dest = route(page)
+        body = with_crumbs_and_bio(meta, url, body)
         docs = url.startswith("/docs/")
         html = layout.substitute(
             title=escape(meta["title"]), description=escape(meta["description"]),

@@ -1,6 +1,7 @@
 """openppc.si builds, every internal link resolves, and the pages carry what they promise."""
 import importlib.util
 import json
+from html import unescape
 import re
 from pathlib import Path
 
@@ -31,7 +32,7 @@ def test_the_home_page_has_the_video_the_app_and_github(tmp_path):
     assert "Works inside Claude, Cursor and ChatGPT" in home and "cursor://anysphere.cursor-deeplink/mcp/install?name=openppc" in home
     assert "coming soon" in home and '"openppc[mcp]"' in home and "git+https://" not in home
     faq = [json.loads(b) for b in re.findall(r'<script type="application/ld\+json">(.*?)</script>', home)]
-    assert [b["@type"] for b in faq] == ["SoftwareApplication", "FAQPage"] and len(faq[1]["mainEntity"]) == 7
+    assert [b["@type"] for b in faq] == ["Organization", "WebSite", "SoftwareApplication", "FAQPage"] and len(faq[-1]["mainEntity"]) == 7
 
 
 def test_the_install_guide_shows_every_step(tmp_path):
@@ -134,3 +135,42 @@ def test_articles_are_listed_and_marked_up_for_search_and_answer_engines(tmp_pat
         assert article["headline"] in html and article["author"]["name"] == "Shivendra Rawat"
         assert f'href="{url}"' in index and f"https://openppc.si{url}" in llms and f"https://openppc.si{url}" in sitemap
         assert "—" not in html and "–" not in html  # house style: no em or en dashes
+
+
+def test_pages_have_one_h1_a_self_canonical_and_search_sized_snippets(tmp_path):
+    # the basics a search engine reads first: one main heading, the page's own canonical URL, and a title and
+    # description that fit the result snippet
+    report = _site().build(tmp_path)
+    for url in report["pages"]:
+        html = (tmp_path / url.strip("/") / "index.html").read_text(encoding="utf-8") if url != "/" else (tmp_path / "index.html").read_text(encoding="utf-8")
+        assert len(re.findall(r"<h1[\s>]", html)) == 1, url
+        assert re.findall(r'<link rel="canonical" href="([^"]+)"', html) == [f"https://openppc.si{url}"], url
+        if url != "/app/":
+            title = re.search(r"<title>(.*?)</title>", html, re.S).group(1)
+            desc = unescape(re.search(r'<meta name="description" content="([^"]*)"', html).group(1))
+            assert len(title) <= 62 and 120 <= len(desc) <= 160, (url, len(title), len(desc))
+
+
+def test_articles_and_docs_carry_breadcrumbs_and_articles_an_author(tmp_path):
+    report = _site().build(tmp_path)
+    for url in [u for u in report["pages"] if u.startswith(("/articles/", "/docs/"))]:
+        html = (tmp_path / url.strip("/") / "index.html").read_text(encoding="utf-8")
+        blocks = [json.loads(b) for b in re.findall(r'<script type="application/ld\+json">(.*?)</script>', html, re.S)]
+        trail = next(b for b in blocks if b["@type"] == "BreadcrumbList")["itemListElement"]
+        assert trail[0]["item"] == "https://openppc.si/" and trail[-1]["item"] == f"https://openppc.si{url}", url
+        assert '<nav class="crumbs" aria-label="Breadcrumb">' in html, url
+        if url not in ("/articles/", "/docs/"):
+            assert len(trail) == 3, url
+        article = next((b for b in blocks if b["@type"] == "Article"), None)
+        if article:
+            assert article["author"]["sameAs"] and 'class="author-bio"' in html, url
+    home = (tmp_path / "index.html").read_text(encoding="utf-8")
+    kinds = {json.loads(b)["@type"] for b in re.findall(r'<script type="application/ld\+json">(.*?)</script>', home, re.S)}
+    assert {"Organization", "WebSite", "SoftwareApplication"} <= kinds
+
+
+def test_pages_show_webp_screenshots(tmp_path):
+    # the JPGs stay in the repo for the README; pages load the smaller WebP copies
+    _site().build(tmp_path)
+    for page in tmp_path.rglob("*.html"):
+        assert not re.search(r'src="/img/[^"]+\.jpg', page.read_text(encoding="utf-8")), page
