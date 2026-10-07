@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenPPC results</title>
+<style>
+:root {
+  --ink: #11181c; --ink2: #33403d; --muted: #5b6468; --line: #e3e7e5; --soft: #f4f6f5; --card: #ffffff;
+  --accent: #4b32c3; --accent-tint: #efecfb; --ok: #1f9d61; --ok-bg: #e3f4ea; --ok-ink: #0b6b3f;
+  --bad: #c0362c; --bad-bg: #fbe4e1; --bad-ink: #9c2a21; --warn-bg: #fdf1dc; --warn-ink: #8a4b00; --none-bg: #eceeef;
+  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+:root[data-theme="dark"] {
+  --ink: #eef1f0; --ink2: #cfd6d3; --muted: #9aa4a8; --line: #2c3532; --soft: #1b2220; --card: #121816;
+  --accent: #9d8cff; --accent-tint: #2a2448; --ok: #3ccf8e; --ok-bg: #16352a; --ok-ink: #8fe6bd;
+  --bad: #ff7a6e; --bad-bg: #3f1d1a; --bad-ink: #ffb3ab; --warn-bg: #3a2c12; --warn-ink: #f2c46d; --none-bg: #262e2b;
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 16px; font: 14px/1.45 var(--font); color: var(--ink2); background: var(--card); }
+h1 { margin: 0; font-size: 17px; line-height: 1.3; color: var(--ink); }
+.brand { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.brand svg { color: var(--accent); }
+.pass { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; padding: 3px 10px; border-radius: 999px; background: var(--ok-bg); color: var(--ok-ink); font-size: 12.5px; font-weight: 700; }
+.pass.no { background: var(--warn-bg); color: var(--warn-ink); }
+.chips { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 14px 0; }
+.chip { padding: 10px 12px; border-radius: 12px; background: var(--soft); }
+.chip b { display: block; font-size: 22px; line-height: 1.1; color: var(--ink); }
+.chip span { font-size: 12.5px; color: var(--muted); }
+.chip.ok b { color: var(--ok); } .chip.bad b { color: var(--bad); } .chip.warn b { color: var(--warn-ink); }
+.list { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.item { padding: 10px 12px; border-radius: 12px; background: var(--soft); border-left: 4px solid var(--line); }
+.item.bad { border-left-color: var(--bad); } .item.warn { border-left-color: #d98a00; } .item.ok { border-left-color: var(--ok); }
+.item .top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
+.item .num { font: 600 14px var(--mono); color: var(--ink); }
+.tag { padding: 1px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 700; }
+.tag.bad { background: var(--bad-bg); color: var(--bad-ink); } .tag.warn { background: var(--warn-bg); color: var(--warn-ink); }
+.tag.ok { background: var(--ok-bg); color: var(--ok-ink); } .tag.none { background: var(--none-bg); color: var(--muted); }
+.tag.add { background: var(--ok-bg); color: var(--ok-ink); } .tag.watch, .tag.review { background: var(--warn-bg); color: var(--warn-ink); }
+.tag.block, .tag.cut { background: var(--bad-bg); color: var(--bad-ink); }
+.detail { margin-top: 3px; color: var(--ink2); }
+.ctx { margin-top: 3px; font-size: 12.5px; color: var(--muted); }
+h2 { margin: 18px 0 8px; font-size: 13px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+details { margin-top: 12px; } summary { cursor: pointer; font-weight: 700; color: var(--accent); }
+.kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; margin-top: 14px; }
+.kpi { padding: 10px 12px; border-radius: 12px; background: var(--soft); }
+.kpi b { display: block; font-size: 19px; color: var(--ink); } .kpi span { display: block; font-size: 12.5px; color: var(--muted); }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { padding: 7px 6px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+th { font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+td.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 10px; }
+button { padding: 8px 14px; border: 0; border-radius: 10px; background: var(--accent); color: #fff; font: 700 13px var(--font); cursor: pointer; }
+button:disabled { opacity: .5; cursor: default; }
+.note { font-size: 12.5px; color: var(--muted); }
+textarea { width: 100%; min-height: 90px; margin-top: 8px; padding: 8px; border: 1px solid var(--line); border-radius: 10px; font: 12.5px var(--mono); color: var(--ink); background: var(--soft); }
+.foot { margin-top: 16px; font-size: 12px; color: var(--muted); }
+.empty { color: var(--muted); }
+@media (max-width: 520px) { .chips { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+</style>
+</head>
+<body>
+<div id="root"><p class="empty">Waiting for the result…</p></div>
+<script>
+(() => {
+  const root = document.getElementById('root');
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const LOGO = '<svg width="16" height="14" viewBox="8.4 11 48.6 43.4" aria-hidden="true"><path fill="currentColor" d="M12.96 30.29 L24.92 41.72 L55.24 11.35 A1.6 1.6 0 0 1 57.5 13.6 L26.06 53.88 A1.6 1.6 0 0 1 23.66 54.01 L8.86 34.47 A1.6 1.6 0 0 1 12.96 30.29 Z"/></svg>';
+  const VERDICT = {
+    'not in data': ['Wrong number', 'bad'], 'mismatch': ['Wrong label', 'warn'],
+    'traced': ['Traced', 'ok'], "can't check": ["Can't check", 'none'],
+  };
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+  function theme() {
+    const t = window.openai && window.openai.theme;
+    const dark = t ? t === 'dark' : window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  }
+
+  function resize() {
+    try { window.openai && window.openai.notifyIntrinsicHeight && window.openai.notifyIntrinsicHeight(document.documentElement.scrollHeight); } catch (e) { /* optional */ }
+  }
+
+  function number(n) {
+    const [label, cls] = VERDICT[n.verdict] || [n.verdict, 'none'];
+    return `<li class="item ${cls}"><div class="top"><span class="num">${esc(n.written)}</span><span class="tag ${cls}">${label}</span></div>`
+      + `<div class="detail">${esc(n.detail)}</div><div class="ctx">Line ${esc(n.line)}: ${esc(n.context)}</div></li>`;
+  }
+
+  function renderCheck(v) {
+    const c = v.counts || {};
+    const problems = (v.numbers || []).filter((n) => n.verdict === 'not in data' || n.verdict === 'mismatch');
+    const traced = (v.numbers || []).filter((n) => n.verdict === 'traced');
+    const unknown = (v.numbers || []).filter((n) => n.verdict === "can't check");
+    const contra = v.contradictions || [];
+    root.innerHTML = `<div class="brand">${LOGO}OpenPPC number check</div>`
+      + `<h1>${problems.length || contra.length ? `${plural(problems.length + contra.length, 'problem', 'problems')} in ${plural(c.total || 0, 'number', 'numbers')}` : `All ${c.total || 0} numbers hold up`}</h1>`
+      + `<div class="chips"><div class="chip ok"><b>${c.traced || 0}</b><span>traced to your export</span></div>`
+      + `<div class="chip bad"><b>${c.not_in_data || 0}</b><span>${c.not_in_data === 1 ? 'wrong number' : 'wrong numbers'}</span></div>`
+      + `<div class="chip warn"><b>${c.mismatch || 0}</b><span>${c.mismatch === 1 ? 'wrong label' : 'wrong labels'}</span></div>`
+      + `<div class="chip"><b>${c.cant_check || 0}</b><span>can't be checked</span></div></div>`
+      + (problems.length ? `<h2>Fix these</h2><ul class="list">${problems.map(number).join('')}</ul>` : '')
+      + (contra.length ? `<h2>Sentences that contradict their own numbers</h2><ul class="list">${contra.map((x) => `<li class="item bad"><div class="detail">${esc(x.problem)}</div><div class="ctx">Line ${esc(x.line)}: ${esc(x.context)}</div></li>`).join('')}</ul>` : '')
+      + (traced.length ? `<details><summary>Traced numbers (${traced.length})</summary><ul class="list">${traced.map(number).join('')}</ul></details>` : '')
+      + (unknown.length ? `<details><summary>Can't be checked from an export (${unknown.length})</summary><ul class="list">${unknown.map(number).join('')}</ul></details>` : '')
+      + `<p class="foot">Every number was worked out again from your export by OpenPPC's code. Nothing was stored.</p>`;
+    resize();
+  }
+
+  function renderAudit(v) {
+    const cards = v.cards || {};
+    const kpis = cards.kpis || [];
+    const actions = cards.actions || [];
+    const waste = (cards.waste || []).slice(0, 15);
+    root.innerHTML = `<div class="brand">${LOGO}OpenPPC audit</div><h1>${esc(v.title)}</h1>${v.period ? `<div class="ctx">${esc(v.period)}</div>` : ''}`
+      + `<span class="pass ${v.passed ? '' : 'no'}">${v.passed ? `Every number traced to your export (${v.facts} figures)` : 'Some numbers did not trace: read the report carefully'}</span>`
+      + (kpis.length ? `<div class="kpis">${kpis.map((k) => `<div class="kpi"><span>${esc(k.label)}</span><b>${esc(k.value)}</b><span>${esc(k.note || '')}</span></div>`).join('')}</div>` : '')
+      + (actions.length ? `<h2>What to do</h2><ul class="list">${actions.map((a) => `<li class="item"><div class="top"><span class="tag ${esc(a.kind)}">${esc(a.kind)}</span><b>${esc(a.title)}</b></div><div class="detail">${esc(a.detail)}</div></li>`).join('')}</ul>` : '')
+      + (waste.length ? `<h2>Search terms with no conversions</h2><table><thead><tr><th></th><th>Search term</th><th class="n">Cost</th><th class="n">Clicks</th><th class="n">Likely bad</th></tr></thead><tbody>`
+        + waste.map((w, i) => `<tr><td><input type="checkbox" data-i="${i}" ${w.sure ? 'checked' : ''} aria-label="Select ${esc(w.term)}"></td><td>${esc(w.term)}${w.automated ? ' <span class="tag none">PMax</span>' : ''}</td><td class="n">${esc(w.cost)}</td><td class="n">${esc(w.clicks)}</td><td class="n">${esc(w.chance || '')}</td></tr>`).join('')
+        + `</tbody></table><div class="row-actions"><button type="button" id="copy">Copy selected as exact-match negatives</button><span class="note" id="copied"></span></div>` : '')
+      + `<p class="foot">Code computed every figure from your export, and OpenPPC's checker traced each one back to it. Nothing was stored.</p>`;
+    const copy = document.getElementById('copy');
+    if (copy) {
+      copy.addEventListener('click', async () => {
+        const picked = [...root.querySelectorAll('input[type=checkbox]:checked')].map((b) => waste[+b.dataset.i].term);
+        const text = picked.map((t) => `[${t}]`).join('\n');
+        const note = document.getElementById('copied');
+        if (!picked.length) { note.textContent = 'Tick the terms to block first.'; return; }
+        try { await navigator.clipboard.writeText(text); note.textContent = `Copied ${plural(picked.length, 'negative', 'negatives')}.`; }
+        catch (e) {
+          note.textContent = 'Copy these:';
+          let box = document.getElementById('negatives');
+          if (!box) { box = document.createElement('textarea'); box.id = 'negatives'; copy.parentElement.after(box); }
+          box.value = text; box.select(); resize();
+        }
+      });
+    }
+    resize();
+  }
+
+  function render(result) {
+    const v = result && (result.structuredContent || result.structured_content || result);
+    if (!v || !v.kind) return;
+    theme();
+    if (v.kind === 'check') renderCheck(v);
+    else if (v.kind === 'audit') renderAudit(v);
+  }
+
+  theme();
+  if (window.openai && window.openai.toolOutput) render(window.openai.toolOutput);
+  window.addEventListener('openai:set_globals', (e) => {
+    const g = e.detail && e.detail.globals;
+    if (g && g.toolOutput) render(g.toolOutput);
+    if (g && g.theme) theme();
+  });
+  window.addEventListener('message', (e) => {  // the MCP Apps bridge: the host sends the tool result
+    if (e.source !== window.parent) return;
+    const m = e.data;
+    if (m && m.method === 'ui/notifications/tool-result') render(m.params);
+  }, { passive: true });
+})();
+</script>
+</body>
+</html>

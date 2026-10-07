@@ -1,0 +1,20 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "openppc",
+  "version": "0.1.0",
+  "description": "Audit Google Ads exports and check the numbers in any audit. Read-only: code computes every figure and traces it back to your export.",
+  "author": "Second Step Labs",
+  "homepage": "https://openppc.si",
+  "repository": "https://github.com/secondsteplabs/openppc",
+  "license": "MIT",
+  "keywords": ["google ads", "ppc", "audit", "search terms", "negative keywords", "wasted spend"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "composerIcon": "./assets/icon.png",
+        "logo": "./assets/logo.png",
+        "brandColor": "#4B32C3"
+      }
+    }
+  }
+}
