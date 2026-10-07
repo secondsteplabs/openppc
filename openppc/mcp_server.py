@@ -43,6 +43,10 @@ try:
     READ_ONLY = ToolAnnotations(readOnlyHint=True, destructiveHint=False, openWorldHint=False)
 except ImportError:
     READ_ONLY = None
+try:  # which hostnames an HTTP server answers to (DNS rebinding protection)
+    from mcp.server.transport_security import TransportSecuritySettings
+except ImportError:
+    TransportSecuritySettings = None
 try:  # what a ChatGPT tool returns: text for the model, data for the results view
     from mcp.types import CallToolResult, TextContent
 except ImportError:
@@ -281,6 +285,19 @@ def _chatgpt_ready(server):
     return server
 
 
+def _trusted_hosts(hosts):
+    """The public hostnames the HTTP server answers to, besides this machine. Bound to 127.0.0.1 the SDK accepts only
+    localhost Host headers, so behind a proxy or tunnel (mcp.openppc.si, a Tailscale Funnel) the public name must be
+    listed, or every request is refused with "Invalid Host header"."""
+    if not hosts or TransportSecuritySettings is None:
+        return None
+    return TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=["127.0.0.1:*", "localhost:*", "[::1]:*"] + [name for h in hosts for name in (h, f"{h}:*")],
+        allowed_origins=["http://127.0.0.1:*", "http://localhost:*", "http://[::1]:*", "https://chatgpt.com"]
+                        + [f"https://{h}" for h in hosts])
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         prog="openppc-mcp",
@@ -290,18 +307,26 @@ def main(argv=None):
                         help="serve streamable HTTP at /mcp; the tools then take file contents, never paths")
     parser.add_argument("--host", default="127.0.0.1", help="address to listen on with --http (default 127.0.0.1)")
     parser.add_argument("--port", type=int, default=8000, help="port to listen on with --http (default 8000)")
+    parser.add_argument("--allow-host", action="append", default=[], metavar="HOST",
+                        help="a public hostname the HTTP server answers to, such as mcp.openppc.si (repeatable; "
+                             "OPENPPC_ALLOWED_HOSTS takes a comma-separated list too)")
     args = parser.parse_args(argv)
+    hosts = [h.strip() for h in args.allow_host + os.environ.get("OPENPPC_ALLOWED_HOSTS", "").split(",") if h.strip()]
+    security = _trusted_hosts(hosts)
     if Server is None:
         raise SystemExit('The MCP server needs the optional extra: uv pip install "openppc[mcp]"')
     server = build_server(web=args.http)
     if not args.http:
         server.run()
         return
+    extra = {"transport_security": security} if security else {}
     try:  # SDK 2.x takes the HTTP options as arguments
-        server.run("streamable-http", host=args.host, port=args.port, stateless_http=True, json_response=True)
+        server.run("streamable-http", host=args.host, port=args.port, stateless_http=True, json_response=True, **extra)
     except TypeError:  # SDK 1.x reads them from settings
         server.settings.host, server.settings.port = args.host, args.port
         server.settings.stateless_http, server.settings.json_response = True, True
+        if security:
+            server.settings.transport_security = security
         server.run(transport="streamable-http")
 
 

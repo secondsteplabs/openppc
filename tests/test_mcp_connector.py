@@ -161,3 +161,18 @@ def test_an_upload_link_must_be_public_https(monkeypatch):
     mcp_server._public_host("https://files.example.com/file.csv")  # public: allowed
     with pytest.raises(ValueError, match="Upload the Google Ads export"):
         mcp_server._export_in("/tmp", None, "", "export.csv")
+
+
+def test_a_public_hostname_can_be_trusted_behind_a_proxy():
+    pytest.importorskip("mcp")
+    testclient = pytest.importorskip("starlette.testclient")
+    security = mcp_server._trusted_hosts(["mcp.openppc.si"])
+    assert mcp_server._trusted_hosts([]) is None
+    body = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
+        "protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "t", "version": "0"}}}
+    headers = {"Accept": "application/json, text/event-stream", "Content-Type": "application/json"}
+    for base, status in (("https://mcp.openppc.si", 200), ("https://mcp.openppc.si:8443", 200), ("https://evil.example", 421)):
+        app = mcp_server.build_server(web=True).streamable_http_app(stateless_http=True, json_response=True,
+                                                                     transport_security=security)  # one run per app
+        with testclient.TestClient(app, base_url=base) as client:
+            assert client.post("/mcp", headers=headers, json=body).status_code == status, base
