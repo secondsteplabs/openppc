@@ -88,7 +88,7 @@ def test_targets_and_forecasts_are_not_failures(acme, text):
 def test_the_headline_never_counts_what_cannot_be_checked(tmp_path):
     audit = tmp_path / "audit.md"
     audit.write_text("The account spent $4,973.64. Annualized, that is about $59,000 if July is typical.\n")
-    res = json.loads(webapi.check(audit.read_text(), json.dumps([ACME])))
+    res = json.loads(webapi.check(audit.read_text(encoding="utf-8"), json.dumps([ACME])))
     assert res["counts"]["traced"] == 1 and res["counts"]["cant_check"] == 1
     assert res["counts"]["mismatch"] == 0 and res["counts"]["not_in_data"] == 0
     assert "can't be checked from an export" in res["markdown"]

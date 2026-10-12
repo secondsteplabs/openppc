@@ -1,0 +1,11 @@
+Search terms report
+July 1, 2026 - July 31, 2026
+Search term,Match type,Added/Excluded,Campaign,Ad group,Clicks,Impr.,Currency code,Cost,Conversions
+emergency plumber,Exact match,Added,Birch Lane | Search,Core,184,"2,105",USD,"1,254.40",27.00
+plumber near me,Phrase match,Added,Birch Lane | Search,Core,151,"2,390",USD,"1,006.50",19.00
+water heater repair,Phrase match,Added,Birch Lane | Water heaters,Repair,66,905,USD,512.25,9.00
+tankless water heater install,Broad match,None,Birch Lane | Water heaters,Install,23,340,USD,287.50,3.00
+burst pipe repair,Broad match,None,Birch Lane | Search,Core,37,488,USD,251.60,5.00
+gas leak plumber,Phrase match,None,Birch Lane | Search,Core,19,230,USD,163.40,4.00
+toilet installation,Broad match,None,Birch Lane | Search,Core,14,205,USD,92.40,2.00
+Total: Search terms,,,,,494,"6,663",USD,"3,568.05",69.00

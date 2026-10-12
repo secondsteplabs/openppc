@@ -1,6 +1,7 @@
 """Helpers shared by the templates."""
 import difflib
 import hashlib
+import math
 import os
 import re
 from collections import namedtuple
@@ -25,6 +26,20 @@ def min_cost_for(currency):
     default it is 20 of that currency, and known is False so the report can say so."""
     code = (currency or "USD").upper()
     return float(MIN_COST.get(code, MIN_COST_USD)), code in MIN_COST
+
+
+def threshold(min_cost, currency):
+    """(threshold, known): the waste threshold the user set, or the default in the export's currency when unset.
+    One that is not an amount of zero or more is refused: 'nan' would flag nothing and still read as an audit."""
+    if min_cost is None or min_cost == "":
+        return min_cost_for(currency)
+    try:
+        value = float(min_cost)
+    except (TypeError, ValueError):
+        raise ValueError(f"The waste threshold must be an amount such as 20, not '{min_cost}'.") from None
+    if not math.isfinite(value) or value < 0:
+        raise ValueError(f"The waste threshold must be an amount of zero or more, not '{min_cost}'.")
+    return value, True
 
 
 def val(row, key):

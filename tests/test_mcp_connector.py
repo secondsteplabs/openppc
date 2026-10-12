@@ -1,7 +1,6 @@
 """The web connector (ChatGPT, claude.ai): same answers as the local tools, from file contents, never paths."""
 import asyncio
 import inspect
-import json
 from pathlib import Path
 
 import pytest
@@ -20,15 +19,15 @@ def _tools(server):
 
 def test_contents_give_the_same_report_as_the_file():
     by_path = mcp_server.audit_account("search-term-waste", str(CSV), "home-services")
-    by_text = mcp_server.audit_export("search-term-waste", CSV.read_text(), "search_terms_acme.csv", "home-services")
+    by_text = mcp_server.audit_export("search-term-waste", CSV.read_text(encoding="utf-8"), "search_terms_acme.csv", "home-services")
     assert by_text == by_path
-    assert mcp_server.check_audit(SAMPLE.read_text(), CSV.read_text()) == mcp_server.check_numbers(SAMPLE.read_text(), [str(CSV)])
+    assert mcp_server.check_audit(SAMPLE.read_text(encoding="utf-8"), CSV.read_text(encoding="utf-8")) == mcp_server.check_numbers(SAMPLE.read_text(encoding="utf-8"), [str(CSV)])
 
 
 def test_an_export_name_can_never_point_outside_the_call_folder():
-    report = mcp_server.audit_export("search-term-waste", CSV.read_text(), "../../etc/passwd")
+    report = mcp_server.audit_export("search-term-waste", CSV.read_text(encoding="utf-8"), "../../etc/passwd")
     assert "Source: `passwd.csv`" in report
-    assert "Source: `export.csv`" in mcp_server.audit_export("search-term-waste", CSV.read_text(), "")
+    assert "Source: `export.csv`" in mcp_server.audit_export("search-term-waste", CSV.read_text(encoding="utf-8"), "")
 
 
 def test_an_export_that_is_too_large_is_refused():
@@ -69,7 +68,7 @@ def test_a_chatgpt_style_client_can_check_an_audit_over_http():
         names = {t["name"] for t in call(client, 2, "tools/list", {})["tools"]}
         assert names == {"list_templates", "audit_export", "check_audit"}
         result = call(client, 3, "tools/call", {"name": "check_audit", "arguments": {
-            "audit_text": SAMPLE.read_text(), "export_text": CSV.read_text(), "industry": "home-services"}})
+            "audit_text": SAMPLE.read_text(encoding="utf-8"), "export_text": CSV.read_text(encoding="utf-8"), "industry": "home-services"}})
         text = "".join(part.get("text", "") for part in result["content"])
         assert "6 traced to your data, 3 wrong numbers, 1 wrong label, 1 can't be checked from an export" in text
 

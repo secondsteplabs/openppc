@@ -1,0 +1,215 @@
+"""Build tests/fixtures/: one small export per real-world variant the readers must handle.
+
+Run it after changing a recipe here:
+
+    python tools/build_fixtures.py
+
+tests/test_fixtures.py fails when a file on disk differs from its recipe. Every account,
+search term and figure is invented (CONTRIBUTING: never commit real client data), but each
+file is shaped like the real thing: title and date lines above the header, the account's
+number format, the encoding Google or Excel writes, and the Total rows at the bottom.
+"""
+import csv
+import io
+import random
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+OUT = ROOT / "tests" / "fixtures"
+
+HEADER = ["Search term", "Match type", "Added/Excluded", "Campaign", "Ad group", "Clicks", "Impr.", "Currency code",
+          "Cost", "Conversions"]
+SEARCH, WATER = "Birch Lane | Search", "Birch Lane | Water heaters"
+# search term, match type, added/excluded, campaign, ad group, clicks, impressions, cost, conversions
+BASE = [
+    ("emergency plumber", "Exact match", "Added", SEARCH, "Core", 184, 2105, 1254.4, 27),
+    ("plumber near me", "Phrase match", "Added", SEARCH, "Core", 151, 2390, 1006.5, 19),
+    ("water heater repair", "Phrase match", "Added", WATER, "Repair", 66, 905, 512.25, 9),
+    ("tankless water heater install", "Broad match", "None", WATER, "Install", 23, 340, 287.5, 3),
+    ("burst pipe repair", "Broad match", "None", SEARCH, "Core", 37, 488, 251.6, 5),
+    ("free plumbing quote", "Broad match", "None", SEARCH, "Core", 44, 610, 331.0, 0),
+    ("plumbing apprenticeship", "Broad match", "None", SEARCH, "Core", 26, 395, 174.2, 0),
+    ("diy drain unblocker", "Broad match", "None", SEARCH, "Drains", 21, 450, 117.6, 0),
+    ("water heater parts", "Broad match", "None", WATER, "Repair", 12, 260, 78.0, 0),
+    ("drain camera rental", "Broad match", "None", SEARCH, "Drains", 8, 140, 41.6, 0),
+    ("gas leak plumber", "Phrase match", "None", SEARCH, "Core", 19, 230, 163.4, 4),
+    ("toilet installation", "Broad match", "None", SEARCH, "Core", 14, 205, 92.4, 2),
+    ("plumber salary", "Broad match", "None", SEARCH, "Core", 6, 120, 25.2, 0),
+    ("copper pipe price", "Broad match", "None", SEARCH, "Core", 4, 95, 11.6, 0),
+]
+JUNE, JULY = ("June 1, 2026", "June 30, 2026"), ("July 1, 2026", "July 31, 2026")
+
+
+def _grouped(whole, sep, indian):
+    digits = str(whole)
+    if not indian or len(digits) <= 3:
+        return f"{whole:,}".replace(",", sep)
+    head, groups = digits[:-3], [digits[-3:]]
+    while len(head) > 2:
+        groups.insert(0, head[-2:])
+        head = head[:-2]
+    return sep.join(([head] if head else []) + groups)
+
+
+def number(value, dp, thousands=",", decimal=".", indian=False):
+    """value as an account in that locale prints it: number(1234.5, 2, '.', ',') -> '1.234,50'."""
+    whole, _, frac = f"{abs(value):.{dp}f}".partition(".")
+    text = _grouped(int(whole), thousands, indian) + (decimal + frac if dp else "")
+    return ("-" if value < 0 else "") + text
+
+
+EN = {"thousands": ",", "decimal": "."}
+LOCALES = {
+    "en-US": EN,
+    "de-DE": {"thousands": ".", "decimal": ","},
+    "fr-FR": {"thousands": "\u202f", "decimal": ","},   # Google prints a narrow no-break space
+    "en-IN": {"thousands": ",", "decimal": ".", "indian": True},
+}
+
+
+def search_terms(rows, locale="en-US", delimiter=",", period=JULY, currency="USD", money=("", ""),
+                 header=HEADER, conv_dp=2, extra=None):
+    """A Search terms report as text. rows are BASE-shaped; extra adds columns: {name: [value per row]}."""
+    fmt = LOCALES[locale]
+    head = list(header) + list(extra or {})
+    buf = io.StringIO()
+    out = csv.writer(buf, delimiter=delimiter, lineterminator="\n")
+    buf.write(f"Search terms report\n{period[0]} - {period[1]}\n")
+    out.writerow(head)
+    def cash(v):
+        return f"{money[0]}{number(v, 2, **fmt)}{money[1]}"
+    for i, (term, mt, added, camp, group, clicks, impr, cost, conv) in enumerate(rows):
+        out.writerow([term, mt, added, camp, group, number(clicks, 0, **fmt), number(impr, 0, **fmt), currency,
+                      cash(cost), number(conv, conv_dp, **fmt)] + [v[i] for v in (extra or {}).values()])
+    clicks, impr = sum(r[5] for r in rows), sum(r[6] for r in rows)
+    cost, conv = sum(r[7] for r in rows), sum(r[8] for r in rows)
+    total = ["Total: Search terms", "", "", "", "", number(clicks, 0, **fmt), number(impr, 0, **fmt), currency,
+             cash(cost), number(conv, conv_dp, **fmt)] + ["" for _ in (extra or {})]
+    out.writerow(total)
+    return buf.getvalue()
+
+
+def _scaled(rows, factor):
+    return [(t, m, a, c, g, round(cl * factor), round(im * factor), round(co * factor, 2), round(cv * factor))
+            for t, m, a, c, g, cl, im, co, cv in rows]
+
+
+def _fractional():
+    rng = random.Random(20260701)
+    rows = []
+    for i in range(120):
+        clicks = rng.randint(1, 60)
+        conv = round(rng.choice([0, 0, 0, 0.33, 0.5, 1, 1.67, 2.25, 3.5]) * (1 + clicks // 30), 2)
+        rows.append((f"plumbing term {i:03d}", rng.choice(["Broad match", "Phrase match", "Exact match"]), "None",
+                     rng.choice([SEARCH, WATER]), "Core", clicks, clicks * rng.randint(8, 20),
+                     round(clicks * rng.uniform(2.5, 9.5), 2), conv))
+    return rows
+
+
+EDITOR_HEADER = ["Campaign", "Campaign Type", "Networks", "Bid Strategy Type", "Enhanced CPC", "Targeting method",
+                 "Campaign Status", "Ad Group", "Ad Group Status", "Keyword", "Criterion Type", "Status",
+                 "Quality score", "Expected CTR", "Ad relevance", "Landing page experience", "Ad type",
+                 "Headline 1", "Headline 1 position", "Headline 2", "Headline 3", "Description 1", "Description 2",
+                 "Ad strength", "Link Text", "Callout text"]
+BRAND = "Birch Lane | Brand"
+
+
+def editor_export():
+    """A Google Ads Editor whole-account export: UTF-16, tab separated, one row per item."""
+    rows = [
+        {"Campaign": SEARCH, "Campaign Type": "Search", "Networks": "Google search;Search Partners;Display Network",
+         "Bid Strategy Type": "Manual CPC", "Enhanced CPC": "Disabled",
+         "Targeting method": "People in or regularly in your included locations", "Campaign Status": "Enabled"},
+        {"Campaign": BRAND, "Campaign Type": "Search", "Networks": "Google search",
+         "Bid Strategy Type": "Maximize conversions",
+         "Targeting method": "Presence or interest: People in, regularly in, or who've shown interest in your "
+                             "included locations", "Campaign Status": "Enabled"},
+        {"Campaign": SEARCH, "Ad Group": "Core", "Ad Group Status": "Enabled"},
+        {"Campaign": SEARCH, "Ad Group": "Drains", "Ad Group Status": "Enabled"},
+        {"Campaign": SEARCH, "Ad Group": "Old offers", "Ad Group Status": "Paused"},
+        {"Campaign": BRAND, "Ad Group": "Brand", "Ad Group Status": "Enabled"},
+        {"Campaign": SEARCH, "Ad Group": "Core", "Keyword": "emergency plumber", "Criterion Type": "Exact",
+         "Status": "Enabled", "Quality score": "7", "Expected CTR": "Above average", "Ad relevance": "Average",
+         "Landing page experience": "Average"},
+        {"Campaign": SEARCH, "Ad Group": "Core", "Keyword": "plumber near me", "Criterion Type": "Broad",
+         "Status": "Enabled", "Quality score": "4", "Expected CTR": "Below average", "Ad relevance": "Average",
+         "Landing page experience": "Below average"},
+        {"Campaign": SEARCH, "Ad Group": "Core", "Keyword": "drain cleaning", "Criterion Type": "Phrase",
+         "Status": "Enabled"},
+        {"Campaign": SEARCH, "Ad Group": "Drains", "Keyword": "\"drain cleaning\"", "Status": "Enabled"},
+        {"Campaign": SEARCH, "Ad Group": "Drains", "Keyword": "[blocked drain]", "Status": "Low search volume"},
+        {"Campaign": SEARCH, "Ad Group": "Old offers", "Keyword": "spring plumbing deal", "Criterion Type": "Broad",
+         "Status": "Enabled"},
+        {"Campaign": BRAND, "Ad Group": "Brand", "Keyword": "birch lane plumbing", "Criterion Type": "Exact",
+         "Status": "Enabled"},
+        {"Campaign": SEARCH, "Keyword": "jobs", "Criterion Type": "Campaign Negative Broad", "Status": "Enabled"},
+        {"Campaign": SEARCH, "Ad Group": "Drains", "Keyword": "plumber", "Criterion Type": "Negative Phrase",
+         "Status": "Enabled"},
+        {"Campaign": SEARCH, "Ad Group": "Core", "Ad type": "Responsive search ad", "Status": "Enabled",
+         "Headline 1": "Emergency Plumber 24/7", "Headline 1 position": "1", "Headline 2": "Licensed & Insured",
+         "Headline 3": "Book Online Today", "Description 1": "Fast local plumbers, upfront prices.",
+         "Description 2": "Call now for same-day service.", "Ad strength": "Poor"},
+        {"Campaign": SEARCH, "Ad Group": "Drains", "Ad type": "Responsive search ad", "Status": "Enabled",
+         "Headline 1": "Blocked Drain?", "Headline 2": "Drain Cleaning Experts", "Headline 3": "Same-Day Service",
+         "Description 1": "Drains cleared fast.", "Ad strength": "Average"},
+        {"Campaign": SEARCH, "Link Text": "Water heaters", "Status": "Enabled"},
+        {"Campaign": SEARCH, "Link Text": "Book a visit", "Status": "Enabled"},
+        {"Campaign": SEARCH, "Callout text": "Licensed & insured", "Status": "Enabled"},
+        {"Campaign": SEARCH, "Callout text": "No call-out fee", "Status": "Enabled"},
+    ]
+    buf = io.StringIO()
+    out = csv.writer(buf, delimiter="\t", lineterminator="\r\n")
+    out.writerow(EDITOR_HEADER)
+    for r in rows:
+        out.writerow([r.get(c, "") for c in EDITOR_HEADER])
+    return buf.getvalue()
+
+
+def fixtures():
+    """{file name: bytes}."""
+    de = search_terms(BASE, "de-DE", ";", currency="EUR")
+    fr = search_terms(BASE, "fr-FR", ";", currency="EUR", money=("", "\u00a0€"))
+    rupees = [(t, m, a, c, g, cl, im, round(co * 95, 2), cv) for t, m, a, c, g, cl, im, co, cv in BASE]
+    india = search_terms(rupees, "en-IN", currency="INR", money=("₹", ""))
+    cafe = [("plombier café montréal", "Broad match", "None", SEARCH, "Core", 31, 400, 154.0, 0)] + BASE[:5]
+    renamed = ["Search term", "Search term match type", "Added/Excluded", "Campaign", "Ad group", "Clicks",
+               "Impressions", "Currency", "Cost", "Conversions"]
+    pmax = [(t, "--", "None", "Birch Lane | PMax", "--", cl, im, co, cv) for t, _, _, _, _, cl, im, co, cv in BASE]
+    dupes = BASE[:4] + [("leaking tap repair", "Broad match", "None", SEARCH, g, 3, 40, 15.0, 0)
+                        for g in ("Core", "Drains", "Taps")]
+    zero = [(t, m, a, c, g, cl, im, 0.0, 0) for t, m, a, c, g, cl, im, _, _ in BASE[:6]]
+    no_waste = [r for r in BASE if r[8] > 0]
+    german = ("Suchbegriffbericht\n1. Juli 2026 - 31. Juli 2026\n"
+              "Suchbegriff;Keyword-Option;Kampagne;Anzeigengruppe;Klicks;Impr.;Kosten;Conversions\n"
+              "notdienst klempner;Exakt;Birch Lane | Search;Core;184;2.105;1.254,40;27,00\n")
+    mixed = search_terms(BASE[:3]).replace("1,254.40", "1254,40")  # one cell re-typed in a German spreadsheet
+    return {
+        "search_terms_de.csv": de.encode("utf-8"),
+        "search_terms_fr.csv": fr.encode("utf-8"),
+        "search_terms_en_in.csv": india.encode("utf-8"),
+        "search_terms_utf16.csv": search_terms(BASE, delimiter="\t").encode("utf-16"),
+        "search_terms_cp1252.csv": search_terms(cafe).encode("cp1252"),
+        "search_terms_renamed.csv": search_terms(BASE, header=renamed).encode("utf-8"),
+        "search_terms_pmax.csv": search_terms(pmax, extra={"Campaign type": ["Performance Max"] * len(pmax)})
+        .encode("utf-8"),
+        "search_terms_fractional.csv": search_terms(_fractional()).encode("utf-8"),
+        "search_terms_duplicates.csv": search_terms(dupes).encode("utf-8"),
+        "search_terms_zero_cost.csv": search_terms(zero).encode("utf-8"),
+        "search_terms_no_waste.csv": search_terms(no_waste).encode("utf-8"),
+        "search_terms_june.csv": search_terms(_scaled(BASE, 0.8), period=JUNE).encode("utf-8"),
+        "search_terms_july.csv": search_terms(BASE, period=JULY).encode("utf-8"),
+        "search_terms_german_headers.csv": german.encode("utf-8"),
+        "search_terms_mixed_formats.csv": mixed.encode("utf-8"),
+        "editor_export.csv": editor_export().encode("utf-16"),
+    }
+
+
+def main():
+    OUT.mkdir(parents=True, exist_ok=True)
+    for name, data in fixtures().items():
+        (OUT / name).write_bytes(data)
+    print(f"wrote {len(fixtures())} files to {OUT.relative_to(ROOT)}")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,4 @@
+# Text files check out with LF everywhere, so web/engine.js builds the same on Windows as on Linux.
+* text=auto eol=lf
+# Exports are kept byte for byte: real ones mix line endings, and their SHA-256 is printed in reports.
+*.csv -text

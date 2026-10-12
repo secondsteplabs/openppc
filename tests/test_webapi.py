@@ -84,7 +84,7 @@ def test_audit_hands_the_app_structured_results():
 
 def test_the_count_before_a_check_is_the_checks_own():
     # "brought 6 conversions" counts only once the export says "leak detection service" is a search term
-    text = (ROOT / "examples" / "ai_audit_sample.md").read_text() + '\n"leak detection service" brought 6 conversions.'
+    text = (ROOT / "examples" / "ai_audit_sample.md").read_text(encoding="utf-8") + '\n"leak detection service" brought 6 conversions.'
     paths = json.dumps([str(ROOT / "examples" / "search_terms_acme.csv")])
     total = json.loads(webapi.check(text, paths))["counts"]["total"]
     assert webapi.count_numbers(text, paths) == total == webapi.count_numbers(text) + 1

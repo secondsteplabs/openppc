@@ -8,8 +8,8 @@ import re
 
 from ..engine import benchmarks, waste_model
 from ..facts import FactBook
-from ._common import (brand_matcher, conv_dp, esc, fingerprint, header, min_cost_for, month_label, need, period,
-                      settings_line,
+from ._common import (brand_matcher, conv_dp, esc, fingerprint, header, month_label, need, period,
+                      settings_line, threshold,
                       plural, totals, val)
 
 NAME = "search-term-waste"
@@ -527,9 +527,7 @@ def _client(book, report, x):
 def run(report, min_cost=None, industry=None, top=25, brand=None, **_):
     need(report, "search_term", "Search terms report", HOW_TO_EXPORT)
     book = FactBook(report.currency)
-    known_default = True
-    if min_cost is None:
-        min_cost, known_default = min_cost_for(report.currency)
+    min_cost, known_default = threshold(min_cost, report.currency)
     is_brand = brand_matcher(brand)
     rows = [r for r in report.rows if r.get("search_term")]
     by_term = _by_term(rows)

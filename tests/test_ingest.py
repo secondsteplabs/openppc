@@ -8,6 +8,7 @@ import pytest
 from openppc.ingest import load_report, parse_number
 
 EXAMPLES = Path(__file__).parent.parent / "examples"
+FIXTURES = Path(__file__).parent / "fixtures"
 
 
 def test_search_terms_export_parses():
@@ -26,6 +27,27 @@ def test_parse_number_handles_google_formats():
     assert parse_number("9.86%") == 9.86
     assert parse_number("--") is None
     assert parse_number("") is None
+
+
+def test_parse_number_reads_spaces_apostrophes_and_trailing_currency():
+    assert parse_number("1\u202f254,40\xa0€", european=True) == 1254.40  # French: narrow no-break space, € after
+    assert parse_number("1 234,50 kr", european=True) == 1234.50
+    assert parse_number("1'234.56") == parse_number("1\u2019234.56") == 1234.56  # Swiss
+    assert parse_number("₹1,19,168.00") == 119168.0  # Indian grouping
+    assert parse_number("Rs. 1,234") == 1234.0
+    assert parse_number("12.00 USD") == 12.0
+    assert parse_number("\u221212") == -12.0  # typographic minus
+    assert parse_number("abc") is None
+
+
+def test_french_export_reads_the_same_as_the_english_one():
+    fr = load_report(FIXTURES / "search_terms_fr.csv")
+    assert fr.currency == "EUR"
+    assert round(sum(r["cost"] for r in fr.rows), 2) == 4347.25
+    assert sum(r["impressions"] for r in fr.rows) > 0
+    en_in = load_report(FIXTURES / "search_terms_en_in.csv")
+    assert en_in.currency == "INR"
+    assert round(sum(r["cost"] for r in en_in.rows), 2) == 412988.75
 
 
 def test_utf16_tab_separated_export(tmp_path):

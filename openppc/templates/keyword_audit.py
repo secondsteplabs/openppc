@@ -5,7 +5,7 @@ the Quality Score section. Every figure below is computed from that file alone.
 """
 from ..engine import benchmarks
 from ..facts import FactBook
-from ._common import (brand_matcher, conv_dp, esc, header, min_cost_for, need, plural, settings_line, totals,
+from ._common import (brand_matcher, conv_dp, esc, header, need, plural, settings_line, threshold, totals,
                       val)
 
 NAME = "keyword-audit"
@@ -27,9 +27,7 @@ def accepts(report):
 def run(report, min_cost=None, industry=None, low_qs=4, top=25, brand=None, **_):
     need(report, "keyword", "Keywords report", HOW_TO_EXPORT)
     book = FactBook(report.currency)
-    known_default = True
-    if min_cost is None:
-        min_cost, known_default = min_cost_for(report.currency)
+    min_cost, known_default = threshold(min_cost, report.currency)
     rows = [r for r in report.rows if r.get("keyword")]
     grand = totals(rows)
     out = header(book, report, TITLE)

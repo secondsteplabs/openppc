@@ -1,0 +1,18 @@
+Search terms report
+June 1, 2026 - June 30, 2026
+Search term,Match type,Added/Excluded,Campaign,Ad group,Clicks,Impr.,Currency code,Cost,Conversions
+emergency plumber,Exact match,Added,Birch Lane | Search,Core,147,"1,684",USD,"1,003.52",22.00
+plumber near me,Phrase match,Added,Birch Lane | Search,Core,121,"1,912",USD,805.20,15.00
+water heater repair,Phrase match,Added,Birch Lane | Water heaters,Repair,53,724,USD,409.80,7.00
+tankless water heater install,Broad match,None,Birch Lane | Water heaters,Install,18,272,USD,230.00,2.00
+burst pipe repair,Broad match,None,Birch Lane | Search,Core,30,390,USD,201.28,4.00
+free plumbing quote,Broad match,None,Birch Lane | Search,Core,35,488,USD,264.80,0.00
+plumbing apprenticeship,Broad match,None,Birch Lane | Search,Core,21,316,USD,139.36,0.00
+diy drain unblocker,Broad match,None,Birch Lane | Search,Drains,17,360,USD,94.08,0.00
+water heater parts,Broad match,None,Birch Lane | Water heaters,Repair,10,208,USD,62.40,0.00
+drain camera rental,Broad match,None,Birch Lane | Search,Drains,6,112,USD,33.28,0.00
+gas leak plumber,Phrase match,None,Birch Lane | Search,Core,15,184,USD,130.72,3.00
+toilet installation,Broad match,None,Birch Lane | Search,Core,11,164,USD,73.92,2.00
+plumber salary,Broad match,None,Birch Lane | Search,Core,5,96,USD,20.16,0.00
+copper pipe price,Broad match,None,Birch Lane | Search,Core,3,76,USD,9.28,0.00
+Total: Search terms,,,,,492,"6,986",USD,"3,477.80",55.00

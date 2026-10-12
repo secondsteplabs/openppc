@@ -41,6 +41,8 @@ TOTAL_ROW = re.compile(r"^\s*total\s*:", re.I)  # "Total: Account"; a search ter
 EU_NUMBER = re.compile(r"^-?[\d.]*\d,\d{1,2}%?$")  # "1.361,04", "5,23%"
 US_NUMBER = re.compile(r"^-?(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+\.\d{1,2})%?$")  # "1,361.04", "5.23%"
 DOTTED = re.compile(r"-?\d{1,3}(?:\.\d{3})+")  # "1.450": European thousands, or nothing to go on
+GROUPING = str.maketrans({"'": None, "’": None, "−": "-"})  # "1'234.56" (Swiss), "−5" (typographic minus)
+DECORATION = re.compile(r"^(?:Rs\.|[^\d.\-])+|[^\d%]+$")  # a currency mark or code before or after the number
 
 
 @dataclass
@@ -61,16 +63,21 @@ class Report:
         return all(c in self.columns for c in columns)
 
 
+def _compact(cell):
+    """The number as written, without what only decorates it: spaces of any kind and apostrophes used as
+    thousands marks ('1 254,40', "1'234.56") and a currency mark on either side ('1 254,40 €', '₹95,617.50')."""
+    return DECORATION.sub("", "".join(str(cell).split()).translate(GROUPING))
+
+
 def parse_number(cell, european=False):
     """'1,361.04' -> 1361.04, '$6.42' -> 6.42, '9.86%' -> 9.86, '--' or '' -> None.
-    European style swaps the two marks: '1.361,04' -> 1361.04."""
+    European style swaps the two marks: '1.361,04' -> 1361.04, '1 254,40 €' -> 1254.4."""
     if cell is None:
         return None
-    text = str(cell).strip()
+    text = _compact(cell)
     if european:
         text = text.replace(".", "").replace(",", ".")
     text = text.replace(",", "").replace("%", "")
-    text = re.sub(r"^[^\d.\-]+", "", text)
     if text in ("", "-", ".", "--"):
         return None
     try:
@@ -222,7 +229,7 @@ def _read(path, lines):
             raise ValueError(f"{path}: line {n} has a money amount ({cells[money].strip()}) in the {names[money]} "
                              f"column, which only holds counts, so the columns look shifted. {again}")
         for i in numeric:
-            c = cells[i].strip()
+            c = _compact(cells[i])
             if c:
                 eu += bool(EU_NUMBER.match(c))
                 us += bool(US_NUMBER.match(c))

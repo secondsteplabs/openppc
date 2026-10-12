@@ -28,7 +28,7 @@ def test_a_command_with_neither_a_file_nor_sample_says_what_to_give(capsys):
 
 def test_the_wheel_carries_every_sample_file():
     tomllib = pytest.importorskip("tomllib")
-    wheel = tomllib.loads((ROOT / "pyproject.toml").read_text())["tool"]["hatch"]["build"]["targets"]["wheel"]
+    wheel = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["tool"]["hatch"]["build"]["targets"]["wheel"]
     forced = wheel["force-include"]
     assert {Path(dest).name for dest in forced.values()} == set(samples.EXPORTS.values()) | {samples.AUDIT}
     for src, dest in forced.items():

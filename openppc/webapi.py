@@ -14,7 +14,7 @@ from .engine import benchmarks
 from .engine.trace import render_check, trace
 from .ingest import load_report
 from .ingest.account import is_snapshot, read_json, snapshot
-from .templates import TEMPLATES, account_read, load_input, run_template, run_template_book
+from .templates import TEMPLATES, account_read, load_input, run_template_book
 from .facts import SYMBOLS
 from .templates._common import fingerprint, min_cost_for
 
@@ -166,8 +166,7 @@ def audit(name, path, industry="", min_cost=None, brand=""):
     if not template.accepts(data):
         return wrong
     try:
-        cost = None if min_cost in (None, "") else float(min_cost)  # unset: the default in the export's currency
-        markdown, book, passed = run_template_book(name, path, data, industry=industry or None, min_cost=cost,
+        markdown, book, passed = run_template_book(name, path, data, industry=industry or None, min_cost=min_cost,
                                                    brand=brand or None)
     except READ_ERRORS as e:
         return _json({"ok": False, "error": _clean(e, [path])})

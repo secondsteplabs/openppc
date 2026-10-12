@@ -388,9 +388,9 @@ def _disagreements(book, ads, camps, kws):
     if ads:
         strength = Counter(a["strength"] for a in ads if a["strength"])
         mix = ", ".join(f"{nice(s)} {book.count(f'live ads rated {nice(s)}', v)}" for s, v in strength.most_common())
-        out.append(f"- **Ad Strength.** Google says moving an ad from Poor to Excellent brings more conversions. "
-                   f"Optmyzr's study of thousands of accounts found Excellent ads had the worst cost per conversion "
-                   f"and Average ones the best. Judge ads on cost per conversion and conversions per impression. "
+        out.append("- **Ad Strength.** Google says moving an ad from Poor to Excellent brings more conversions. "
+                   "Optmyzr's study of thousands of accounts found Excellent ads had the worst cost per conversion "
+                   "and Average ones the best. Judge ads on cost per conversion and conversions per impression. "
                    + (f"Your live ads: {mix}." if mix else "This file has no Ad Strength ratings."))
         out.append("- **Pinning.** Google says most advertisers should not pin. Optmyzr found partial pinning had the "
                    "best cost per conversion and full pinning the worst.")

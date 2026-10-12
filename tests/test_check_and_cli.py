@@ -1,19 +1,25 @@
+import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
-from openppc import mcp_server
+from openppc import mcp_server, webapi
 from openppc.checkfacts import facts_for_paths
 from openppc.cli import main
 from openppc.engine.trace import render_check, trace
 
-EXAMPLES = Path(__file__).parent.parent / "examples"
+ROOT = Path(__file__).parent.parent
+EXAMPLES = ROOT / "examples"
+FIXTURES = Path(__file__).parent / "fixtures"
 CSV = EXAMPLES / "search_terms_acme.csv"
 SAMPLE = EXAMPLES / "ai_audit_sample.md"
 
 
 def test_sample_ai_audit_is_caught():
-    claims, contradictions = trace(SAMPLE.read_text(), facts_for_paths([CSV]))
+    claims, contradictions = trace(SAMPLE.read_text(encoding="utf-8"), facts_for_paths([CSV]))
     flagged = {c.written: c.verdict for c in claims if c.verdict != "traced"}
     # 14% ("fell from 9% to 14%") is not the account's conversion rate; 9% is the earlier figure, which a one-month
     # export cannot hold; with no industry chosen, 6.47% is an outside average: neither can be checked
@@ -25,7 +31,7 @@ def test_sample_ai_audit_is_caught():
 
 
 def test_a_flag_prints_money_with_its_symbol_and_one_sentence_reads_as_one():
-    claims, contradictions = trace(SAMPLE.read_text(), facts_for_paths([CSV], "home-services"))
+    claims, contradictions = trace(SAMPLE.read_text(encoding="utf-8"), facts_for_paths([CSV], "home-services"))
     detail = next(c.detail for c in claims if c.written == "$4,200")
     assert detail == "no: the cost of all search terms with no conversions is $784.70"
     markdown = render_check(claims, contradictions)
@@ -33,22 +39,41 @@ def test_a_flag_prints_money_with_its_symbol_and_one_sentence_reads_as_one():
 
 
 def test_industry_averages_count_as_data_when_asked():
-    claims, _ = trace(SAMPLE.read_text(), facts_for_paths([CSV], "home-services"))
+    claims, _ = trace(SAMPLE.read_text(encoding="utf-8"), facts_for_paths([CSV], "home-services"))
     assert next(c for c in claims if c.written == "6.47%").verdict == "traced"
 
 
 def test_cli(tmp_path):
     out = tmp_path / "report.md"
     assert main(["audit", "search-term-waste", str(CSV), "--out", str(out)]) == 0
-    assert "Number check: every number in this report traces back to your data." in out.read_text()
+    assert "Number check: every number in this report traces back to your data." in out.read_text(encoding="utf-8")
     assert main(["check", "--audit", str(SAMPLE), "--data", str(CSV), "--out", str(tmp_path / "c.md")]) == 2
     assert main(["audit", "keyword-audit", str(CSV)]) == 1  # wrong export for this template
+
+
+def test_a_threshold_that_is_not_an_amount_is_refused(capsys):
+    for bad in ("nan", "inf", "-5"):
+        assert main(["audit", "search-term-waste", str(CSV), "--min-cost", bad]) == 1, bad
+        assert "waste threshold must be an amount of zero or more" in capsys.readouterr().err, bad
+    assert main(["audit", "keyword-audit", str(EXAMPLES / "keywords_acme.csv"), "--min-cost", "nan"]) == 1
+    assert main(["audit", "search-term-waste", str(CSV), "--min-cost", "0"]) == 0
+    capsys.readouterr()
+    refused = json.loads(webapi.audit("search-term-waste", str(CSV), "", "twenty", ""))
+    assert refused == {"ok": False, "error": "The waste threshold must be an amount such as 20, not 'twenty'."}
+
+
+def test_a_report_in_rupees_prints_on_a_legacy_code_page():
+    run = subprocess.run([sys.executable, "-c", "from openppc.cli import main; raise SystemExit(main())",
+                          "audit", "search-term-waste", str(FIXTURES / "search_terms_en_in.csv")],
+                         capture_output=True, cwd=ROOT, env={**os.environ, "PYTHONIOENCODING": "cp1252"})
+    assert run.returncode == 0, run.stderr.decode("utf-8", "replace")
+    assert "₹72,922.00" in run.stdout.decode("utf-8")
 
 
 def test_mcp_tools_work_without_the_mcp_extra():
     assert "search-term-waste" in mcp_server.list_templates()
     assert "Number check: every number" in mcp_server.audit_account("search-term-waste", str(CSV))
-    assert "Needs attention" in mcp_server.check_numbers(SAMPLE.read_text(), [str(CSV)])
+    assert "Needs attention" in mcp_server.check_numbers(SAMPLE.read_text(encoding="utf-8"), [str(CSV)])
 
 
 def test_mcp_server_registers_read_only_tools():
@@ -79,7 +104,7 @@ def test_openppcs_own_report_passes_its_own_check_whatever_its_settings(tmp_path
     for opts in ([], ["--brand", "plumber, drain"], ["--min-cost", "7.50"], ["--industry", "home-services"]):
         out = tmp_path / "own.md"
         assert main(["audit", "search-term-waste", str(CSV), "--out", str(out), *opts]) == 0
-        text = out.read_text()
+        text = out.read_text(encoding="utf-8")
         claims, contradictions = trace(text, facts_for_check(text, [CSV]))
         assert not [c for c in claims if c.verdict in ("mismatch", "not in data")] and not contradictions, opts
         assert main(["check", "--audit", str(out), "--data", str(CSV)]) == 0, opts  # can't check never fails a check

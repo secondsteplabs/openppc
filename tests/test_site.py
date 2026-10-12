@@ -25,7 +25,7 @@ def test_the_site_builds_with_no_broken_links(tmp_path):
 
 def test_the_home_page_has_the_video_the_app_and_github(tmp_path):
     _site().build(tmp_path / "dist")
-    home = (tmp_path / "dist" / "index.html").read_text()
+    home = (tmp_path / "dist" / "index.html").read_text(encoding="utf-8")
     assert 'src="/media/openppc-demo.mp4?v=' in home and 'href="/app/"' in home
     assert "https://github.com/secondsteplabs/openppc" in home
     assert '<link rel="canonical" href="https://openppc.si/">' in home
@@ -37,7 +37,7 @@ def test_the_home_page_has_the_video_the_app_and_github(tmp_path):
 
 def test_the_install_guide_shows_every_step(tmp_path):
     _site().build(tmp_path / "dist")
-    guide = (tmp_path / "dist" / "docs" / "install" / "index.html").read_text()
+    guide = (tmp_path / "dist" / "docs" / "install" / "index.html").read_text(encoding="utf-8")
     for anchor in ("browser", "export", "audit", "check", "pdf", "computer", "ai", "claude", "cursor", "chatgpt",
                    "connector", "self-host", "trouble"):
         assert f'id="{anchor}"' in guide, anchor
@@ -47,7 +47,7 @@ def test_the_install_guide_shows_every_step(tmp_path):
 def test_pages_load_nothing_from_other_sites(tmp_path):
     _site().build(tmp_path / "dist")
     for page in ("index.html", "docs/index.html", "docs/install/index.html", "404.html"):
-        text = (tmp_path / "dist" / page).read_text()
+        text = (tmp_path / "dist" / page).read_text(encoding="utf-8")
         assert not re.findall(r'(?:src|href)="https?://(?!github\.com|getsecondstep\.com|docs\.astral\.sh)[^"]*\.(?:js|css|woff2?)', text)
         assert "default-src 'self'" in text
 
@@ -57,7 +57,7 @@ def test_the_site_serves_the_logo_icons_and_share_image(tmp_path):
     site.build(tmp_path / "dist")
     for src, dest in site.BRAND.items():
         assert (tmp_path / "dist" / dest).read_bytes() == (ROOT / "brand" / src).read_bytes(), dest
-    home = (tmp_path / "dist" / "index.html").read_text()
+    home = (tmp_path / "dist" / "index.html").read_text(encoding="utf-8")
     assert '<img src="/logo.svg" alt="OpenPPC"' in home and 'href="/apple-touch-icon.png"' in home
     assert '<meta property="og:image" content="https://openppc.si/og-image.png">' in home
 
@@ -65,11 +65,11 @@ def test_the_site_serves_the_logo_icons_and_share_image(tmp_path):
 def test_analytics_runs_on_the_website_and_never_in_the_app(tmp_path):
     _site().build(tmp_path / "dist")
     dist = tmp_path / "dist"
-    tag = (dist / "analytics.js").read_text()
+    tag = (dist / "analytics.js").read_text(encoding="utf-8")
     assert "GTM-MKK8JT53" in tag and tag.index("'consent', 'default'") < tag.index("gtm.js?id=")
     for page in ("index.html", "docs/index.html", "docs/install/index.html", "404.html"):
-        assert re.search(r'<script src="/analytics\.js\?v=[0-9a-f]{12}" async></script>', (dist / page).read_text()), page
-    app = (dist / "app" / "index.html").read_text()
+        assert re.search(r'<script src="/analytics\.js\?v=[0-9a-f]{12}" async></script>', (dist / page).read_text(encoding="utf-8")), page
+    app = (dist / "app" / "index.html").read_text(encoding="utf-8")
     assert "analytics.js" not in app and "googletagmanager" not in app
     assert "connect-src https://cdn.jsdelivr.net;" in app   # the app may fetch the Python runtime and nothing else
 
@@ -78,7 +78,7 @@ def test_the_app_names_its_files_by_content(tmp_path):
     # Cloudflare lets browsers keep scripts for hours and the page is never cached: a new page must name new files
     _site().build(tmp_path / "dist")
     app = tmp_path / "dist" / "app"
-    index, appjs, worker = ((app / n).read_text() for n in ("index.html", "app.js", "engine-worker.js"))
+    index, appjs, worker = ((app / n).read_text(encoding="utf-8") for n in ("index.html", "app.js", "engine-worker.js"))
     for name in ("style.css", "engine.js", "app.js"):
         assert re.search(rf'"{re.escape(name)}\?v=[0-9a-f]{{12}}"', index), name
     assert re.search(r"new Worker\('engine-worker\.js\?v=[0-9a-f]{12}'", appjs)

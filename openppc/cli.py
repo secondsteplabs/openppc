@@ -66,7 +66,16 @@ def explain(error):
     return str(error)
 
 
+def _utf8_output():
+    # A Windows console or pipe can default to a legacy code page, where printing ₹ or € stops the command.
+    for stream in (sys.stdout, sys.stderr):
+        encoding = (getattr(stream, "encoding", None) or "").lower().replace("-", "")
+        if encoding != "utf8" and hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
+
+
 def main(argv=None):
+    _utf8_output()
     args = _parser().parse_args(argv)
     try:
         if args.command == "templates":
