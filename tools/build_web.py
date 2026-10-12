@@ -21,8 +21,8 @@ SAMPLES = ("search_terms_acme.csv", "keywords_acme.csv", "account_acme.json", "a
 # network can land in the app by accident. tests/test_fitness.py fails until every module is listed here or in
 # NOT_BUNDLED.
 BUNDLE = (
-    "openppc/__init__.py", "openppc/__main__.py", "openppc/checkfacts.py", "openppc/cli.py", "openppc/facts.py",
-    "openppc/formats.py", "openppc/mcp_server.py", "openppc/samples.py", "openppc/webapi.py",
+    "openppc/__init__.py", "openppc/checkfacts.py", "openppc/facts.py", "openppc/formats.py", "openppc/samples.py",
+    "openppc/webapi.py",
     "openppc/engine/__init__.py", "openppc/engine/benchmarks.py", "openppc/engine/findings.py",
     "openppc/engine/trace.py", "openppc/engine/waste_model.py",
     "openppc/ingest/__init__.py", "openppc/ingest/account.py", "openppc/ingest/editor.py",
@@ -31,7 +31,8 @@ BUNDLE = (
     "openppc/templates/account_structure.py", "openppc/templates/keyword_audit.py",
     "openppc/templates/search_term_waste.py",
 )
-NOT_BUNDLED = ()
+# The command line and the MCP server: the app never runs them, and the MCP SDK is not in the browser.
+NOT_BUNDLED = ("openppc/__main__.py", "openppc/cli.py", "openppc/mcp_server.py")
 
 
 def templates():
