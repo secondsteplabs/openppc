@@ -84,7 +84,7 @@ def test_rule_packs_add_findings_signatures_and_suppressions(serve, tmp_path, ow
     assert set(found) == {"gtm-everywhere", "short-titles", "collector-installed"}
     assert sorted(found["short-titles"].items) == sorted(f"{base}/item?id={i}" for i in range(10))  # 10: the cap
     assert found["short-titles"].notes[f"{base}/item?id=3"] == "`title` is `6` characters long"
-    assert "needs a browser, which this version doesn't run" in found["collector-installed"].notes["Our collector"]
+    assert "run with `--render`" in found["collector-installed"].notes["Our collector"]
     findings, used = triage.suppress(checks.evaluate(c) + list(found.values()), config.suppress)
     assert "site-broken-internal" not in by_id(findings)
     assert used[0].items == [("site-broken-internal", base + "/broken")] and used[1].items == []
@@ -142,7 +142,7 @@ def test_scores_lose_points_by_severity():
     s = triage.scores(f, rendered=False)
     assert s["seo"].score == 100 - triage.SCORE_MEDIUM and s["seo"].grade == "A"
     assert s["links"].score == 100 - triage.SCORE_HIGH and s["links"].grade == "B"
-    assert s["accessibility"].score is None and s["accessibility"].why_not.startswith("needs a browser")
+    assert s["accessibility"].score is None and s["accessibility"].why_not == "needs `--render`"
     assert "crawl" not in s
     assert triage.scores(f, rendered=True)["accessibility"].score == 100 - triage.SCORE_HIGH
 

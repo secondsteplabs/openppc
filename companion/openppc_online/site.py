@@ -1,24 +1,26 @@
 """`openppc-online site`: crawl the website you name, check it, and write the report.
 
 Every input is read before the crawl, so a typo fails in a second, not after an hour. The crawl, the external link
-checks and the webhook all go through one siteaudit.net.Guard; the only other host is Chrome's UX Report API, and
-only with --crux-key.
+checks, the browser with --render and the webhook all go through one siteaudit.net.Guard; the only other host is
+Chrome's UX Report API, and only with --crux-key.
 """
 import ipaddress
 import json
 from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 import openppc
 from openppc.formats import to_html
 
 from . import __version__
 from .siteaudit import net, packs
-from .siteaudit.checks import SEVERITY_RANK, Finding, evaluate, home
-from .siteaudit.crawl import Progress, crawl
+from .siteaudit.checks import SEVERITY_RANK, Finding, evaluate, home, host_base, js_only_links, same_site
+from .siteaudit.crawl import Progress, crawl, follow, normalize, start_url
 from .siteaudit.crux import field_data, key_from
 from .siteaudit.net import Guard
+from .siteaudit.render import RENDER_PAGES, VITALS_PAGES, Rendered, preflight, render
 from .siteaudit.report import Extras, data, report, sarif
 from .siteaudit.triage import Diff, compare, health, read_baseline, redact_text, suppress
 
@@ -69,27 +71,66 @@ def post(url: str, payload: str, guard: Guard) -> str:
     return f"posted the result to {host} ({status})"
 
 
+def render_urls(start: str, urls: list[str]) -> list[str]:
+    """--render-url pages as full addresses, refusing any on another site."""
+    start = start_url(start)
+    base = host_base(start)
+    out = []
+    for url in urls:
+        full = normalize(urljoin(start, url.strip()))
+        if not same_site(urlsplit(full).hostname or "", base):
+            raise ValueError(f"--render-url must be a page of {base}, not {url!r}")
+        out.append(full)
+    return out
+
+
+def _screenshots_folder(folder: str) -> None:
+    target = Path(folder)
+    if target.exists() and not target.is_dir():
+        raise ValueError(f"{folder} is a file. Give --screenshots a folder.")
+    target.mkdir(parents=True, exist_ok=True)
+
+
 def run(url: str, *, max_pages: int | None = None, max_seconds: float | None = None, max_per_pattern: int,
         fast: bool = False, external: bool = True, allow_private: bool = False, crux_key: str | None = None,
         config: list[str] | None = None, baseline: str | None = None, post_to: str | None = None,
+        rendered: bool = False, render_pages: int = RENDER_PAGES, vitals_pages: int = VITALS_PAGES,
+        render_url: list[str] | None = None, consent_selector: str = "", screenshots: str = "",
         progress: Progress | None = None) -> tuple[Result, Guard]:
-    """Everything the command does short of writing the report and posting it."""
+    """Everything the command does short of writing the report and posting it. rendered: the --render pass."""
     rules = packs.load(config or [])
     earlier = read_baseline(baseline) if baseline else None
     key = key_from(crux_key) if crux_key is not None else None
     if post_to:
         webhook_host(post_to)
+    also = render_urls(url, render_url or [])
+    if not rendered and (also or screenshots):
+        raise ValueError(f"{'--render-url' if also else '--screenshots'} needs --render")
+    if screenshots:
+        _screenshots_folder(screenshots)
+    if rendered:
+        preflight()
     guard = Guard(allow_private=allow_private)
     c = crawl(url, guard, max_pages, max_seconds, max_per_pattern, fast, external, progress)
+    r: Rendered | None = None
+    if rendered and not c.blocked_by:
+        try:
+            r = render(c, guard, render_pages, consent_selector, vitals_pages, progress, screenshots, also)
+        except KeyboardInterrupt:
+            c.incomplete = c.incomplete or "stopped with Ctrl-C, before the browser pass finished"
+    if r and not c.incomplete:
+        hidden = js_only_links(c, r)
+        if hidden:
+            follow(c, guard, hidden, max_pages, max_seconds, max_per_pattern, fast, progress)
     field = field_data(c.origin, home(c).url, key) if key and not c.blocked_by else []
-    findings = evaluate(c, None, field) + ([] if c.blocked_by else packs.evaluate(rules, c, None))
+    findings = evaluate(c, r, field) + ([] if c.blocked_by else packs.evaluate(rules, c, r))
     findings, suppressed = suppress(findings, rules.suppress)
     diff = compare(findings, earlier, baseline) if earlier is not None and baseline else None
     extras = Extras(rules.files, suppressed, diff, field)
-    markdown, book, passed = report(c, None, findings, extras)
+    markdown, book, passed = report(c, r, findings, extras)
     doc: dict[str, Any] = {"format_version": FORMAT_VERSION, "openppc_online": __version__,
                            "openppc": openppc.__version__, "passed": passed, "markdown": markdown,
-                           **data(c, None, findings, extras), "facts": [asdict(f) for f in book.facts]}
+                           **data(c, r, findings, extras), "facts": [asdict(f) for f in book.facts]}
     texts = {"md": markdown, "json": redact_text(json.dumps(doc, indent=2, ensure_ascii=False))[0],
              "html": to_html(markdown, f"Site audit: {c.origin}"),
              "sarif": redact_text(json.dumps(sarif(c, findings, __version__), indent=2))[0]}

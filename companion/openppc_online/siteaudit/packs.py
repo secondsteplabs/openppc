@@ -24,7 +24,7 @@ from urllib.parse import urlsplit
 
 from .checks import CATEGORIES, SEVERITY_RANK, Finding, Rule, code, events, tracking
 from .crawl import Crawl, Page
-from .render import NOT_RUN, Rendered
+from .render import RENDER_FLAG, Rendered
 from .tags import EVENT_CHARS, VENDORS, add_vendors
 
 SPEC = 1
@@ -284,15 +284,14 @@ def evaluate(config: Config, c: Crawl, r: Rendered | None) -> list[Finding]:
             vid = rule.require["tag"]
             name = names[vid]
             if vid not in tags:
-                note = "" if r else f"not in the home page's HTML; a tag manager may load it, and seeing that needs " \
-                                    f"{NOT_RUN}"
+                note = "" if r else f"not in the home page's HTML; a tag manager may load it, run with {RENDER_FLAG}"
                 out.append(Finding(rule.id, [name], {name: note} if note else {}, spec=rule.spec))
             elif "event" in rule.require:
                 event = rule.require["event"].strip()
                 seen = sent.get(vid, [])
                 if not r:
                     out.append(Finding(rule.id, [name], {name: f"the {code(event)} event can only be seen with "
-                                                               f"{NOT_RUN}"}, spec=rule.spec))
+                                                               f"{RENDER_FLAG}"}, spec=rule.spec))
                 elif event.lower() not in (s.lower() for s in seen):
                     others = f"; it sent {', '.join(map(code, seen))}" if seen else "; it sent no named events"
                     out.append(Finding(rule.id, [name], {name: f"no {code(event)} event on the rendered pages{others}"},

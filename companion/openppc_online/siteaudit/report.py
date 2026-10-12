@@ -26,7 +26,7 @@ from .crawl import MAX_QUERY_VARIANTS, Crawl
 from .crux import FORM_FACTOR, FieldData
 from .crux import METRICS as CRUX_METRICS
 from .net import ROBOTS_TOKEN
-from .render import AXE_VERSION, NOT_RUN, PROFILE, RTT_MS, VIEWPORT, Rendered, Vitals
+from .render import AXE_VERSION, PROFILE, RENDER_FLAG, RTT_MS, VIEWPORT, Rendered, Vitals
 from .tags import VENDORS
 from .tags import VERSION as SIGNATURES
 from .triage import (
@@ -140,7 +140,7 @@ def _markdown(c: Crawl, r: Rendered | None, findings: list[Finding], extras: Ext
                     "accessibility and Web Vitals."]
     else:
         out += ["", f"{n('checks that need a browser', len(NEEDS_BROWSER))} checks (tags firing, consent, "
-                    f"accessibility, Web Vitals) need {NOT_RUN}."]
+                    f"accessibility, Web Vitals) need a browser: run again with {RENDER_FLAG}."]
 
     graded = {} if sick else scores(findings, r is not None)
     out += _scores(graded, book)
@@ -260,7 +260,7 @@ def _tracking_table(c: Crawl, r: Rendered | None) -> list[str]:
             out += ["", f"Consent banner: `{o.consent}`, " + (f"accepted by clicking `{o.selector}`." if o.accepted
                                                              else "not accepted, so there is no after-consent data.")]
     else:
-        out += [f"Found in the home page's HTML. Whether they fire, and when, needs {NOT_RUN}.", ""]
+        out += [f"Found in the home page's HTML. Whether they fire, and when, needs {RENDER_FLAG}.", ""]
         out += [f"- {VENDORS[v]['name']}" for v in tags]
     return out
 

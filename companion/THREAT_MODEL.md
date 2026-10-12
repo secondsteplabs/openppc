@@ -51,8 +51,9 @@ that changes either.
 
 # `openppc-online site`
 
-The crawler fetches pages a stranger controls, from your computer, inside your network. The tests are in
-`tests/test_net.py`, `tests/test_crawl.py`, `tests/test_site.py`, `tests/test_checks.py` and `tests/test_packs.py`.
+The crawler fetches pages a stranger controls, from your computer, inside your network; with `--render`, a real
+browser runs their JavaScript. The tests are in `tests/test_net.py`, `tests/test_crawl.py`, `tests/test_site.py`,
+`tests/test_checks.py`, `tests/test_packs.py`, `tests/test_render.py` and, in Chromium, `tests/test_render_e2e.py`.
 
 ## What it has
 
@@ -88,7 +89,12 @@ The crawler fetches pages a stranger controls, from your computer, inside your n
 | Leaking the CrUX key or the webhook's path | The key is read from the flag or `OPENPPC_CRUX_KEY` and only sent to CrUX; reports and messages name the webhook's host only; secret-looking query values (tokens, emails) are masked in every format | `test_secrets_never_show`, `test_field_data_is_read_and_the_key_stays_out_of_sight`, `test_fingerprints_ignore_the_origin_and_secrets_are_masked` |
 | A webhook that sends the result on | `https://`, or `http://` only to this computer (which also needs `--allow-private`); one POST through the guard, no redirect followed | `test_which_webhook_addresses_are_taken`, `test_the_webhook_follows_no_redirect_and_needs_allow_private_for_this_computer` |
 | A hostile rule pack | Plain JSON, every key and value checked as it loads; a rule compares a field with a literal (no regular expressions, no code), and page globs use `fnmatch`, so a pack can't run anything or hang the check | `test_a_pack_mistake_names_the_place`, `test_the_example_rule_packs_match_the_schema_and_load` |
-| A slow failure | Every input (packs, baseline, key, webhook, limits) is read before the crawl | `test_bad_input_fails_before_the_crawl` |
+| A slow failure | Every input (packs, baseline, key, webhook, limits, `--render-url`, the screenshots folder, the browser starting) is read before the crawl | `test_bad_input_fails_before_the_crawl` |
+| The browser reaching your network | Chromium's only route out is a proxy on 127.0.0.1 that opens each connection through the same guard, loopback included; a refused one answers 403 | `test_the_browsers_proxy_applies_the_same_rules`, `test_the_browsers_proxy_never_opens_the_metadata_address`, `test_the_browser_is_held_to_the_same_address_rules` |
+| The browser going around the proxy | QUIC off, WebRTC's non-proxied UDP off, service workers blocked, downloads refused, a new profile per page | `test_the_browser_pass_sees_tags_consent_accessibility_and_vitals` (the only names resolved are the site's and its pages' hosts) |
+| A proxied connection reused for another host | One request per upstream connection for plain HTTP; a `CONNECT` tunnel is opened to the checked address only | `test_the_browsers_proxy_applies_the_same_rules` |
+| A tampered axe-core | The vendored file is pinned by its SHA-256, the one npm publishes; it runs through the DevTools protocol, so the page's policy can't block it, and only its results come back | `test_the_vendored_axe_core_is_the_published_file_with_its_license` |
+| `--render-url` pointing elsewhere | Must be a page of the site you named | `test_bad_input_fails_before_the_crawl` |
 
 ## Accepted
 
@@ -98,3 +104,9 @@ The crawler fetches pages a stranger controls, from your computer, inside your n
   network; use it only on hosts you trust.
 - **`--fast` ignores the polite pace,** not robots.txt. It is for your own site.
 - **The CrUX key goes to Google,** as the API needs. Use a key restricted to the Chrome UX Report API.
+- **The browser runs the site's JavaScript,** in Chromium's sandbox, with a fresh profile per page. A Chromium
+  exploit is out of scope; keep Playwright's Chromium updated (`playwright install chromium`).
+- **The proxy has no password.** While the browser pass runs, another program on this computer could connect to
+  it, but it reaches only what the guard allows, which that program could reach directly.
+- **Screenshots show what the page shows,** which may include personal data on a logged-out page. They are saved
+  only with `--screenshots`, where you say.

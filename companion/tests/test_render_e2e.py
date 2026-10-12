@@ -4,14 +4,19 @@ text, and Web Vitals are measured. The browser goes through the guard's proxy, s
 refused unless --allow-private opens it, and it contacts only the hosts the pages load (fitness function 9).
 
 No network: every host name resolves to the local test server."""
+import json
 import re
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
 import pytest
 from openppc.formats import to_html
+from sites import qa_site
 
+from openppc_online.cli import main
 from openppc_online.siteaudit import checks
+from openppc_online.siteaudit import crawl as crawl_module
 from openppc_online.siteaudit.checks import evaluate, tracking
 from openppc_online.siteaudit.crawl import crawl, follow
 from openppc_online.siteaudit.net import Guard
@@ -121,6 +126,27 @@ def test_the_browser_pass_sees_tags_consent_accessibility_and_vitals(shop, tmp_p
     assert "<img src=x onerror=alert(1)>'<b>" in markdown  # the event, in a code span its backtick can't close
     assert "<img" not in re.sub(r"`[^`\n]*`", "", markdown)
     assert "<img src=x" not in to_html(markdown, "Site audit")
+
+
+def test_qa_site_29_screenshots_a_page_no_link_leads_to_and_measures_two_pages(serve, tmp_path, monkeypatch):
+    monkeypatch.setattr(crawl_module, "POLITE_INTERVAL", 0.02)
+    bad, out, shots = qa_site(serve, "bad"), tmp_path / "site_render.json", tmp_path / "shots"
+    assert main(["site", bad, "--allow-private", "--fast", "--render", "--screenshots", str(shots), "--render-url",
+                 "/final", "--vitals-pages", "2", "--format", "json", "--out", str(out)]) == 0
+    doc = json.loads(out.read_text(encoding="utf-8"))
+    rendered = doc["rendered"]
+    assert bad + "final" in [p["url"] for p in rendered["pages"]] and len(rendered["vitals"]) == 2
+    assert sorted(p.name for p in shots.iterdir()) == [Path(p["screenshot"]).name for p in rendered["pages"]]
+    assert doc["passed"] and doc["scores"]["accessibility"]["not_scored"] is None
+
+
+def test_qa_site_30_takes_a_consent_selector(serve, tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(crawl_module, "POLITE_INTERVAL", 0.02)
+    out = tmp_path / "site_render.md"
+    assert main(["site", qa_site(serve, "bad"), "--allow-private", "--fast", "--render", "--consent-selector",
+                 "#accept", "--vitals-pages", "0", "--out", str(out)]) == 0
+    markdown = out.read_text(encoding="utf-8")
+    assert "in Chromium for tags, consent" in markdown and "--render`" not in markdown
 
 
 def test_the_browser_is_held_to_the_same_address_rules(shop):

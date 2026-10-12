@@ -14,6 +14,7 @@ from sites import acme, page, qa_site
 from openppc_online import site
 from openppc_online.cli import main
 from openppc_online.siteaudit import crawl as crawl_module
+from openppc_online.siteaudit import render as render_module
 from openppc_online.siteaudit.crux import KEY_ENV
 
 COMPANION = Path(__file__).resolve().parent.parent
@@ -42,8 +43,8 @@ def _run(args, capsys):
     return code, out.out + "\n" + out.err
 
 
-# the fork's QA matrix, SITE-01 to SITE-28 (SITE-29 and 30 need the browser pass); "{bad}", "{good}" and "{blocked}"
-# are the QA sites, "{out}" a scratch folder, "{baseline}" the bad site's own --format json result
+# the fork's QA matrix, SITE-01 to SITE-28 (SITE-29 and 30, with --render, are in test_render_e2e.py); "{bad}",
+# "{good}" and "{blocked}" are the QA sites, "{out}" a scratch folder, "{baseline}" the bad site's own --format json result
 CASES = [
     ("SITE-01", ["{bad}", *P], 0, ["Site audit", "REDACTED"]),
     ("SITE-02", ["{good}", *P], 0, ["Overall"]),
@@ -121,7 +122,7 @@ def test_the_json_result_matches_its_schema(serve, tmp_path, capsys):
         jsonschema.validate(doc, SCHEMA)
         assert doc["format_version"] == 1 and doc["passed"] and doc["openppc_online"]
     assert doc["baseline"]["file"] == str(first) and doc["suppressed"][0]["reason"] == "QA suppression test"
-    assert doc["scores"]["tracking"]["not_scored"] == "needs a browser, which this version doesn't run"
+    assert doc["scores"]["tracking"]["not_scored"] == "needs --render"
 
 
 @pytest.fixture
@@ -203,14 +204,21 @@ def test_which_webhook_addresses_are_taken(url, allowed):
 @pytest.mark.parametrize("args", [
     ["--post-to", "ftp://x"], ["--post-to", "http://example.com/hook"], ["--crux-key"], ["--crux-key", " "],
     ["--config", "missing.json"], ["--baseline", "missing.json"], ["--max-pages", "0"], ["--max-pages", "x"],
-    ["--max-time", "0"], ["--max-time", "nan"], ["--max-per-pattern", "-1"], ["--format", "pdf"]])
-def test_bad_input_fails_before_the_crawl(args, monkeypatch, capsys):
+    ["--max-time", "0"], ["--max-time", "nan"], ["--max-per-pattern", "-1"], ["--format", "pdf"],
+    ["--screenshots", "shots"], ["--render-url", "/thanks"], ["--render", "--render-url", "https://elsewhere.test/x"],
+    ["--render-pages", "0"], ["--vitals-pages", "-1"], ["--render"]])
+def test_bad_input_fails_before_the_crawl(args, monkeypatch, capsys, tmp_path):
     def never(*a, **kw):
         raise AssertionError("crawled")
     monkeypatch.setattr(site, "crawl", never)
+    monkeypatch.setattr(render_module, "sync_playwright", None)  # --render, with the extra not installed
     monkeypatch.delenv(KEY_ENV, raising=False)
+    monkeypatch.chdir(tmp_path)
     code, output = _run(["site", "https://example.invalid", *args], capsys)
     assert code == 1, output
+    assert not (tmp_path / "shots").exists()
+    if args == ["--render"]:
+        assert 'pip install "openppc-online[render]"' in output
 
 
 HOSTILE = "<img src=x onerror=alert(1)>`<script>alert(2)</script>"

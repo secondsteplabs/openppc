@@ -2,6 +2,26 @@
 
 Semantic versioning, as in OpenPPC. Each release names the `openppc` versions it works with.
 
+## Unreleased (0.3.0)
+
+Needs `openppc` 0.4.
+
+### Added
+
+- **`openppc-online site --render`**: Chromium loads the home page and one page per section to see which tags fire
+  before and after consent, the events they send, links only JavaScript adds (then crawled), accessibility
+  problems (axe-core 4.10.3, shipped in the package) and lab Web Vitals on a simulated phone. With
+  `--render-pages`, `--vitals-pages`, `--render-url`, `--consent-selector` and `--screenshots`. Install it with
+  `pip install "openppc-online[render]"` and `playwright install chromium`.
+- The browser reaches the network only through a proxy on 127.0.0.1 that applies the crawler's guard, loopback
+  included.
+- THIRD_PARTY_LICENSES.md: axe-core (MPL-2.0) and Playwright.
+
+### Changed
+
+- The checks that need a browser say "run again with `--render`" instead of "a browser, which this version doesn't
+  run", and the rulebook's 12 browser rules are live.
+
 ## Unreleased (0.2.0)
 
 Needs `openppc` 0.4.
@@ -23,8 +43,8 @@ Needs `openppc` 0.4.
 - `rulebook/`: each check with its source, checked by the tests as `openppc`'s is.
 - THREAT_MODEL.md: the crawler's section.
 
-The browser pass (rendered pages, consent, tracking events, accessibility and lab Web Vitals) is not in this
-version; the report says which checks wait for it.
+The browser pass (rendered pages, consent, tracking events, accessibility and lab Web Vitals) is not in 0.2.0;
+the report says which checks wait for it.
 
 ## Unreleased (0.1.0)
 

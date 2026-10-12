@@ -35,8 +35,7 @@ def test_every_number_in_the_report_is_traced(serve):
     c = crawl(base, local(), fast=True)
     markdown, _, passed = report(c, None, checks.evaluate(c))
     assert passed, markdown
-    assert "need a browser, which this version doesn't run" in markdown and "`--allow-private`" in markdown
-    assert "--render" not in markdown
+    assert "need a browser: run again with `--render`" in markdown and "`--allow-private`" in markdown
 
 
 def test_a_failing_robots_txt_is_a_finding_and_the_report_still_traces(serve):

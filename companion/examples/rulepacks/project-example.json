@@ -26,7 +26,7 @@
       "category": "tracking",
       "severity": "high",
       "title": "The thank-you page doesn't send the generate_lead event",
-      "fix": "Check the GTM trigger for generate_lead fires on the thank-you page.",
+      "fix": "Run with --render --render-url /thank-you, and check the GTM trigger for generate_lead fires on that page.",
       "require": {"tag": "first-party-collector", "event": "generate_lead"}
     }
   ],

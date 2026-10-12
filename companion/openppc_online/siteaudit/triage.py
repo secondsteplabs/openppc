@@ -13,7 +13,7 @@ from urllib.parse import urlsplit
 from .checks import CATEGORIES, Finding
 from .crawl import PROBE_PREFIX, Crawl
 from .packs import Suppression
-from .render import NOT_RUN
+from .render import RENDER_FLAG
 
 FINGERPRINT = "fp1"   # the recipe's version: sha256 of the finding id and the item, the item's origin dropped
 SECRETS = {"token", "auth", "key", "apikey", "password", "passwd", "pwd", "secret", "session", "sessionid", "sid",
@@ -189,7 +189,7 @@ def scores(findings: list[Finding], rendered: bool) -> dict[str, Score]:
         if cat == "crawl":
             continue
         if cat in BROWSER_CATEGORIES and not rendered:
-            out[cat] = Score(cat, None, why_not=f"needs {NOT_RUN}")
+            out[cat] = Score(cat, None, why_not=f"needs {RENDER_FLAG}")
             continue
         lost = [(f, 0 if counted_elsewhere(f, findings) else points(f.level))
                 for f in findings if f.about.category == cat]

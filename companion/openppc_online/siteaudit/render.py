@@ -45,7 +45,7 @@ PROFILE = (f"lab, simulated phone ({VIEWPORT['width']}x{VIEWPORT['height']}), "
 AXE_TAGS = ("wcag2a", "wcag2aa", "wcag21a", "wcag21aa")
 AXE_VERSION = "4.10.3"
 METRICS = ("lcp", "cls", "tbt", "fcp", "ttfb")
-NOT_RUN = "a browser, which this version doesn't run"
+RENDER_FLAG = "`--render`"  # what a check that needs the browser asks for
 INSTALL = ('--render needs Playwright and Chromium: pip install "openppc-online[render]", '
            "then playwright install chromium")
 

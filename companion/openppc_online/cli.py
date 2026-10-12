@@ -4,6 +4,7 @@
     openppc-online app --port 8800 --no-browser
     openppc-online site https://example.com
     openppc-online site https://example.com --config openppc-site.json --baseline last.json --fail-on high
+    openppc-online site https://example.com --render --render-url /thank-you
 
 Exit codes: 0 clean, 1 bad input, as `openppc` uses them. `site` adds 2 a finding at the --fail-on level (with
 --baseline, a new one), 3 the report failed its own number check (a bug: please report it), and 4 a scan too broken
@@ -21,6 +22,7 @@ from . import __version__, site
 from .app import PORT, serve
 from .siteaudit.crawl import FAST_WORKERS, MAX_PER_PATTERN
 from .siteaudit.crux import KEY_ENV
+from .siteaudit.render import RENDER_PAGES, VITALS_PAGES
 
 
 class _Parser(argparse.ArgumentParser):
@@ -65,6 +67,21 @@ def _parser() -> argparse.ArgumentParser:
     s.add_argument("--no-external", action="store_true", help="don't check links to other sites")
     s.add_argument("--allow-private", action="store_true",
                    help="allow private and local addresses, to check localhost or a staging server on your network")
+    s.add_argument("--render", action="store_true",
+                   help="also load pages in Chromium: tags, consent, accessibility, Web Vitals (needs "
+                        'pip install "openppc-online[render]" and playwright install chromium; connects to the hosts '
+                        "the pages load from)")
+    s.add_argument("--render-pages", type=_at_least(int, 1), default=RENDER_PAGES,
+                   help=f"pages to render (default {RENDER_PAGES}: the home page and one per section)")
+    s.add_argument("--vitals-pages", type=_at_least(int, 0), default=VITALS_PAGES,
+                   help=f"rendered pages to measure Web Vitals on (default {VITALS_PAGES}: the home page)")
+    s.add_argument("--render-url", action="append", default=[], metavar="URL",
+                   help="with --render, also render this page of the site, e.g. a thank-you page no link leads to, "
+                        "to see which events its tags send; a path or a full address; repeat for more")
+    s.add_argument("--consent-selector", default="", metavar="CSS",
+                   help="with --render, the CSS selector of your consent banner's accept button")
+    s.add_argument("--screenshots", metavar="DIR", default="",
+                   help="with --render, save each rendered page as first loaded here (nothing is saved by default)")
     s.add_argument("--crux-key", nargs="?", const="", metavar="KEY",
                    help="add real visitors' Web Vitals from Chrome's UX Report with your own Google API key "
                         f"(connects to chromeuxreport.googleapis.com); give the flag alone to read the key from {KEY_ENV}")
@@ -115,7 +132,10 @@ def _site(args: argparse.Namespace) -> int:
     result, guard = site.run(args.url, max_pages=args.max_pages, max_seconds=args.max_time,
                              max_per_pattern=args.max_per_pattern, fast=args.fast, external=not args.no_external,
                              allow_private=args.allow_private, crux_key=args.crux_key, config=args.config,
-                             baseline=args.baseline, post_to=args.post_to, progress=progress)
+                             baseline=args.baseline, post_to=args.post_to, rendered=args.render,
+                             render_pages=args.render_pages, vitals_pages=args.vitals_pages,
+                             render_url=args.render_url, consent_selector=args.consent_selector,
+                             screenshots=args.screenshots, progress=progress)
     if progress:
         print(file=sys.stderr)
     _emit(result.texts[args.format], args.out)
