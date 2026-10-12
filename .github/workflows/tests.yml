@@ -31,6 +31,32 @@ jobs:
       - run: mypy  # the stable engine API (ADR-2); the files are listed in pyproject.toml
       - run: pytest -q
 
+  action:  # action.yml from this commit, the way a user's workflow runs it
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - id: invented  # the sample AI audit has wrong numbers on purpose: the action must fail the step
+        uses: ./
+        continue-on-error: true
+        with:
+          audit: examples/ai_audit_sample.md
+          data: examples/search_terms_acme.csv
+          industry: home-services
+          sarif: ${{ runner.temp }}/openppc.sarif
+      - env:
+          OUTCOME: ${{ steps.invented.outcome }}
+        run: |
+          test "$OUTCOME" = failure
+          python -c "import json, os; assert json.load(open(os.environ['RUNNER_TEMP'] + '/openppc.sarif'))['runs'][0]['results']"
+          openppc audit search-term-waste examples/search_terms_acme.csv --out "$RUNNER_TEMP/report.md"
+      - uses: ./  # an OpenPPC report passes: every number traces to the export
+        with:
+          audit: ${{ runner.temp }}/report.md
+          data: examples/search_terms_acme.csv
+
   web-app:  # the app in Chromium, loading its Python runtime from the CDN like a visitor
     runs-on: ubuntu-latest
     timeout-minutes: 20

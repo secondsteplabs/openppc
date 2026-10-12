@@ -1,0 +1,58 @@
+name: OpenPPC number check
+description: Fail the job when an audit has numbers that don't trace back to the exports it was written from.
+author: Second Step Labs
+branding:
+  icon: check-circle
+  color: purple
+
+inputs:
+  audit:
+    description: The audit to check (.md or .txt)
+    required: true
+  data:
+    description: The exports or totals files the audit was written from, one path per line
+    required: true
+  industry:
+    description: Also accept this industry's published averages, e.g. home-services
+    required: false
+    default: ""
+  sarif:
+    description: Also write the result as SARIF to this path, for github/codeql-action/upload-sarif
+    required: false
+    default: ""
+  python-version:
+    description: The Python that runs OpenPPC
+    required: false
+    default: "3.12"
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+      with:
+        python-version: ${{ inputs.python-version }}
+    # OpenPPC from the same commit as this action, so pinning the action pins the checker too
+    - shell: bash
+      run: python -m pip install --quiet --disable-pip-version-check "$GITHUB_ACTION_PATH"
+    # Inputs arrive as environment variables, never pasted into the script, so a path can't run as code.
+    # Exit codes are the command's: 2 when the audit has untraced numbers, 1 for bad input, 3 for a bug.
+    - shell: bash
+      env:
+        AUDIT: ${{ inputs.audit }}
+        DATA: ${{ inputs.data }}
+        INDUSTRY: ${{ inputs.industry }}
+        SARIF: ${{ inputs.sarif }}
+      run: |
+        args=(--audit "$AUDIT" --data)
+        while IFS= read -r path; do
+          path="${path%$'\r'}"
+          if [ -n "${path//[[:space:]]/}" ]; then args+=("$path"); fi
+        done <<< "$DATA"
+        if [ -n "$INDUSTRY" ]; then args+=(--industry "$INDUSTRY"); fi
+        status=0
+        openppc check "${args[@]}" --out "$RUNNER_TEMP/openppc-check.md" || status=$?
+        if [ -f "$RUNNER_TEMP/openppc-check.md" ]; then cat "$RUNNER_TEMP/openppc-check.md" >> "$GITHUB_STEP_SUMMARY"; fi
+        if [ -n "$SARIF" ] && { [ "$status" -eq 0 ] || [ "$status" -eq 2 ]; }; then
+          openppc check "${args[@]}" --format sarif --out "$SARIF" || true
+        fi
+        exit "$status"
