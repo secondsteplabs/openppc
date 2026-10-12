@@ -413,6 +413,29 @@ def crawl(start: str, guard: Guard, max_pages: int | None = None, max_seconds: f
     return c
 
 
+def follow(c: Crawl, guard: Guard, links: dict[str, str], max_pages: int | None = None,
+           max_seconds: float | None = None, max_per_pattern: int = MAX_PER_PATTERN, fast: bool = False,
+           progress: Progress | None = None) -> int:
+    """Crawls on from links the browser found and the HTML didn't (link -> the page it was on), under the same rules
+    and limits as the first pass. Returns the pages added."""
+    limiter = _Limiter(0.0 if fast else POLITE_INTERVAL)
+    delay = c.rules.crawl_delay(ROBOTS_TOKEN) if c.rules else None
+    if delay:
+        limiter.interval = max(limiter.interval, min(delay, CRAWL_DELAY_MAX))
+    crawler = _Crawler(c, guard, limiter, max_per_pattern)
+    crawler.seen |= set(c.pages) | c.robots_blocked
+    crawler.per_pattern.update(pattern(u) for u in c.pages)
+    before = len(c.pages)
+    for url, page in links.items():
+        crawler.offer(url, c.pages[page].depth + 1 if page in c.pages else 1, page)
+    began = time.monotonic() - c.seconds  # --max-time counts the first pass too
+    try:
+        _crawl_pages(c, crawler, FAST_WORKERS if fast else POLITE_WORKERS, max_pages, max_seconds, began, progress)
+    except KeyboardInterrupt:
+        c.incomplete = c.incomplete or "stopped with Ctrl-C, while following links JavaScript added"
+    return len(c.pages) - before
+
+
 def _crawl_pages(c: Crawl, crawler: _Crawler, workers: int, max_pages: int | None, max_seconds: float | None,
                  began: float, progress: Progress | None) -> None:
     running: dict[Future[Response], tuple[str, int]] = {}

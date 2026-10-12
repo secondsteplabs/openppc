@@ -4,7 +4,7 @@ import pytest
 from sites import acme, local, page
 
 from openppc_online.siteaudit import crawl as crawl_module
-from openppc_online.siteaudit.crawl import PROBE, Robots, crawl, normalize, pattern
+from openppc_online.siteaudit.crawl import PROBE, Robots, crawl, follow, normalize, pattern
 from openppc_online.siteaudit.net import Guard
 from openppc_online.siteaudit.page import read
 
@@ -100,6 +100,18 @@ def test_the_page_limit_and_a_429_retried_once(serve, monkeypatch):
     before = serve.asked.count("/busy")
     c = crawl(base, local(), fast=True, external=False)
     assert c.pages[base + "/busy"].status == 429 and serve.asked.count("/busy") - before == 2
+
+
+def test_links_javascript_added_are_followed_under_the_same_rules(serve):
+    base = serve(lambda b: {**acme(b), "/hidden": (200, {}, page("Hidden", "<a href='/hidden/deeper'>On</a>")),
+                            "/hidden/deeper": (200, {}, page("Deeper"))})
+    guard = local()
+    c = crawl(base, guard, fast=True, external=False)
+    before = set(c.pages)
+    links = {base + "/hidden": base + "/", base + "/private/js": base + "/", base + "/about": base + "/"}
+    assert follow(c, guard, links, max_pages=len(c.pages) + 1, fast=True) == 1  # the page limit counts both passes
+    assert set(c.pages) - before == {base + "/hidden"} and c.pages[base + "/hidden"].depth == 1
+    assert base + "/private/js" in c.robots_blocked and c.incomplete == "stopped at the `--max-pages` limit"
 
 
 def test_a_missing_page_answering_200_is_recorded_and_llms_txt_counts_only_as_text(serve):

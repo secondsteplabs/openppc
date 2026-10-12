@@ -3,12 +3,17 @@
 Every request goes through Guard.connect: the host is resolved once, every address it resolves to is checked, and
 the connection is made to that checked address. Checking a name and letting something else resolve it again would let
 a site pass the check with a public address and then connect with a private one (DNS rebinding). Redirects are
-followed by hand, so each hop is checked the same way.
+followed by hand, so each hop is checked the same way, and the browser in a --render pass reaches the network only
+through GuardProxy, which uses the same check.
 """
+import contextlib
 import http.client
 import ipaddress
+import selectors
 import socket
+import socketserver
 import ssl
+import threading
 import time
 import zlib
 from collections.abc import Callable
@@ -22,6 +27,7 @@ ROBOTS_TOKEN = "OpenPPC"     # the name robots.txt rules address
 PAGE_BYTES = 5_000_000       # a response is cut off past this many bytes, counted after decompression
 TIMEOUT = 15.0               # seconds to connect, and to wait for the next bytes
 PAGE_SECONDS = 30.0          # wall-clock limit for one response
+PROXY_IDLE = 60.0            # a browser connection through the proxy closes after this long with no traffic
 MAX_REDIRECTS = 10
 HTML_TYPES = ("text/html", "application/xhtml+xml")
 URL_SAFE = "/%:@!$&'()*+,;=?~"  # kept as written when a path or query is percent-encoded; % keeps existing escapes
@@ -219,3 +225,102 @@ def fetch(url: str, guard: Guard, method: str = "GET", max_bytes: int = PAGE_BYT
     finally:
         resp.seconds = time.monotonic() - start
     return resp
+
+
+def _hostport(target: str, default: int) -> tuple[str, int]:
+    parts = urlsplit("//" + target)
+    if not parts.hostname:
+        raise ValueError(f"bad proxy target {target!r}")
+    return parts.hostname, parts.port or default
+
+
+def _pipe(a: socket.socket, b: socket.socket) -> None:
+    sel = selectors.DefaultSelector()
+    sel.register(a, selectors.EVENT_READ, b)
+    sel.register(b, selectors.EVENT_READ, a)
+    try:
+        while True:
+            events = sel.select(timeout=PROXY_IDLE)
+            if not events:
+                return
+            for key, _ in events:
+                data = key.fileobj.recv(65536)  # type: ignore[union-attr]
+                if not data:
+                    return
+                key.data.sendall(data)
+    except OSError:  # either side reset or dropped the connection: the tunnel is over
+        return
+    finally:
+        sel.close()
+
+
+class _ProxyHandler(socketserver.BaseRequestHandler):
+    server: "_ProxyServer"
+
+    def handle(self) -> None:
+        client: socket.socket = self.request
+        client.settimeout(TIMEOUT)
+        head = b""
+        while b"\r\n\r\n" not in head:
+            chunk = client.recv(65536)
+            if not chunk or len(head) > 65536:
+                return
+            head += chunk
+        head, _, rest = head.partition(b"\r\n\r\n")
+        lines = head.decode("latin-1").split("\r\n")
+        try:
+            method, target, version = lines[0].split(" ", 2)
+            if method == "CONNECT":
+                upstream = self.server.guard.connect(*_hostport(target, 443))
+                client.sendall(b"HTTP/1.1 200 Connection Established\r\n\r\n")
+            else:
+                parts = urlsplit(target)
+                if parts.scheme != "http" or not parts.hostname:
+                    raise ValueError(f"not a proxy request: {target}")
+                upstream = self.server.guard.connect(parts.hostname, parts.port or 80)
+                # one request per upstream connection, so a reused browser connection can't reach another host
+                kept = [h for h in lines[1:] if not h.lower().startswith(("connection:", "proxy-connection:",
+                                                                         "keep-alive:"))]
+                path = urlunsplit(("", "", parts.path or "/", parts.query, ""))
+                upstream.sendall("\r\n".join([f"{method} {path} {version}", *kept, "Connection: close", "", ""])
+                                 .encode("latin-1"))
+        except Refused:
+            client.sendall(b"HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+            return
+        except (OSError, ValueError):
+            with contextlib.suppress(OSError):  # the browser may already have hung up
+                client.sendall(b"HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+            return
+        with upstream:
+            if rest:
+                upstream.sendall(rest)
+            _pipe(client, upstream)
+
+
+class _ProxyServer(socketserver.ThreadingTCPServer):
+    daemon_threads = True
+    allow_reuse_address = True
+
+    def __init__(self, guard: Guard):
+        super().__init__(("127.0.0.1", 0), _ProxyHandler)
+        self.guard = guard
+
+    def handle_error(self, request: object, client_address: object) -> None:
+        pass  # a browser dropping a connection mid-request is routine, not worth a traceback on the console
+
+
+class GuardProxy:
+    """A local HTTP proxy for the browser: every connection it opens passes the Guard. Chromium is pointed at it with
+    loopback included, so no request from a rendered page reaches the network any other way."""
+
+    def __init__(self, guard: Guard):
+        self._server = _ProxyServer(guard)
+        self.url = f"http://127.0.0.1:{self._server.server_address[1]}"
+
+    def __enter__(self) -> "GuardProxy":
+        threading.Thread(target=self._server.serve_forever, daemon=True).start()
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self._server.shutdown()
+        self._server.server_close()

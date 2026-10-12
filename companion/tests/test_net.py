@@ -1,14 +1,15 @@
 """The site check's network guard, fitness function 12 (SCOPE_WIDENING_PLAN.md, section 4): never a private address
 without --allow-private, never link-local or cloud metadata, through redirects, DNS rebinding, IPv4-mapped and 6to4
-addresses too, and never more than its byte and time limits."""
+addresses too, and never more than its byte and time limits; the browser's proxy holds to the same rules."""
 import gzip
 import ipaddress
+import socket
 
 import pytest
 from sites import local, page
 
 from openppc_online.siteaudit import net
-from openppc_online.siteaudit.net import Guard, Refused, fetch, refusal
+from openppc_online.siteaudit.net import Guard, GuardProxy, Refused, fetch, refusal
 
 
 @pytest.mark.parametrize("address, by_default, with_allow_private", [
@@ -93,3 +94,55 @@ def test_cookies_are_never_kept_and_the_user_agent_says_who_asks(serve):
     resp = fetch(base + "/", local())
     assert "set-cookie" not in resp.headers
     assert "OpenPPC-SiteAudit/" in net.USER_AGENT and "+https://openppc.si" in net.USER_AGENT
+
+
+def _ask_proxy(proxy, *requests):
+    """Sends each request on one connection to the proxy, reading an answer after each; returns the answers."""
+    host, port = proxy.url.rsplit("/", 1)[1].split(":")
+    answers = []
+    with socket.create_connection((host, int(port)), timeout=10) as s:
+        for request in requests:
+            s.sendall(request.encode())
+            answers.append(s.recv(65536).decode("latin-1"))
+    return answers
+
+
+def test_the_browsers_proxy_applies_the_same_rules(serve):
+    base = serve(lambda b: {"/": (200, {}, page("Proxied"))})
+    hostport = base.split("//")[1]
+    get, connect = f"GET {base}/ HTTP/1.1\r\nHost: x\r\n\r\n", f"CONNECT {hostport} HTTP/1.1\r\nHost: x\r\n\r\n"
+    with GuardProxy(Guard()) as proxy:
+        assert _ask_proxy(proxy, get)[0].startswith("HTTP/1.1 403")
+        assert _ask_proxy(proxy, connect)[0].startswith("HTTP/1.1 403")
+    with GuardProxy(Guard(allow_private=True)) as proxy:
+        assert " 200 " in _ask_proxy(proxy, get)[0].split("\r\n")[0]
+        tunnel = _ask_proxy(proxy, connect, "GET / HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n")
+        assert tunnel[0].startswith("HTTP/1.1 200 Connection Established") and " 200 " in tunnel[1].split("\r\n")[0]
+        assert _ask_proxy(proxy, "GET / HTTP/1.1\r\nHost: x\r\n\r\n")[0].startswith("HTTP/1.1 502")  # not a proxy request
+
+
+def test_the_browsers_proxy_never_opens_the_metadata_address():
+    guard = Guard(allow_private=True, resolve=lambda host, port: ["169.254.169.254"])
+    with GuardProxy(guard) as proxy:
+        assert _ask_proxy(proxy, "GET http://metadata.test/latest/ HTTP/1.1\r\nHost: x\r\n\r\n")[0].startswith(
+            "HTTP/1.1 403")
+        assert _ask_proxy(proxy, "CONNECT metadata.test:443 HTTP/1.1\r\nHost: x\r\n\r\n")[0].startswith("HTTP/1.1 403")
+    assert guard.refused == ["metadata.test", "metadata.test"]
+
+
+def test_the_browsers_proxy_ends_a_reset_tunnel_quietly():
+    class Reset:
+        def __init__(self):
+            self.a, self.b = socket.socketpair()
+
+        def fileno(self):
+            return self.a.fileno()
+
+        def recv(self, n):
+            raise ConnectionResetError(10054, "reset by peer")
+
+    left, right = Reset(), Reset()
+    left.b.send(b"x")
+    net._pipe(left, right)  # returns instead of raising
+    for s in (left.a, left.b, right.a, right.b):
+        s.close()
