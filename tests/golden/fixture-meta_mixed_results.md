@@ -1,0 +1,1 @@
+refused: meta_mixed_results.csv: the Results column counts different things in different rows (actions:link_click, actions:offsite_conversion.fb_pixel_lead, video_thruplay_watched_actions), so it can't be added up as conversions. In Ads Manager, export campaigns that share one result type, or one file per result type.

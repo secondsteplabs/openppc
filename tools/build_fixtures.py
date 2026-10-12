@@ -135,6 +135,43 @@ def microsoft_search_terms(rows):
     return buf.getvalue()
 
 
+META_HEADER = ["Reporting starts", "Reporting ends", "Campaign name", "Ad set name", "Ad set delivery",
+               "Attribution setting", "Results", "Result indicator", "Reach", "Impressions", "Cost per result",
+               "Amount spent (EUR)", "Link clicks"]
+LEAD = "actions:offsite_conversion.fb_pixel_lead"
+LEADS, RETARGET = "Birch Lane | Leads", "Birch Lane | Retargeting"
+# campaign, ad set, reach, impressions, amount spent, link clicks, results (None: Meta leaves the cell blank)
+META_BASE = [
+    (LEADS, "Homeowners 30-65", 18250, 41200, 812.4, 655, 31),
+    (LEADS, "Lookalike 1%", 22410, 52880, 934.15, 702, 27),
+    (LEADS, "Advantage+ audience", 30120, 77650, 1105.6, 811, 22),
+    (RETARGET, "Site visitors 30d", 4120, 15400, 286.9, 240, 14),
+    (RETARGET, "Video viewers", 2050, 6100, 74.35, None, None),
+]
+
+
+def meta_ads(rows, start, end, indicators=None):
+    """A Meta Ads Manager export of ad sets, as Ads Reporting writes it: one header row, a summary row for the
+    whole file first, ISO dates on every row, blank cells for none. indicators: each row's Result indicator."""
+    buf = io.StringIO()
+    out = csv.writer(buf, lineterminator="\n")
+    out.writerow(META_HEADER)
+    spent = round(sum(r[4] for r in rows), 2)
+    results = sum(r[6] or 0 for r in rows)
+    out.writerow([start, end, "", "", "", "7-day click or 1-day view", "" if indicators else results, "",
+                  "", sum(r[3] for r in rows), "", f"{spent:.2f}", sum(r[5] or 0 for r in rows)])
+    for i, (camp, adset, reach, impr, cost, clicks, res) in enumerate(rows):
+        out.writerow([start, end, camp, adset, "active", "7-day click or 1-day view", "" if res is None else res,
+                      (indicators or {}).get(i, LEAD), reach, impr, f"{cost / res:.2f}" if res else "", f"{cost:.2f}",
+                      "" if clicks is None else clicks])
+    return buf.getvalue()
+
+
+def _meta_scaled(rows, factor):
+    return [(c, a, round(r * factor), round(i * factor), round(s * factor, 2), cl and round(cl * factor),
+             res and round(res * factor)) for c, a, r, i, s, cl, res in rows]
+
+
 EDITOR_HEADER = ["Campaign", "Campaign Type", "Networks", "Bid Strategy Type", "Enhanced CPC", "Targeting method",
                  "Campaign Status", "Ad Group", "Ad Group Status", "Keyword", "Criterion Type", "Status",
                  "Quality score", "Expected CTR", "Ad relevance", "Landing page experience", "Ad type",
@@ -320,6 +357,11 @@ def fixtures():
         "search_terms_mixed_formats.csv": mixed.encode("utf-8"),
         "editor_export.csv": editor_export().encode("utf-16"),
         "search_terms_microsoft.csv": microsoft_search_terms(BASE).encode("utf-8-sig"),
+        "meta_june.csv": meta_ads(_meta_scaled(META_BASE, 0.85), "2026-06-01", "2026-06-30").encode("utf-8"),
+        "meta_july.csv": meta_ads(META_BASE, "2026-07-01", "2026-07-31").encode("utf-8"),
+        "meta_mixed_results.csv": meta_ads(META_BASE, "2026-07-01", "2026-07-31",
+                                           {3: "actions:link_click", 4: "video_thruplay_watched_actions"})
+        .encode("utf-8"),
     }
 
 

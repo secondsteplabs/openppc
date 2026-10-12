@@ -7,7 +7,7 @@ import re
 from collections import namedtuple
 from operator import methodcaller
 
-from ..ingest.google_ads_csv import GOOGLE
+from ..ingest.google_ads_csv import GOOGLE, META
 
 Totals = namedtuple("Totals", "cost clicks impressions conversions")
 
@@ -87,6 +87,10 @@ def brand_matcher(brand):
 
 
 def need(report, column, export_name, how_to_export):
+    if report.platform == META:
+        raise ValueError(f"{os.path.basename(report.source)} is a Meta Ads Manager export, which has no search "
+                         "terms or keywords. To compare two Meta periods, give it to account-read with the other "
+                         "period's export.")
     if not report.has(column, "clicks", "cost", "conversions"):
         raise ValueError(f"This template needs a {export_name} export with Clicks, Cost and "
                          f"Conversions columns. {how_to_export}")

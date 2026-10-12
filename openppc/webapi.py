@@ -14,6 +14,7 @@ from .engine.trace import render_check, trace
 from .ingest import column_names, load_report
 from .ingest.account import is_snapshot, read_json, snapshot
 from .ingest.editor import is_editor_export, load_editor
+from .ingest.google_ads_csv import META
 from .templates import TEMPLATES, account_read, load_input, run_template_book
 from .facts import SYMBOLS
 from .formats import audit_as, check_result
@@ -89,7 +90,9 @@ def inspect_file(path):
             error = error[len(name) + 2:]
         columns = [] if path.lower().endswith(".json") else column_names(path)  # for the "Report this file" link
         return _json({"ok": False, "name": name, "error": error, "hint": WRONG_FILE, "columns": columns})
-    if report.has("search_term"):
+    if report.platform == META:
+        kind = "Meta Ads Manager report"  # ends in "report", so the app pairs two of them for account-read
+    elif report.has("search_term"):
         kind = "Search terms report"
     elif report.has("keyword"):
         kind = "Keywords report"

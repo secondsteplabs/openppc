@@ -10,6 +10,11 @@ Microsoft Advertising reports read the same way (experimental): their column nam
 Conv., Campaign name, Delivered match type) map to the same columns, the "Report Time:" line
 gives the dates, and the totals and copyright rows under the table are skipped.
 
+So do Meta Ads Manager exports (experimental), known by their Reporting starts column: Link
+clicks are clicks, Amount spent (EUR) is the cost in that currency, the rows' Reporting starts
+and ends give the period, and Results are conversions only when every row counts the same kind
+of result, as the Result indicator column says.
+
 Read-only by construction: this module opens one local file and nothing else.
 """
 import codecs
@@ -40,7 +45,13 @@ ALIASES = {
     "currency": ["currency code", "currency"],
 }
 HEADER_LINES = 50  # a report's title, date and filter lines above the header row
-GOOGLE, MICROSOFT = "Google Ads", "Microsoft Advertising"
+GOOGLE, MICROSOFT, META = "Google Ads", "Microsoft Advertising", "Meta Ads Manager"
+# Meta's own words for the same columns, read only in a file with a Reporting starts column, so a Google export with
+# a column named Results is never misread
+META_MARK = "reporting starts"
+META_ALIASES = {"link clicks": "clicks", "results": "conversions", "ad set name": "ad_group",
+                "result indicator": "result_indicator", "reporting starts": "date_start", "reporting ends": "date_end"}
+AMOUNT_SPENT = re.compile(r"amount spent \(([a-z]{3})\)")
 MS_DATES = re.compile(r"Report Time:\s*(\d{1,2}/\d{1,2}/\d{4})\s*,\s*(\d{1,2}/\d{1,2}/\d{4})")
 MS_PREAMBLE = re.compile(r'^"?(?:Report Name|Report Time):')
 EDITOR_COLUMNS = ("criteriontype", "campaignstatus", "adgroupstatus")
@@ -68,6 +79,7 @@ class Report:
     currency: str = "USD"
     notes: list[str] = field(default_factory=list)  # how the file was read, when that is not the plain way
     platform: str = GOOGLE
+    result: str = ""  # Meta: the one kind of result its Results column counts, or "" when it counts none
 
     @property
     def days(self) -> int | None:
@@ -168,8 +180,12 @@ def _ended(lines):
         yield last
 
 
-def _canonical(header):
+def _canonical(header, meta=False):
     name = (header or "").strip().lower()
+    if meta and AMOUNT_SPENT.fullmatch(name):
+        return "cost"
+    if meta and name in META_ALIASES:
+        return META_ALIASES[name]
     for key, names in ALIASES.items():
         if name in names:
             return key
@@ -177,12 +193,22 @@ def _canonical(header):
 
 
 def _find_header(lines):
+    """(index, delimiter, keys, meta) of the header row: the first line with Clicks and Cost columns."""
     for i, line in enumerate(lines[:HEADER_LINES]):
         for delim in (",", "\t", ";"):
-            keys = [_canonical(c) for c in next(csv.reader([line], delimiter=delim), [])]
+            cells = next(csv.reader([line], delimiter=delim), [])
+            meta = META_MARK in (c.strip().lower() for c in cells)
+            keys = [_canonical(c, meta) for c in cells]
             if "clicks" in keys and "cost" in keys:
-                return i, delim, keys
+                return i, delim, keys, meta
     return None
+
+
+def _day(text):
+    try:
+        return dt.date.fromisoformat(text)
+    except ValueError:
+        return _date(text)
 
 
 def squash(header):
@@ -318,12 +344,16 @@ def _read(path, lines):
         if editor_header(first):
             raise ValueError(f"{path} is a Google Ads Editor export. Use it with the account-structure template; "
                              "the other templates read reports downloaded from the Google Ads website.")
+        if any(AMOUNT_SPENT.search(line.lower()) and "link clicks" in line.lower() for line in first):
+            raise ValueError(f"{path} looks like a Meta Ads Manager export without its Reporting starts and "
+                             "Reporting ends columns, which give its period. Add them in Ads Manager and export "
+                             "again.")
         raise ValueError(
             f"{path}: no header row with Clicks and Cost columns in the first {HEADER_LINES} lines. "
             "Export the report from the Google Ads UI with Download > .csv. If Google Ads is set to another "
             "language, the column names will not match: switch it to English and download again.")
-    idx, delim, keys = found
-    report = Report(columns={k for k in keys if k}, source=str(path))
+    idx, delim, keys, meta = found
+    report = Report(columns={k for k in keys if k}, source=str(path), platform=META if meta else GOOGLE)
     for line in first[:idx]:
         m = DATE_RANGE.search(line) or MS_DATES.search(line)
         if MS_PREAMBLE.match(line.strip()):
@@ -335,6 +365,7 @@ def _read(path, lines):
     if "spend" in (c.strip().lower() for c in next(csv.reader([first[idx]], delimiter=delim))):
         report.platform = MICROSOFT  # Google Ads calls it Cost
     name_at = next((keys.index(k) for k in ("search_term", "keyword") if k in keys), None)
+    entity_at = [keys.index(k) for k in ("campaign", "ad_group") if k in keys] if meta else []
     names = [c.strip() for c in next(csv.reader([first[idx]], delimiter=delim))]
     numeric = [i for i, k in enumerate(keys) if k in NUMERIC]
     again = "The file looks damaged or hand-edited: download it again with Download > .csv."
@@ -350,6 +381,8 @@ def _read(path, lines):
         if TOTAL_ROW.match(lead) or name and TOTAL_ROW.match(name) or (
                 name is not None and not name.strip() and lead.strip().lower().startswith("total")):
             continue
+        if entity_at and not any(i < len(cells) and cells[i].strip() for i in entity_at):
+            continue  # Meta's summary row: figures for the whole file, under no campaign or ad set
         if not any(i < len(cells) and cells[i].strip() for i in numeric):
             continue  # a note under the table, not a row
         # a broken file must be refused, never read with its numbers in the wrong columns
@@ -360,7 +393,7 @@ def _read(path, lines):
             raise ValueError(f"{path}: line {n} stops before the {names[min(i for i in numeric if i >= len(cells))]} "
                              f"column, so some of its numbers are missing. {again}")
         blank = next((names[keys.index(k)] for k in ("cost", "clicks") if not cells[keys.index(k)].strip()), None)
-        if blank:
+        if blank and not meta:  # Meta leaves a cell blank for none; Google Ads never does
             raise ValueError(f"{path}: line {n} has no {blank} figure. Google Ads always writes one (0 or -- when "
                              f"there is none). {again}")
         money = next((i for i, k in enumerate(keys) if k in COUNTS and MONEY_MARK.search(cells[i])), None)
@@ -400,4 +433,33 @@ def _read(path, lines):
                          "their costs can't be added up. Download one account, or one currency, per file.")
     if currencies:
         report.currency = currencies.pop()
+    if meta:
+        _read_meta(report, path, names)
     return report
+
+
+def _read_meta(report, path, names):
+    """A Meta export's currency is in its Amount spent header, its period in the rows, and its Results are
+    conversions only when every row counts the same kind of result."""
+    spent = next((m[1] for c in names if (m := AMOUNT_SPENT.fullmatch(c.lower()))), None)
+    if spent and "currency" not in report.columns:
+        report.currency = spent.upper()
+    days = [d for r in report.rows for k in ("date_start", "date_end") if r.get(k) and (d := _day(r[k]))]
+    if days:
+        report.start, report.end = min(days), max(days)
+    kinds = sorted({r.get("result_indicator") or "" for r in report.rows} - {""})
+    if len(kinds) > 1:
+        raise ValueError(f"{path}: the Results column counts different things in different rows "
+                         f"({', '.join(kinds[:4])}), so it can't be added up as conversions. In Ads Manager, export "
+                         "campaigns that share one result type, or one file per result type.")
+    report.result = kinds[0] if kinds else ""
+    if "conversions" in report.columns and "result_indicator" not in report.columns:
+        report.columns.discard("conversions")
+        for r in report.rows:
+            r.pop("conversions", None)
+        report.notes.append("Meta's link clicks counted as clicks; its Results not counted as conversions, since "
+                            "the file has no Result indicator column to say what they are")
+    elif "conversions" in report.columns:
+        report.notes.append("Meta's link clicks counted as clicks and its Results as conversions")
+    else:
+        report.notes.append("Meta's link clicks counted as clicks")

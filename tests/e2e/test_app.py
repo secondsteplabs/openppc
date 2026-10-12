@@ -198,6 +198,18 @@ def test_two_exports_of_one_report_pick_account_read_and_make_the_branded_pdf(ap
     expect(app.locator("#pdf-pages")).to_contain_text("Fingerprint of search_terms_acme_june.csv")
 
 
+def test_two_meta_exports_pick_account_read(app):
+    fixtures = ROOT / "tests" / "fixtures"
+    app.locator("#file-input").set_input_files([str(fixtures / "meta_june.csv"), str(fixtures / "meta_july.csv")])
+    expect(app.locator(".file-name")).to_have_count(2, timeout=RUN)
+    expect(app.locator(".file-meta").first).to_contain_text("Meta Ads Manager report", timeout=RUN)
+    chosen = app.locator('#templates [role="radio"][aria-checked="true"]')
+    expect(chosen).to_contain_text(TEMPLATES["account-read"].TITLE, timeout=RUN)
+    app.locator("#run-btn").click()
+    expect(app.locator(".badge-ok")).to_be_visible(timeout=RUN)
+    expect(app.locator(".report")).to_contain_text("Meta Ads Manager exports (experimental)")
+
+
 def test_two_exports_that_do_not_pair_say_why_under_run(app):
     app.locator("#file-input").set_input_files([str(EXAMPLES / "search_terms_acme.csv"),
                                                 str(EXAMPLES / "keywords_acme.csv")])

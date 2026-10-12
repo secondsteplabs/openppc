@@ -22,7 +22,7 @@ from ..engine.findings import CPA_BAND, FLAT, THIN_DATA, build_findings
 from ..facts import FactBook
 from ..ingest import load_report
 from ..ingest.account import read_json
-from ..ingest.google_ads_csv import GOOGLE
+from ..ingest.google_ads_csv import GOOGLE, META
 from ._common import conv_dp, period, totals
 
 NAME = "account-read"
@@ -36,7 +36,7 @@ KEYS = ("cs", "ps", "ci", "pi", "cc", "pc", "cv", "pv")
 NEEDS = ("cost", "clicks", "impressions", "conversions")
 ROW_KEYS = ("search_term", "keyword", "ad_group", "campaign")
 # One export, as much of it as comparing two periods needs: no rows, so a pair of big files is never held at once
-Period = namedtuple("Period", "source kind platform currency start end days missing notes totals")
+Period = namedtuple("Period", "source kind platform currency start end days missing notes totals result")
 
 
 def accepts(data):
@@ -58,22 +58,31 @@ def load(paths):
 def period_of(report):
     return Period(report.source, next((k for k in ROW_KEYS if report.has(k)), report.title or "report"),
                   report.platform, report.currency, report.start, report.end, report.days,
-                  [c for c in NEEDS if not report.has(c)], list(report.notes), totals(report.rows))
+                  [c for c in NEEDS if not report.has(c)], list(report.notes), totals(report.rows), report.result)
 
 
 def pair_problem(a, b):
     """Why two exports cannot be compared as two periods, or None when they can."""
     na, nb = os.path.basename(a.source), os.path.basename(b.source)
     for p, n in ((a, na), (b, nb)):
+        if p.platform == META and "conversions" in p.missing:
+            return (f"{n} has no Results it can count as conversions. In Ads Manager, add the Results and Result "
+                    "indicator columns, then export it again.")
         if p.missing:
             return f"{n} has no {' or '.join(p.missing)} column, which a period-over-period read needs."
         if not (p.start and p.end):
+            if p.platform == META:
+                return (f"{n} has no Reporting starts and Reporting ends dates, so its period is unknown. Export it "
+                        "again with those columns.")
             return (f"{n} has no date range above its header, so its period is unknown. Download it again "
                     "without editing it.")
     if (a.kind, a.platform) != (b.kind, b.platform):
         return f"{na} and {nb} are different reports. Compare two exports of the same report."
     if a.currency != b.currency:
         return f"{na} is in {a.currency} and {nb} in {b.currency}. Compare two exports in the same currency."
+    if a.result and b.result and a.result != b.result:
+        return (f"{na} counts {a.result} as its Results and {nb} counts {b.result}, so their conversions can't be "
+                "compared. Export both periods with the same result type.")
     first, second = sorted((a, b), key=lambda p: (p.end, p.start))
     if second.start <= first.end:
         return f"{na} and {nb} cover overlapping dates. Export one period per file."
@@ -187,8 +196,11 @@ def run(data, industry=None, **_):
     out = [f"# {TITLE}", "", " · ".join(bits), "", *read,
            f"_Built by OpenPPC, read-only: computed from {'these files' if pair else 'this file'} alone, with no "
            "network calls._", ""]
-    out += _markdown(build_findings(m, meta))
-    if industry:
+    search = data.get("platform", GOOGLE) != META
+    out += _markdown(build_findings(m, meta, search=search))
+    if industry and not search:
+        out += ["", "_The industry averages are for Google Ads search campaigns, so a Meta report leaves them out._"]
+    elif industry:
         out += benchmarks.section(book, industry, cost=m["cs"], clicks=m["cc"],
                                   impressions=m["ci"], conversions=m["cv"], currency=book.currency)
     out += ["", "## How this was computed", "",

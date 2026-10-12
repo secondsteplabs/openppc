@@ -76,8 +76,10 @@ def _line(name, c, p, dp=0, unit="", lower_is_better=False):
     return f"- {name}: {_fmt(c, dp)}{unit}, from {_fmt(p, dp)}{unit}. {word}{tail}{verdict}."
 
 
-def classify(m):
-    """Return (primary_read, flags[]) from the eight raw metrics. Rules in priority order."""
+def classify(m, search=True):
+    """Return (primary_read, flags[]) from the eight raw metrics. Rules in priority order.
+
+    search is False for a Meta report, which has no keywords to match broadly."""
     cs, ps, ci, pi, cc, pc, cv, pv = (m[k] for k in ("cs", "ps", "ci", "pi", "cc", "pc", "cv", "pv"))
     cpa_c = cs / cv if cv else None
     cpa_p = ps / pv if pv else None
@@ -153,7 +155,9 @@ def classify(m):
     # ---- secondary flags: independent of the primary read ---------------------------
     if _pct(ci, pi) is not None and _pct(ci, pi) >= DILUTION_REACH and ctr_p and ctr_c / ctr_p <= DILUTION_CTR:
         flags.append(f"REACH DILUTION: impressions up {_pct(ci, pi) * 100:.0f}% while CTR fell from "
-                     f"{ctr_p * 100:.2f}% to {ctr_c * 100:.2f}%. Broad matching or audience expansion is buying low-intent reach.")
+                     f"{ctr_p * 100:.2f}% to {ctr_c * 100:.2f}%. "
+                     + ("Broad matching or audience expansion is buying low-intent reach." if search else
+                        "Broader audiences or more placements are buying low-intent reach."))
     if _pct(ci, pi) is not None and _pct(ci, pi) <= -TIGHTEN_REACH and ctr_p and ctr_c / ctr_p >= TIGHTEN_CTR:
         flags.append(f"TIGHTENING: reach cut {abs(_pct(ci, pi)) * 100:.0f}% while CTR rose from "
                      f"{ctr_p * 100:.2f}% to {ctr_c * 100:.2f}%. Targeting narrowed and relevance improved.")
@@ -186,14 +190,14 @@ def biggest_move(m):
     return f"{name} {'up' if d > 0 else 'down'} {abs(d) * 100:.0f}%"
 
 
-def build_findings(m, meta=None):
+def build_findings(m, meta=None, search=True):
     meta = meta or {}
     cs, ps, ci, pi, cc, pc, cv, pv = (m[k] for k in ("cs", "ps", "ci", "pi", "cc", "pc", "cv", "pv"))
     cpa_c = cs / cv if cv else None
     cpa_p = ps / pv if pv else None
     ctr_c = cc / ci * 100 if ci else 0
     ctr_p = pc / pi * 100 if pi else 0
-    read, flags = classify(m)
+    read, flags = classify(m, search)
     bm = (meta.get("business_model") or "").lower()
     if any(w in bm for w in SEASONAL_WORDS):
         flags.append("SEASONAL BUSINESS: period-over-period is the wrong lens. Most of any change is the "

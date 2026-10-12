@@ -59,6 +59,9 @@ def golden():
     pair = [str(samples.path(samples.EXPORTS["search-term-waste"])), str(samples.path("search_terms_acme_june.csv"))]
     markdown, _, passed = run_template_book("account-read", pair)
     out["sample-account-read-pair.md"] = f"<!-- passed: {passed} -->\n{markdown}"
+    meta = [str(FIXTURES / "meta_july.csv"), str(FIXTURES / "meta_june.csv")]
+    markdown, _, passed = run_template_book("account-read", meta, industry=samples.INDUSTRY)
+    out["fixture-meta-account-read-pair.md"] = f"<!-- passed: {passed} -->\n{markdown}"
     audit = samples.path(samples.AUDIT).read_text(encoding="utf-8")
     data = [str(samples.path(samples.AUDIT_DATA))]
     for label, industry in (("", None), ("-industry", samples.INDUSTRY)):

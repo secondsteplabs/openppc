@@ -1,0 +1,7 @@
+Reporting starts,Reporting ends,Campaign name,Ad set name,Ad set delivery,Attribution setting,Results,Result indicator,Reach,Impressions,Cost per result,Amount spent (EUR),Link clicks
+2026-07-01,2026-07-31,,,,7-day click or 1-day view,,,,193230,,3213.40,2408
+2026-07-01,2026-07-31,Birch Lane | Leads,Homeowners 30-65,active,7-day click or 1-day view,31,actions:offsite_conversion.fb_pixel_lead,18250,41200,26.21,812.40,655
+2026-07-01,2026-07-31,Birch Lane | Leads,Lookalike 1%,active,7-day click or 1-day view,27,actions:offsite_conversion.fb_pixel_lead,22410,52880,34.60,934.15,702
+2026-07-01,2026-07-31,Birch Lane | Leads,Advantage+ audience,active,7-day click or 1-day view,22,actions:offsite_conversion.fb_pixel_lead,30120,77650,50.25,1105.60,811
+2026-07-01,2026-07-31,Birch Lane | Retargeting,Site visitors 30d,active,7-day click or 1-day view,14,actions:link_click,4120,15400,20.49,286.90,240
+2026-07-01,2026-07-31,Birch Lane | Retargeting,Video viewers,active,7-day click or 1-day view,,video_thruplay_watched_actions,2050,6100,,74.35,
