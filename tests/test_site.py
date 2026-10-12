@@ -74,6 +74,24 @@ def test_analytics_runs_on_the_website_and_never_in_the_app(tmp_path):
     assert "connect-src https://cdn.jsdelivr.net;" in app   # the app may fetch the Python runtime and nothing else
 
 
+APP_CSP = ("default-src 'none'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; connect-src "
+           "https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src "
+           "https://cdn.jsdelivr.net; img-src 'self' data: blob:; worker-src 'self' blob:; base-uri 'none'; "
+           "form-action 'none'; object-src 'none'")
+
+
+def test_the_hosted_app_has_no_local_mode_and_its_policy_stays_as_it_is(tmp_path):
+    # fitness function 8: the companion's local views ship only in its own copy of the app (ADR-7)
+    _site().build(tmp_path / "dist")
+    app = tmp_path / "dist" / "app"
+    assert {p.name for p in app.iterdir()} == {"index.html", "app.js", "engine.js", "engine-worker.js", "style.css",
+                                               "favicon.svg"}
+    for name in ("index.html", "app.js", "engine-worker.js"):
+        text = (app / name).read_text(encoding="utf-8")
+        assert not re.search(r"local\.js|openppc-local|X-OpenPPC-Token|/api/", text), name
+    assert f'http-equiv="Content-Security-Policy" content="{APP_CSP}"' in (app / "index.html").read_text(encoding="utf-8")
+
+
 def test_the_app_names_its_files_by_content(tmp_path):
     # Cloudflare lets browsers keep scripts for hours and the page is never cached: a new page must name new files
     _site().build(tmp_path / "dist")

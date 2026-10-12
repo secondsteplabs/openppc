@@ -1,6 +1,7 @@
-"""The promises OpenPPC makes, as tests: no network in the engine, the CLI runs offline, the browser bundle holds only
-listed modules and stays within its size budget, the promise wording stays word for word, and everything the app
-downloads has its license listed."""
+"""The promises OpenPPC makes, as tests: no network in the engine, the CLI runs offline and has no command that goes
+online, the core never imports the companion, the browser bundle holds only listed modules and stays within its size
+budget, the promise wording stays word for word, and everything the app downloads has its license listed."""
+import argparse
 import ast
 import importlib.util
 import re
@@ -10,7 +11,7 @@ from pathlib import Path
 import pytest
 
 from openppc import mcp_server, samples
-from openppc.cli import main
+from openppc.cli import _parser, main
 from openppc.templates import TEMPLATES
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -69,6 +70,30 @@ def test_every_command_runs_with_the_network_switched_off(no_network, tmp_path, 
     assert main(["check", "--sample"]) == 2  # the sample AI audit has wrong numbers, on purpose
     assert main(["templates"]) == 0 and main(["industries"]) == 0
     capsys.readouterr()
+
+
+def test_the_core_never_imports_the_companion():
+    # fitness function 8: openppc-online depends on openppc, never the reverse (ADR-7)
+    assert [f"{p} imports {n}" for p in _modules() for n in _imports(p) if n.split(".")[0] == "openppc_online"] == []
+
+
+def test_the_command_line_has_only_offline_commands():
+    commands = next(a for a in _parser()._actions if isinstance(a, argparse._SubParsersAction)).choices
+    assert set(commands) == {"templates", "industries", "audit", "check"}
+
+
+@pytest.mark.parametrize("command", ["fetch", "site", "app"])
+def test_a_command_that_goes_online_says_where_it_lives(no_network, command, capsys):
+    assert main([command, "--port", "8766"]) == 1
+    assert main(["--debug", command]) == 1
+    err = capsys.readouterr().err
+    assert err.count("OpenPPC never goes online") == 2 and "openppc-online" in err
+
+
+def test_the_mcp_tools_only_read_files_and_text():
+    # the hosted connector exposes no fetch or crawl tool: that would mean SSRF and credentials on a shared server
+    tools = {t.__name__ for t in (*mcp_server.LOCAL_TOOLS, *mcp_server.WEB_TOOLS)}
+    assert tools == {"list_templates", "audit_account", "check_numbers", "audit_export", "check_audit"}
 
 
 def test_the_browser_bundle_holds_only_listed_modules():

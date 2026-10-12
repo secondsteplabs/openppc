@@ -29,6 +29,12 @@ from .ingest import read_text
 from .templates import TEMPLATES, run_template_book
 
 ISSUES = "https://github.com/secondsteplabs/openppc/issues"
+# Commands that go online live in the optional companion (ADR-7). Here they are only words, never code.
+ELSEWHERE = {
+    "app": "The app on this computer is `openppc-online app`, in the optional companion openppc-online",
+    "fetch": "Downloads with your own API credentials are planned for the optional companion openppc-online",
+    "site": "Landing page and tracking checks are planned for the optional companion openppc-online",
+}
 
 
 def _emit(text, out):
@@ -112,6 +118,11 @@ def _utf8_output():
 
 def main(argv=None):
     _utf8_output()
+    command = next((a for a in (sys.argv[1:] if argv is None else argv) if not a.startswith("-")), None)
+    if command in ELSEWHERE:
+        print(f"openppc: `openppc {command}` isn't a command: OpenPPC never goes online. {ELSEWHERE[command]}, "
+              "which does, and only when you run it.", file=sys.stderr)
+        return 1
     args = _parser().parse_args(argv)
     try:
         if args.command == "templates":
