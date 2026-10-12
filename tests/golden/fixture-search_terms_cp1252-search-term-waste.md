@@ -5,6 +5,8 @@ Source: `search_terms_cp1252.csv` · July 1, 2026 to July 31, 2026 (31 days) · 
 
 Settings: waste threshold $20.00
 
+_How the file was read: the file is not in Unicode, so it was read as Western European: check accented names._
+
 _Built by OpenPPC, read-only: computed from this file alone, with no network calls._
 
 ## Summary

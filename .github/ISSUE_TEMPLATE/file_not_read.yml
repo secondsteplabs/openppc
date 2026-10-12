@@ -1,0 +1,38 @@
+name: A file OpenPPC can't read
+description: An export the app or the command line refused. The app's "Report this file" link fills this in.
+labels: [bug, file-format]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Never attach the export itself.** The column names are enough to add a format. Check them before you submit: a custom column can carry a client's name, so rename it to "Custom column".
+  - type: textarea
+    id: error
+    attributes:
+      label: What OpenPPC said
+      description: The message under the file, without the file's name.
+    validations:
+      required: true
+  - type: textarea
+    id: columns
+    attributes:
+      label: The file's column names
+      description: The header row only. No title line, no date range, no rows of data.
+      render: text
+  - type: input
+    id: source
+    attributes:
+      label: Where the file came from
+      placeholder: Google Ads > Search terms > Download > .csv, Google Ads set to German
+  - type: input
+    id: version
+    attributes:
+      label: Version and where it ran
+      placeholder: openppc 0.1.12, browser app, Chrome 140
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Client data
+      options:
+        - label: This report has no client names, search terms, account IDs or figures in it.
+          required: true

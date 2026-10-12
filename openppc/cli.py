@@ -7,11 +7,12 @@
     openppc audit search-term-waste exports/search_terms.csv --industry home-services
     openppc check --audit their_audit.md --data exports/search_terms.csv
 
-Exit codes: 0 clean, 1 bad input, 2 the check found problems, 3 our own report failed
-its number check (a bug in OpenPPC).
+Exit codes: 0 clean, 1 bad input, 2 the check found problems, 3 a bug in OpenPPC: our own report failed
+its number check, or the command crashed (--debug prints the traceback).
 """
 import argparse
 import sys
+import traceback
 from pathlib import Path
 
 from . import __version__
@@ -19,12 +20,20 @@ from .checkfacts import facts_for_check
 from .engine import benchmarks
 from . import samples
 from .engine.trace import render_check, trace
+from .ingest import read_text
 from .templates import TEMPLATES, run_template
+
+ISSUES = "https://github.com/secondsteplabs/openppc/issues"
 
 
 def _emit(text, out):
     if out:
-        Path(out).write_text(text + "\n", encoding="utf-8")
+        target = Path(out)
+        if target.is_dir():
+            raise ValueError(f"{out} is a folder. Give --out a file name, such as {target / 'report.md'}.")
+        if not target.parent.is_dir():
+            raise ValueError(f"the folder {target.parent} doesn't exist. Create it, or pick another --out.")
+        target.write_text(text + "\n", encoding="utf-8")
         print(f"wrote {out}", file=sys.stderr)
     else:
         print(text)
@@ -34,10 +43,14 @@ def _parser():
     ap = argparse.ArgumentParser(
         prog="openppc", description="Read-only Google Ads audits where every number traces back to your data.")
     ap.add_argument("--version", action="version", version=f"openppc {__version__}")
+    ap.add_argument("--debug", action="store_true", help="on a crash, print Python's traceback")
+    # --debug also works after the command; SUPPRESS keeps the subcommand from resetting one given before it
+    debug = argparse.ArgumentParser(add_help=False)
+    debug.add_argument("--debug", action="store_true", default=argparse.SUPPRESS, help=argparse.SUPPRESS)
     sub = ap.add_subparsers(dest="command", required=True)
-    sub.add_parser("templates", help="list the audit templates")
-    sub.add_parser("industries", help="list the benchmark industries")
-    a = sub.add_parser("audit", help="run a template on an export")
+    sub.add_parser("templates", help="list the audit templates", parents=[debug])
+    sub.add_parser("industries", help="list the benchmark industries", parents=[debug])
+    a = sub.add_parser("audit", help="run a template on an export", parents=[debug])
     a.add_argument("template", choices=sorted(TEMPLATES))
     a.add_argument("data", nargs="?", help="your export (.csv) or two-period totals (.json)")
     a.add_argument("--sample", action="store_true",
@@ -47,9 +60,10 @@ def _parser():
                    help="cost threshold for a waste flag (default: about $20, in the export's currency)")
     a.add_argument("--brand", help="your brand names, comma-separated; brand terms are never flagged as waste")
     a.add_argument("--out", help="write the report here instead of printing it")
-    c = sub.add_parser("check", help="check the numbers in any audit against your data")
+    c = sub.add_parser("check", help="check the numbers in any audit against your data", parents=[debug])
     c.add_argument("--audit", help="the audit to check (.md or .txt)")
-    c.add_argument("--data", action="append", help="an export or totals file; repeat for more")
+    c.add_argument("--data", action="extend", nargs="+",
+                   help="the exports or totals files it was written from: --data a.csv b.csv, or repeat --data")
     c.add_argument("--sample", action="store_true",
                    help="check the sample AI audit against the made-up Acme Plumbing export")
     c.add_argument("--industry", help="also accept this industry's published averages")
@@ -61,6 +75,8 @@ def explain(error):
     """The message for an error the user can fix, in words rather than Python's error codes."""
     if isinstance(error, FileNotFoundError):
         return f"no file at {error.filename}. Check the path."
+    if isinstance(error, OSError) and error.filename:
+        return f"can't open {error.filename}: {error.strerror or error}."
     if isinstance(error, KeyError) and error.args:
         return str(error.args[0])
     return str(error)
@@ -102,13 +118,20 @@ def main(argv=None):
             if args.sample:
                 args.audit, args.data = samples.path(samples.AUDIT), [str(samples.path(samples.AUDIT_DATA))]
                 args.industry = args.industry or samples.INDUSTRY
-            text = Path(args.audit).read_text(encoding="utf-8")
+            text = read_text(args.audit)
             claims, contradictions = trace(text, facts_for_check(text, args.data, args.industry))
             _emit(render_check(claims, contradictions), args.out)
             # can't check is never held against an audit: only wrong numbers, wrong labels and contradictions fail
             clean = not any(c.verdict in ("mismatch", "not in data") for c in claims) and not contradictions
             return 0 if clean else 2
-    except (ValueError, FileNotFoundError, KeyError) as e:
+    except (ValueError, OSError, KeyError) as e:
         print(f"openppc: {explain(e)}", file=sys.stderr)
         return 1
+    except Exception as e:  # a bug: one line by default, the whole traceback with --debug
+        if args.debug:
+            traceback.print_exc()
+        else:
+            print(f"openppc: something went wrong inside OpenPPC ({type(e).__name__}: {e}). This is a bug: please "
+                  f"report it at {ISSUES}, with the output of the same command run with --debug.", file=sys.stderr)
+        return 3
     return 1

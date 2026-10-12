@@ -5,7 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from openppc.ingest import load_report, parse_number
+from openppc.ingest import column_names, load_report, parse_number
+from openppc.templates import run_template
 
 EXAMPLES = Path(__file__).parent.parent / "examples"
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -156,3 +157,65 @@ def test_line_ends_quoted_line_breaks_and_old_encodings_read_as_before(tmp_path)
     empty.write_text("\n \n\t\n", encoding="utf-8")
     with pytest.raises(ValueError, match="the file is empty"):
         load_report(str(empty))
+
+
+def test_windows_1252_reads_the_euro_sign_and_curly_quotes(tmp_path):
+    text = ACME_CSV.read_text(encoding="utf-8").replace("plumber near me", "plombier \u2019urgent\u2019 \u20ac")
+    path = tmp_path / "excel_save_as.csv"
+    path.write_bytes(text.encode("cp1252"))
+    report = load_report(path)
+    assert report.rows[0]["search_term"] == "plombier \u2019urgent\u2019 \u20ac"  # Latin-1 made these control codes
+    assert report.notes == ["the file is not in Unicode, so it was read as Western European: check accented names"]
+    assert load_report(ACME_CSV).notes == []
+
+
+@pytest.mark.parametrize("encoding", ["utf-16-le", "utf-16-be"])
+def test_utf16_without_a_byte_order_mark(tmp_path, encoding):
+    path = tmp_path / "no_bom.csv"
+    path.write_bytes(ACME_CSV.read_text(encoding="utf-8").encode(encoding))
+    report = load_report(path)
+    assert len(report.rows) == 18
+    assert round(sum(r["cost"] for r in report.rows), 2) == 4973.64
+    assert report.notes == []
+
+
+PIPES = {"free plumbing estimate": "free | plumbing estimate", "plumber jobs hiring": "plumber || jobs",
+         "plumbing franchise cost": "franchise \\| cost"}
+
+
+@pytest.mark.parametrize("template, export", [("search-term-waste", "search_terms_acme.csv"),
+                                              ("keyword-audit", "keywords_acme.csv")])
+def test_a_name_with_pipes_passes_its_own_number_check(tmp_path, template, export):
+    text = (EXAMPLES / export).read_text(encoding="utf-8")
+    for plain, piped in PIPES.items():
+        text = text.replace(plain, piped)
+    path = tmp_path / export
+    path.write_text(text, encoding="utf-8")
+    markdown, _, passed = run_template(template, str(path))
+    assert passed
+    if template == "search-term-waste":
+        assert "free \\| plumbing estimate" in markdown
+
+
+def test_column_names_for_a_report_are_the_header_row_and_nothing_else(tmp_path):
+    german = column_names(FIXTURES / "search_terms_german_headers.csv")
+    assert german == "Suchbegriff Keyword-Option Kampagne Anzeigengruppe Klicks Impr. Kosten Conversions".split()
+    no_header = tmp_path / "rows.csv"
+    no_header.write_text("Some title\nplumber,12,3.50\nboiler,4,1.20\n", encoding="utf-8")
+    workbook = tmp_path / "terms.xlsx"
+    workbook.write_bytes(b"PK\x03\x04" + b"\0" * 64)
+    assert column_names(no_header) == column_names(workbook) == column_names(tmp_path / "missing.csv") == []
+
+
+def test_rows_in_two_currencies_are_refused(tmp_path):
+    with pytest.raises(ValueError, match=r"more than one currency \(EUR, USD\)"):
+        load_report(_edited(tmp_path, 4, "Currency code", "EUR"))
+    assert load_report(_edited(tmp_path, 4, "Currency code", "usd")).currency == "USD"
+
+
+def test_a_report_says_when_it_read_decimal_commas():
+    fr = load_report(FIXTURES / "search_terms_fr.csv")
+    assert fr.notes == ["numbers read with decimal commas, as the file writes them"]
+    markdown, _, passed = run_template("search-term-waste", str(FIXTURES / "search_terms_fr.csv"))
+    assert passed
+    assert "_How the file was read: numbers read with decimal commas, as the file writes them._" in markdown

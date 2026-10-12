@@ -1,0 +1,52 @@
+name: A finding or number that looks wrong
+description: An audit said something about the account that isn't so, or a check marked a right number wrong.
+labels: [bug, accuracy]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Never attach a client's export, report or audit.** Describe the finding with the names and figures changed: what the rows looked like, what OpenPPC said, and what it should have said.
+  - type: dropdown
+    id: template
+    attributes:
+      label: Which report or check
+      options:
+        - Search-term waste audit
+        - Keyword audit
+        - Account structure audit
+        - "Account read: period over period"
+        - Checking someone else's audit
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: said
+    attributes:
+      label: What OpenPPC said
+      description: The finding or verdict, with names and figures changed.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What it should have said, and why
+    validations:
+      required: true
+  - type: textarea
+    id: rows
+    attributes:
+      label: Made-up rows that show it
+      description: A few lines in the export's shape, with invented terms and numbers, so it can become a test.
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: Version and where it ran
+      placeholder: openppc 0.1.12, command line
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Client data
+      options:
+        - label: This report has no client names, search terms, account IDs or figures in it.
+          required: true

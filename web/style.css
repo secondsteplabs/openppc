@@ -97,6 +97,9 @@ a.btn-dark:hover { color: #ffffff; }
 .file-note { margin: 0; font-size: 13.5px; line-height: 1.55; }
 .guide { padding: 14px 16px; border-radius: 10px; background: var(--soft); font-size: 13px; line-height: 1.6; color: var(--muted); }
 .guide b { display: block; margin-bottom: 2px; color: var(--ink); }
+.report-file > summary { min-height: 24px; color: var(--ink); font-weight: 700; cursor: pointer; }
+.report-file > p { margin: 8px 0; }
+.report-preview { margin: 0 0 10px; padding: 10px 12px; max-height: 220px; overflow: auto; border-radius: 6px; background: #ffffff; color: var(--ink); font-size: 12.5px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .icon-btn { width: 44px; height: 44px; flex-shrink: 0; border: 0; border-radius: 8px; background: transparent; color: var(--muted); display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .icon-btn:hover { background: var(--soft2); }
 #audit-text { min-height: 240px; padding: 14px 16px; border: 1px solid var(--field); border-radius: 10px; background: #ffffff; font-size: 14.5px; line-height: 1.6; resize: vertical; }

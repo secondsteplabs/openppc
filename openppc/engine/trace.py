@@ -60,6 +60,7 @@ MONTH_DAY = re.compile(r"\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|d
                        re.I)
 CODE_SPAN = re.compile(r"`[^`]*`")  # file names and commands are identifiers, not claims
 TABLE_SEP = re.compile(r"^\s*\|?\s*:?-{3,}")
+CELL_EDGE = re.compile(r"(?<!\\)\|")  # a search term's own "|" is written "\|" inside a table cell
 FROM_TO = re.compile(rf"\bfrom\s+~?{CUR}?\s?(\d[\d,]*(?:\.\d+)?)\s*%?\s*(?:to|→|-)\s*~?{CUR}?\s?"
                      r"(\d[\d,]*(?:\.\d+)?)", re.I)
 VERB = re.compile(r"\b(fell|falls|fall|dropped|drops|declined|decreased|shrank|slipped|down|"
@@ -386,7 +387,7 @@ def _row_name(line, all_entities):
     tables and for the "cell | cell |" lines the app reads off a finished PDF."""
     if "|" not in line:
         return None
-    first = line.strip().strip("|").split("|", 1)[0].strip(" *“”\"'`").lower()
+    first = CELL_EDGE.split(line.strip().strip("|"), 1)[0].replace("\\|", "|").strip(" *“”\"'`").lower()
     if first in all_entities:
         return first
     kind = re.match(r"(broad|exact|phrase)(?:\s+match)?\b(?!\s*(?:and|&|/|or|\+))", first)
@@ -402,11 +403,10 @@ def _mask(text, spans):
 
 def _cells(line):
     out, start = [], None
-    for i, ch in enumerate(line):
-        if ch == "|":
-            if start is not None:
-                out.append((start, i))
-            start = i + 1
+    for m in CELL_EDGE.finditer(line):
+        if start is not None:
+            out.append((start, m.start()))
+        start = m.end()
     return out
 
 
@@ -725,7 +725,7 @@ def _subject(named, unions, row, here, implied, lo, hi, a, b, start, sentence, c
     if implied:
         return None
     header = (cell or "").lower()
-    first = line.strip().strip("|").split("|", 1)[0].strip(" *").lower() if "|" in line else ""
+    first = CELL_EDGE.split(line.strip().strip("|"), 1)[0].strip(" *").lower() if "|" in line else ""
     if row:
         return None if SUBSET.search(header) else ("row", row)
     if cell is not None:  # a table row we could not name: its first cell says what it is, or we can't tell

@@ -35,6 +35,14 @@ def test_table_columns_give_context():
     assert verdicts(table) == [("41", "mismatch")]
 
 
+def test_an_escaped_pipe_stays_inside_its_cell():
+    table = "| Search term | Cost | Clicks |\n|---|---|---|\n| free \\| plumbing \\|\\| estimate | $1,361.04 | 41 |"
+    facts = [Fact("clicks of 'free | plumbing || estimate'", 41, "count", "clicks", "free | plumbing || estimate"),
+             Fact("cost of 'free | plumbing || estimate'", 1361.04, "money", "cost", "free | plumbing || estimate")]
+    claims, _ = trace(table, facts)
+    assert [(c.written, c.verdict) for c in claims] == [("$1,361.04", "traced"), ("41", "traced")]
+
+
 def test_skips_list_markers_small_numbers_years_and_dates():
     assert verdicts("1. Top 5 fixes for July 31, 2026") == []
 

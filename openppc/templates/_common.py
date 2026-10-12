@@ -97,7 +97,8 @@ def header(book, report, title):
         days = book.count("days in the date range", report.days, "days")
         bits.append(f"{s:%B} {s.day}, {s.year} to {e:%B} {e.day}, {e.year} ({days} days)")
     bits.append(f"currency {report.currency}")
-    return [f"# {title}", "", " · ".join(bits), "",
+    read = [f"_How the file was read: {'; '.join(report.notes)}._", ""] if report.notes else []
+    return [f"# {title}", "", " · ".join(bits), "", *read,
             "_Built by OpenPPC, read-only: computed from this file alone, with no network calls._", ""]
 
 

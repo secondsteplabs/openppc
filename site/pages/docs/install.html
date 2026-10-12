@@ -46,6 +46,7 @@ crumb: Install and quick start
         <li><b>Keywords report</b> (for the keyword audit): open <b>Campaigns</b>, then <b>Audiences, keywords and content</b>, then <b>Search keywords</b>. Pick the date range, add the Quality Score column if you want that section, then <b>Download</b> and choose <b>.csv</b>.</li>
       </ul>
       <p class="callout">Keep the file as Google exports it. OpenPPC skips Google's title, date and total lines, and reads the Excel-style export too.</p>
+      <p id="formats">Numbers can be written the US way (1,361.04), the European way (1.361,04 or 1 361,04) or the Swiss way (1'361.04). When a file uses decimal commas, the report says so. Files saved as UTF-8, UTF-16 (Excel's tab-separated export) or Windows-1252 (what Excel on Windows saves as "CSV") all read; when a file isn't Unicode, the report says so, so check accented names. Column names must be in English: if Google Ads is set to another language, switch it to English before you download. Keep one currency per file, since costs in two currencies can't be added up.</p>
     </div></div>
 
     <div class="doc-step" id="audit"><span class="num">3</span><div>
@@ -151,7 +152,7 @@ $4,973.64 total cost in this export, and each one cost at least $20.00.</pre>
 
     <h2 id="trouble">If something goes wrong</h2>
     <ul>
-      <li><b>The app says it can't read the file.</b> Export the report again from Google Ads as .csv, and check it is a search terms or keywords report, not a campaign report.</li>
+      <li><b>The app says it can't read the file.</b> Export the report again from Google Ads as .csv, and check it is a search terms or keywords report, not a campaign report. If it still won't read, click <b>Report this file</b> under the message: it opens a GitHub issue with only the file's column names, which you read before you submit it.</li>
       <li><b>The engine will not load.</b> The first visit needs an internet connection to download the engine once. After that it works from your browser's cache.</li>
       <li><b>The PDF looks different in Safari or Firefox.</b> Save it from Chrome or Edge, which keep the page layout exactly.</li>
       <li><b>Claude Desktop or Cursor can't start OpenPPC.</b> Apps opened from the Dock may not find <code>uvx</code>. Run <code>which uvx</code> in a terminal and put the full path it prints in <code>"command"</code>.</li>

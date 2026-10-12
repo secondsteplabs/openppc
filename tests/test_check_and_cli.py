@@ -70,6 +70,57 @@ def test_a_report_in_rupees_prints_on_a_legacy_code_page():
     assert "₹72,922.00" in run.stdout.decode("utf-8")
 
 
+def _refusal(capsys, *argv):
+    assert main(list(argv)) == 1
+    return capsys.readouterr().err
+
+
+def test_files_that_cannot_be_read_are_refused_in_words(tmp_path, capsys):
+    head = "\n".join(CSV.read_text(encoding="utf-8").splitlines()[:3]) + "\n"
+    (tmp_path / "header_only.csv").write_text(head, encoding="utf-8")
+    (tmp_path / "bad.json").write_text("{x", encoding="utf-8")
+    assert "is a folder. Give the name of a file in it." in _refusal(capsys, "audit", "search-term-waste", str(tmp_path))
+    assert "is a folder" in _refusal(capsys, "check", "--audit", str(SAMPLE), "--data", str(tmp_path))
+    assert "is a folder" in _refusal(capsys, "check", "--audit", str(tmp_path), "--data", str(CSV))
+    assert "no rows of data. Check the date range" in _refusal(capsys, "audit", "search-term-waste",
+                                                                str(tmp_path / "header_only.csv"))
+    assert "not valid JSON (expecting property name enclosed in double quotes at line 1, column 2)" in _refusal(
+        capsys, "audit", "account-structure", str(tmp_path / "bad.json"))
+    missing = tmp_path / "no" / "such"
+    assert f"the folder {missing} doesn't exist. Create it, or pick another --out." in _refusal(
+        capsys, "audit", "search-term-waste", "--sample", "--out", str(missing / "report.md"))
+    assert "is a folder. Give --out a file name" in _refusal(capsys, "check", "--sample", "--out", str(tmp_path))
+
+
+@pytest.mark.parametrize("encoding", ["cp1252", "utf-16", "utf-16-le"])
+def test_check_reads_an_audit_saved_in_an_old_or_wide_encoding(tmp_path, capsys, encoding):
+    audit = tmp_path / "audit.md"
+    audit.write_bytes((SAMPLE.read_text(encoding="utf-8") + "\nCafé – done.\n").encode(encoding))
+    assert main(["check", "--audit", str(audit), "--data", str(CSV)]) == 2
+    assert "$4,200" in capsys.readouterr().out
+
+
+def test_check_takes_several_exports_after_one_data_flag(capsys):
+    both = [str(CSV), str(EXAMPLES / "keywords_acme.csv")]
+    assert main(["check", "--audit", str(SAMPLE), "--data", *both]) == 2
+    one_flag = capsys.readouterr().out
+    assert main(["check", "--audit", str(SAMPLE), "--data", both[0], "--data", both[1]]) == 2
+    assert capsys.readouterr().out == one_flag
+
+
+def test_a_crash_exits_3_in_one_line_and_debug_shows_the_traceback(monkeypatch, capsys):
+    def broken(*args, **kwargs):
+        raise ZeroDivisionError("division by zero")
+    monkeypatch.setattr("openppc.cli.run_template", broken)
+    assert main(["audit", "search-term-waste", "--sample"]) == 3
+    err = capsys.readouterr().err
+    assert err.count("\n") == 1 and "(ZeroDivisionError: division by zero). This is a bug" in err
+    for argv in (["--debug", "audit", "search-term-waste", "--sample"], ["audit", "search-term-waste", "--sample",
+                                                                          "--debug"]):
+        assert main(argv) == 3
+        assert "Traceback (most recent call last)" in capsys.readouterr().err
+
+
 def test_mcp_tools_work_without_the_mcp_extra():
     assert "search-term-waste" in mcp_server.list_templates()
     assert "Number check: every number" in mcp_server.audit_account("search-term-waste", str(CSV))

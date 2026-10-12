@@ -24,6 +24,8 @@ so a check can say "not in this file" instead of reporting a clean account it ne
 import json
 import re
 
+from .google_ads_csv import not_a_folder
+
 SECTIONS = ("campaigns", "ad_groups", "keywords", "negatives", "ads", "assets")
 ALIASES = {  # the words Editor and the UI use, mapped to the Google Ads API's names
     "MAXIMIZE_CLICKS": "TARGET_SPEND",
@@ -115,11 +117,15 @@ def snapshot(data, source=""):
 
 def read_json(path):
     """A JSON file's content, or an error that says plainly what is wrong with it."""
+    not_a_folder(path)
     try:
-        with open(path, encoding="utf-8") as f:
+        with open(path, encoding="utf-8-sig") as f:
             return json.load(f)
-    except (UnicodeDecodeError, json.JSONDecodeError):
-        raise ValueError(f"{path}: this is not valid JSON.") from None
+    except UnicodeDecodeError:
+        raise ValueError(f"{path}: this is not valid JSON: it is not saved as UTF-8 text.") from None
+    except json.JSONDecodeError as e:
+        raise ValueError(f"{path}: this is not valid JSON ({e.msg.lower()} at line {e.lineno}, column {e.colno}).") \
+            from None
 
 
 def load_snapshot(path):

@@ -12,7 +12,7 @@ from . import __version__
 from .checkfacts import facts_for_check, facts_for_paths, industry_facts, report_settings
 from .engine import benchmarks
 from .engine.trace import render_check, trace
-from .ingest import load_report
+from .ingest import column_names, load_report
 from .ingest.account import is_snapshot, read_json, snapshot
 from .templates import TEMPLATES, account_read, load_input, run_template_book
 from .facts import SYMBOLS
@@ -69,7 +69,8 @@ def inspect_file(path):
         error = _clean(e, [path])
         if error.startswith(name + ": "):  # the file chip already shows the name, right above the error
             error = error[len(name) + 2:]
-        return _json({"ok": False, "name": name, "error": error, "hint": WRONG_FILE})
+        columns = [] if path.lower().endswith(".json") else column_names(path)  # for the "Report this file" link
+        return _json({"ok": False, "name": name, "error": error, "hint": WRONG_FILE, "columns": columns})
     if report.has("search_term"):
         kind = "Search terms report"
     elif report.has("keyword"):

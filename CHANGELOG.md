@@ -4,6 +4,38 @@ OpenPPC follows [semantic versioning](https://semver.org) for 0.x releases: a pa
 behaviour that [docs/compatibility.md](docs/compatibility.md) lists, except to fix a wrong number. A minor release
 (0.x.0) may, and only with an entry under **Breaking** that says what changed and what to do.
 
+## Unreleased (0.1.12)
+
+### Fixed
+
+- **Excel's Windows "CSV" reads its euro signs and curly quotes.** A file saved as Windows-1252 was read as Latin-1,
+  which turns `€` and `’` into control characters. Windows-1252 is now tried first, and UTF-16 files without a byte
+  order mark are recognised too.
+- **A name with a `|` in it passes its own number check.** A search term or campaign such as `Birch Lane | Search`
+  split its table cell in two, so the report's check could not match the row and failed it.
+- **Rows in two currencies are refused.** Their costs were added up as if they were one currency; the message now
+  asks for one account or one currency per file.
+- **Clearer refusals.** A folder given where a file belongs, an export with a header row but no rows (a date range
+  with no traffic), an `--out` folder that doesn't exist, and JSON that isn't valid (now with its line and column)
+  each get a sentence saying what to do. `check` reads an audit saved as Windows-1252 or UTF-16.
+
+### Added
+
+- **Reports say how the file was read.** A line under the title says when numbers were read with decimal commas, or
+  when the file was not Unicode, so accented names are worth a look.
+- **"Report this file" in the app.** Under a file it can't read, the app offers a GitHub issue filled in with the
+  message and the file's column names only. It shows exactly what will be sent; nothing leaves the page unless you
+  submit the issue on GitHub. Two issue forms come with it: a file OpenPPC can't read, and a finding that looks wrong.
+- `openppc check --data a.csv b.csv` takes several exports after one flag (repeating `--data` still works).
+- `--debug`, before or after the command, prints the full traceback when OpenPPC crashes.
+- The install guide lists the number formats and encodings it reads.
+
+### Changed
+
+- **A crash exits 3 in one line.** An unexpected error printed a Python traceback and exited 1, the code for bad
+  input. It now prints one line that says it is a bug and where to report it, and exits 3, OpenPPC's code for
+  "OpenPPC got it wrong". Bad input still exits 1.
+
 ## Unreleased (0.1.11)
 
 ### Fixed

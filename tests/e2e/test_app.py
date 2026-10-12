@@ -4,6 +4,7 @@ example export, the branded PDF, Stop on a big export, accessibility, and the ph
 These pin the app as it is (0.1.11). When a change to the app breaks one, the test or the app is wrong; decide which.
 """
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from conftest import BOOT, READY, ROOT
@@ -134,6 +135,25 @@ def test_each_template_runs_on_its_example_in_the_browser(app, name, export):
     expect(app.locator(".badge-ok")).to_be_visible(timeout=RUN)
     expect(app.locator("h2.rep-title")).to_have_text(title)
     expect(app.locator(".who").filter(has_text="on this device")).to_be_visible()
+
+
+def test_a_file_it_cannot_read_offers_a_report_with_only_its_column_names(app, tmp_path):
+    export = tmp_path / "birch_lane_terms.csv"
+    export.write_bytes((ROOT / "tests" / "fixtures" / "search_terms_german_headers.csv").read_bytes())
+    app.locator("#file-input").set_input_files(str(export))
+    report = app.locator(".report-file")
+    expect(report).to_be_visible(timeout=RUN)
+    report.locator("summary").click()
+    preview = report.locator(".report-preview").inner_text()
+    columns = "Suchbegriff Keyword-Option Kampagne Anzeigengruppe Klicks Impr. Kosten Conversions".split()
+    assert "\n".join(columns) in preview
+    link = parse_qs(urlsplit(report.get_by_role("link", name="Open the issue on GitHub").get_attribute("href")).query)
+    assert link["template"] == ["file_not_read.yml"]
+    assert link["columns"] == ["\n".join(columns)]
+    sent = preview + " ".join(v[0] for v in link.values())
+    for private in ("birch_lane", "notdienst", "Birch Lane", "Juli", "1.254,40", "Suchbegriffbericht"):
+        assert private not in sent
+    assert _axe(app) <= KNOWN_AXE
 
 
 def _big_export(path: Path, rows: int):

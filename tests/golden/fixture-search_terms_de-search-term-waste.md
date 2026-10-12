@@ -5,6 +5,8 @@ Source: `search_terms_de.csv` · July 1, 2026 to July 31, 2026 (31 days) · curr
 
 Settings: waste threshold €20.00
 
+_How the file was read: numbers read with decimal commas, as the file writes them._
+
 _Built by OpenPPC, read-only: computed from this file alone, with no network calls._
 
 ## Summary

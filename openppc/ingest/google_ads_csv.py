@@ -12,6 +12,7 @@ import codecs
 import csv
 import datetime as dt
 import itertools
+import os
 import re
 from array import array
 from dataclasses import dataclass, field
@@ -54,6 +55,7 @@ class Report:
     start: dt.date = None
     end: dt.date = None
     currency: str = "USD"
+    notes: list = field(default_factory=list)  # how the file was read, when that is not the plain way
 
     @property
     def days(self):
@@ -109,15 +111,32 @@ def _decodes(path, encoding):
         return False
 
 
+def _utf16_without_bom(head):
+    """'utf-16-le' or 'utf-16-be' when the first bytes are text with every other byte zero, as UTF-16 writes
+    Latin letters and digits; else None. Such a file is valid UTF-8 too, so this is asked first."""
+    even, odd = head[0:len(head) - len(head) % 2:2], head[1::2]
+    if len(odd) < 8:
+        return None
+    if odd.count(0) >= 0.4 * len(odd) and even.count(0) <= 0.05 * len(even):
+        return "utf-16-le"
+    if even.count(0) >= 0.4 * len(even) and odd.count(0) <= 0.05 * len(odd):
+        return "utf-16-be"
+    return None
+
+
 def _encoding(path, head):
-    """UTF-16 when the file starts with its byte order mark (Excel's tab-separated exports), else UTF-8, else
+    """UTF-16 when the file starts with its byte order mark (Excel's tab-separated exports) or plainly is UTF-16
+    without one, else UTF-8, else Windows-1252 (Western European, what Excel saves as "CSV" on Windows), else
     Latin-1, which reads any bytes. The whole file decides, as if it were read in one go."""
     if head[:2] in (b"\xff\xfe", b"\xfe\xff"):
         if not _decodes(path, "utf-16"):
             with open(path, "rb") as f:
                 f.read().decode("utf-16")  # raises the decoder's own error about the broken file
         return "utf-16"
-    return "utf-8-sig" if _decodes(path, "utf-8-sig") else "latin-1"
+    bare = _utf16_without_bom(head)
+    if bare and _decodes(path, bare):
+        return bare
+    return next(e for e in ("utf-8-sig", "cp1252", "latin-1") if e == "latin-1" or _decodes(path, e))
 
 
 def _lines(f):
@@ -170,15 +189,57 @@ def _not_a_report(path, raw):
     return None
 
 
+def not_a_folder(path):
+    """Refuse a folder given where a file belongs, which Windows would only call 'Permission denied'."""
+    if os.path.isdir(path):
+        raise ValueError(f"{path} is a folder. Give the name of a file in it.")
+
+
+def read_text(path):
+    """A whole text file, such as an audit to check, decoded the way an export is: UTF-16, UTF-8, Windows-1252."""
+    not_a_folder(path)
+    with open(path, "rb") as f:
+        head = f.read(4096)
+    with open(path, encoding=_encoding(path, head)) as f:
+        return f.read()
+
+
+def column_names(path):
+    """For a report about a file that could not be read: its column names, and nothing else from it. The first of
+    the first 15 lines that splits into three or more short cells without a digit, as a header row does and a
+    title, a date range or a row of figures doesn't; else none."""
+    try:
+        with open(path, "rb") as f:
+            head = f.read(4096)
+        if _not_a_report(path, head):
+            return []
+        with open(path, encoding=_encoding(path, head)) as f:
+            first = list(itertools.islice(_lines(f), 15))
+    except (OSError, UnicodeDecodeError, ValueError):
+        return []
+    for line in first:
+        for delim in (",", "\t", ";"):
+            cells = [c.strip() for c in next(csv.reader([line], delimiter=delim), [])]
+            if len(cells) >= 3 and all(c and len(c) <= 60 and not any(ch.isdigit() for ch in c) for c in cells):
+                return cells
+    return []
+
+
 def load_report(path):
     """Read the export a piece at a time: a 250,000-row file is never held as text, lines and cells at once."""
+    not_a_folder(path)
     with open(path, "rb") as f:
-        head = f.read(4)
+        head = f.read(4096)
     problem = _not_a_report(path, head)
     if problem:
         raise ValueError(f"{path}: {problem}")
-    with open(path, encoding=_encoding(path, head)) as f:
-        return _read(path, _lines(f))
+    encoding = _encoding(path, head)
+    with open(path, encoding=encoding) as f:
+        report = _read(path, _lines(f))
+    if encoding in ("cp1252", "latin-1"):
+        report.notes.insert(0, "the file is not in Unicode, so it was read as Western European: check accented "
+                               "names")
+    return report
 
 
 def _read(path, lines):
@@ -240,10 +301,15 @@ def _read(path, lines):
                 row[key] = cell if key in NUMERIC else pool.setdefault(cell.strip(), cell.strip())
         report.rows.append(row)
         line_of.append(n)
+    if not report.rows:
+        raise ValueError(f"{path}: the export has a header row but no rows of data. Check the date range in Google "
+                         "Ads (a range with no traffic exports no rows), then download it again.")
     if eu and us:
         raise ValueError(f"{path}: the numbers mix two styles (1,234.56 and 1.234,56), so they cannot be read "
                          "safely. Download the report again with Download > .csv.")
     european = eu > 0 or (delim == ";" and not us and dotted)
+    if european:
+        report.notes.append("numbers read with decimal commas, as the file writes them")
     for n, row in zip(line_of, report.rows):
         for key in NUMERIC:
             if key in row:
@@ -253,7 +319,10 @@ def _read(path, lines):
             what = {"cost": "cost", "clicks": "click count", "impressions": "impression count"}[negative]
             raise ValueError(f"{path}: line {n} has a negative {what} ({row[negative]:g}). Google Ads never exports "
                              "one, so the file was edited or is damaged: download it again with Download > .csv.")
-    currency = next((r.get("currency") for r in report.rows if r.get("currency")), None)
-    if currency:
-        report.currency = currency.upper()
+    currencies = {r["currency"].upper() for r in report.rows if r.get("currency")}
+    if len(currencies) > 1:
+        raise ValueError(f"{path}: the rows are in more than one currency ({', '.join(sorted(currencies))}), so "
+                         "their costs can't be added up. Download one account, or one currency, per file.")
+    if currencies:
+        report.currency = currencies.pop()
     return report

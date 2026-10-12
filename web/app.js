@@ -270,7 +270,32 @@ function fileRow(f) {
   if (!bad) return row;
   return h('div', { class: 'stack', style: 'gap:10px' }, row,
     h('p', { class: 'file-note' }, capital(info.error)),
-    h('div', { class: 'guide' }, h('b', {}, 'Export a Search terms report instead'), info.hint));
+    h('div', { class: 'guide' }, h('b', {}, 'Export a Search terms report instead'), info.hint),
+    fileReport(f));
+}
+// "Report this file": a GitHub issue filled in with OpenPPC's message and the file's column names, shown here in
+// full first. Nothing leaves the page unless the user submits the issue on GitHub.
+const LINK_ROOM = 7000;  // GitHub turns away longer new-issue links
+function fileReport(f) {
+  const fields = (columns, cut) => ({
+    error: capital(f.info.error.split(f.name).join('the file')),
+    columns: columns.length ? columns.join('\n') + (cut ? '\n(more columns, cut to fit the link)' : '')
+      : '(no header row found in the first 15 lines)',
+    version: `openppc ${state.meta ? state.meta.version : ''}, browser app`,
+  });
+  const link = (fill) => `${REPO}/issues/new?${new URLSearchParams({ template: 'file_not_read.yml',
+    title: `Can't read a .${f.name.split('.').pop().toLowerCase()} file`, ...fill })}`;
+  const all = f.info.columns || [];
+  let keep = all.length;
+  while (keep > 0 && link(fields(all.slice(0, keep), keep < all.length)).length > LINK_ROOM) keep--;
+  const fill = fields(all.slice(0, keep), keep < all.length);
+  return h('details', { class: 'guide report-file' },
+    h('summary', {}, 'Report this file'),
+    h('p', {}, 'This fills in a GitHub issue with only what is below. Nothing is sent from here: you read it on GitHub, '
+      + 'edit it if you like, and submit it yourself. A custom column can carry a client\'s name, so rename any that do.'),
+    h('pre', { class: 'report-preview', tabindex: '0' }, `What OpenPPC said:\n${fill.error}\n\nColumn names:\n${fill.columns}`
+      + `\n\nVersion: ${fill.version}`),
+    h('a', { class: 'btn', href: link(fill), target: '_blank', rel: 'noopener noreferrer' }, 'Open the issue on GitHub'));
 }
 function renderFiles() {
   el.files.replaceChildren(...state.queue.map((q) => fileRow({ name: q.name, info: null })), ...state.files.map(fileRow),
