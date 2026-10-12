@@ -131,6 +131,29 @@ def test_the_sample_audit_exports_negatives_and_makes_the_branded_pdf(app, tmp_p
     expect(app.get_by_role("button", name="Save as PDF")).to_be_enabled()
 
 
+def test_the_pdf_call_to_action_links_only_to_https_mailto_or_tel_and_is_remembered(app):
+    _hash(app, "#home")
+    app.locator("#home-sample").click()
+    expect(app.locator(".badge-ok")).to_be_visible(timeout=RUN)
+    app.get_by_role("link", name="Make the branded PDF").click()
+    expect(app.locator(".pdf-status.ok")).to_be_visible(timeout=RUN)
+    cta = app.locator("#pdf-pages .cover-cta")
+    app.get_by_label("Its link").fill("javascript:alert(1)")
+    app.get_by_label("Call to action").fill("Book a review call: (555) 010-2030")
+    expect(cta).to_have_text("Book a review call: (555) 010-2030", timeout=RUN)
+    expect(cta.locator("a")).to_have_count(0)
+    # the phone number is the agency's words, not a claim about the account: saving stays on
+    expect(app.locator(".pdf-status.ok")).to_be_visible()
+    app.get_by_label("Its link").fill("tel:+15550102030")
+    expect(cta.locator("a")).to_have_attribute("href", "tel:+15550102030", timeout=RUN)
+    app.get_by_label("Its link").fill("https://example.com/book")
+    expect(cta.locator("a")).to_have_attribute("href", "https://example.com/book", timeout=RUN)
+    expect(app.locator(".pdf-status.ok")).to_be_visible()
+    expect(app.get_by_role("button", name="Save as PDF")).to_be_enabled()
+    kit = app.evaluate("JSON.parse(localStorage.getItem('openppc.brandkit'))")
+    assert (kit["ctaText"], kit["ctaUrl"]) == ("Book a review call: (555) 010-2030", "https://example.com/book")
+
+
 @pytest.mark.parametrize("name, export", [
     ("search-term-waste", "search_terms_acme.csv"),
     ("keyword-audit", "keywords_acme.csv"),

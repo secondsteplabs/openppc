@@ -998,9 +998,9 @@ const BLOCK_TAGS = new Set(['P', 'DIV', 'H1', 'H2', 'H3', 'LI', 'TR', 'TABLE', '
 const pdf = { audit: null, kit: null, model: null, run: 0, ready: false, status: null, save: null };
 
 function loadKit() {
-  const kit = { agency: '', client: '', title: '', color: SWATCHES[0], logo: '', headings: 'sans', paper: 'letter', off: [] };
+  const kit = { agency: '', client: '', title: '', ctaText: '', ctaUrl: '', color: SWATCHES[0], logo: '', headings: 'sans', paper: 'letter', off: [] };
   try { Object.assign(kit, JSON.parse(localStorage.getItem(KIT_KEY) || '{}')); } catch { /* no storage or a bad value: defaults */ }
-  for (const key of ['agency', 'client', 'title']) if (typeof kit[key] !== 'string') kit[key] = '';
+  for (const key of ['agency', 'client', 'title', 'ctaText', 'ctaUrl']) if (typeof kit[key] !== 'string') kit[key] = '';
   if (!/^#[0-9a-f]{6}$/i.test(kit.color)) kit.color = SWATCHES[0];
   if (typeof kit.logo !== 'string' || !kit.logo.startsWith('data:image/')) kit.logo = '';
   if (!HEADINGS[kit.headings]) kit.headings = 'sans';
@@ -1015,6 +1015,12 @@ function saveKit(kit) {
   try { localStorage.setItem(KIT_KEY, JSON.stringify(brand)); } catch { /* storage full or off: it still works this visit */ }
 }
 
+// The call to action links only to https, mailto or tel; anything else (javascript:, data:, http:) stays plain text.
+function ctaHref(url) {
+  const u = url.trim();
+  if (/^(mailto|tel):\S+$/i.test(u)) return u;
+  try { const parsed = new URL(u); return parsed.protocol === 'https:' ? parsed.href : ''; } catch { return ''; }
+}
 const initials = (name) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
 const codeText = (text) => String(text || '').split('`').map((part, i) => (i % 2 ? h('code', {}, part) : part));
 function brandTick(size) {  // the OpenPPC logo's tick, on the report cover and every page footer
@@ -1086,6 +1092,9 @@ function coverSheet(kit, model) {
   const title = kit.title || model.title;
   const mark = kit.logo ? h('img', { class: 'cover-logo', src: kit.logo, alt: '' }) : kit.agency ? h('span', { class: 'cover-mark' }, initials(kit.agency)) : null;
   const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+  const href = ctaHref(kit.ctaUrl);
+  const cta = kit.ctaText.trim()
+    ? h('span', { class: 'cover-cta' }, href ? h('a', { href, target: '_blank', rel: 'noopener noreferrer' }, kit.ctaText) : kit.ctaText) : null;
   const inner = h('div', { class: 'cover-inner' },
     h('div', { class: 'cover-top' }, h('div', { class: 'cover-brand' }, mark, kit.agency ? h('span', { class: 'cover-agency' }, kit.agency) : null),
       h('span', { class: 'cover-conf' }, 'Confidential')),
@@ -1096,7 +1105,7 @@ function coverSheet(kit, model) {
       head.stats.length ? h('div', { class: 'cover-rule' }) : null,
       head.stats.length ? h('div', { class: 'cover-stats' }, head.stats.map((s) => h('div', {}, h('span', { class: 'v' }, s.value), h('span', { class: 'l' }, s.label)))) : null) : null,
     h('div', { class: 'cover-foot' },
-      h('div', {}, h('span', { class: 'cover-by' }, kit.agency ? `Prepared by ${kit.agency}` : 'Prepared with OpenPPC'), h('span', { class: 'cover-date' }, date)),
+      h('div', {}, h('span', { class: 'cover-by' }, kit.agency ? `Prepared by ${kit.agency}` : 'Prepared with OpenPPC'), h('span', { class: 'cover-date' }, date), cta),
       h('div', { class: 'cover-seal' }, brandTick(38), h('div', {}, h('span', { class: 'cover-seal-t' }, 'Numbers checked by OpenPPC'),
         h('span', { class: 'cover-seal-s' }, "Every number traces to the account's own export.")))));
   return h('div', { class: 'sheet cover' }, h('div', { class: 'cover-band' }), inner);
@@ -1330,7 +1339,7 @@ async function relayout() {
   } catch { /* a font that fails to load falls back; the pages are measured with what shows */ }
   if (run !== pdf.run || state.view !== 'branded') return;
   const { sheets, clipped } = paginate(pdf.model, kit, measureHost());
-  const names = [kit.agency, kit.client, kit.title].filter(Boolean);
+  const names = [kit.agency, kit.client, kit.title, kit.ctaText].filter(Boolean);
   if (!pdf.audit.token) {
     pdf.status.textContent = 'Checking the numbers once the checker has loaded…';
     try {
@@ -1392,9 +1401,10 @@ function brandControls() {
     saveKit(kit);
     if (layout) relayoutSoon(); else applyBrand();
   };
-  const text = (key, label, placeholder) => h('div', { class: 'control' }, h('label', { for: `kit-${key}` }, label),
-    h('input', { id: `kit-${key}`, class: 'text-input', type: 'text', value: kit[key], placeholder, maxlength: 80, autocomplete: 'off',
-      oninput: (e) => change(key, e.currentTarget.value) }));
+  const text = (key, label, placeholder, attrs = {}, hint = '') => h('div', { class: 'control' }, h('label', { for: `kit-${key}` }, label),
+    h('input', { id: `kit-${key}`, class: 'text-input', type: 'text', value: kit[key], placeholder, maxlength: 80, autocomplete: 'off', ...attrs,
+      oninput: (e) => change(key, e.currentTarget.value) }),
+    hint ? h('span', { class: 'hint' }, hint) : null);
   const seg = (label, key, options) => h('div', { class: 'control' }, h('span', { class: 'ctl-label' }, label),
     h('div', { class: 'seg', role: 'group', 'aria-label': label }, options.map(([value, name]) => h('button', {
       type: 'button', 'aria-pressed': String(kit[key] === value),
@@ -1431,6 +1441,9 @@ function brandControls() {
       text('client', 'Client', 'e.g. Acme Plumbing'), text('title', 'Report title', pdf.model.title)),
     h('div', { class: 'card pad stack' }, h('span', { class: 'card-title' }, 'Your brand'),
       text('agency', 'Your agency', 'Shown on every page'),
+      text('ctaText', 'Call to action', 'e.g. Book a review call: (555) 010-2030'),
+      text('ctaUrl', 'Its link', 'https://, mailto: or tel:', { inputmode: 'url', maxlength: 300 },
+        'One line on the cover. The link works only if it starts with https:, mailto: or tel:.'),
       h('div', { class: 'control' }, h('span', { class: 'ctl-label' }, 'Logo'),
         h('div', { class: 'row' }, h('label', { class: 'btn', for: 'kit-logo' }, 'Choose a logo', file), removeLogo),
         h('span', { class: 'hint' }, 'PNG, JPG, WebP or SVG, under 400 KB. It stays in this browser.')),

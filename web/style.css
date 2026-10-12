@@ -375,6 +375,8 @@ a.next-live:hover { color: var(--ink); border-color: var(--accent-soft); }
 .cover-foot { margin-top: auto; padding-top: 22px; border-top: 1px solid #dfe3e5; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
 .cover-by { display: block; font-size: 15px; font-weight: 700; }
 .cover-date { display: block; margin-top: 3px; font-size: 14px; color: #4a5256; }
+.cover-cta { display: block; margin-top: 10px; font-size: 14px; font-weight: 700; overflow-wrap: anywhere; }
+.cover-cta a { color: inherit; text-decoration-color: var(--brand); text-decoration-thickness: 2px; text-underline-offset: 3px; }
 .cover-seal { display: flex; align-items: center; gap: 12px; }
 .cover-seal-t { display: block; font-size: 14.5px; font-weight: 700; }
 .cover-seal-s { display: block; margin-top: 2px; font-size: 12.5px; color: #4a5256; }
