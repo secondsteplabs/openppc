@@ -24,7 +24,7 @@ const ICONS = {
 
 const state = {
   view: 'home', mode: 'check', engine: 'loading', meta: null, countRun: 0, files: [], queue: [], reading: [], busy: false,
-  template: null, count: 0,
+  template: null, count: 0, pair: null, pairRun: 0,
   saved: { check: null, audit: null },  // results stay put when you visit another page and come back
   lastAudit: null, autorun: false, wantIndustry: '',
 };
@@ -253,13 +253,40 @@ async function addBytes(name, bytes, sample = false) {
   renderFiles();
   refresh();
   updateCount();  // the export's row names change which numbers the check judges
+  updatePair();
 }
 function removeFile(path) {
   state.files = state.files.filter((f) => f.path !== path);
   syncThreshold();
   renderFiles();
+  updatePair();
   refresh();
   updateCount();
+}
+// account-read compares two periods: the last two report files, when they are the same report for two periods
+function reportFiles() { return goodFiles().filter((f) => /report$/i.test(f.info.kind || '')); }
+async function updatePair() {
+  const two = reportFiles().slice(-2);
+  if (state.pair && two.length === 2 && two.every((f, i) => f === state.pair.files[i])) return;
+  const run = ++state.pairRun;
+  let pair = null;
+  if (two.length === 2 && state.engine === 'ready') {
+    let res;
+    try {
+      res = JSON.parse(await engineCall('inspect_pair', JSON.stringify(two.map((f) => f.path))));
+    } catch (e) {
+      if (!(e instanceof Stopped)) throw e;
+      res = null;
+    }
+    if (run !== state.pairRun) return;
+    if (res) pair = { files: two, ok: res.ok, error: res.error, ordered: res.ok ? res.paths.map((p) => two.find((f) => f.path === p)) : [] };
+  }
+  state.pair = pair;
+  if (state.mode === 'audit') {
+    if (pair && pair.ok) state.template = 'account-read';  // a new pair of periods: comparing them is why it was added
+    else autoTemplate();
+  }
+  refresh();
 }
 // The waste threshold is in the export's currency and starts at that currency's default (about $20),
 // until the user types their own.
@@ -273,6 +300,13 @@ function goodFiles() { return state.files.filter((f) => f.info.ok); }
 function auditFile() {
   const good = goodFiles();
   return [...good].reverse().find((f) => f.info.templates.length) || good[good.length - 1] || null;
+}
+const pairOk = () => !!(state.pair && state.pair.ok && state.pair.ordered.every((f) => state.files.includes(f)));
+// What the chosen template reads: the audited file, or for account-read the pair, current period first. [] if neither.
+function auditFiles() {
+  const f = auditFile();
+  if (f && f.info.templates.includes(state.template)) return [f];
+  return state.template === 'account-read' && pairOk() ? state.pair.ordered : [];
 }
 function fileRow(f) {
   const info = f.info;
@@ -362,7 +396,8 @@ async function updateCount() {
 }
 function autoTemplate() {
   const f = auditFile();
-  const fits = f ? f.info.templates : [];
+  const fits = f ? [...f.info.templates] : [];
+  if (pairOk()) fits.push('account-read');
   if (!fits.includes(state.template)) state.template = fits[0] || state.template;
 }
 function renderTemplates() {
@@ -371,12 +406,17 @@ function renderTemplates() {
   const fits = f ? f.info.templates : [];
   const hadFocus = el.templates.contains(document.activeElement);
   const options = state.meta.templates.map((t) => {
-    const fit = fits.includes(t.name);
+    const own = fits.includes(t.name);
+    // a pair that can't be compared stays pickable, so Run can say why
+    const paired = !own && t.name === 'account-read' && !!state.pair;
+    const fit = own || (paired && pairOk());
+    const note = own ? 'Matches your file' : fit ? 'Matches your files'
+      : paired ? "Your last two exports can't be compared" : `Needs ${an(t.input)}`;
     return h('button', {
       type: 'button', role: 'radio', class: 'tpl', 'aria-checked': String(state.template === t.name), tabindex: '-1',
-      'data-name': t.name, disabled: f ? !fit : false, onclick: () => { state.template = t.name; refresh(); },
+      'data-name': t.name, disabled: f ? !(fit || paired) : false, onclick: () => { state.template = t.name; refresh(); },
     }, h('span', { class: 'tpl-t' }, t.title), h('span', { class: 'tpl-s' }, t.summary),
-    h('span', { class: 'tpl-f' + (fit ? ' fit' : '') }, fit ? 'Matches your file' : `Needs ${an(t.input)}`));
+    h('span', { class: 'tpl-f' + (fit ? ' fit' : '') }, note));
   });
   // a radio group is one tab stop, on the chosen option; arrow keys move the choice (moveTemplate)
   const current = options.find((o) => o.dataset.name === state.template && !o.disabled) || options.find((o) => !o.disabled);
@@ -403,8 +443,7 @@ function refresh() {
   } else {
     el.threshold.hidden = !['search-term-waste', 'keyword-audit'].includes(state.template);
     el.brandWrap.hidden = el.threshold.hidden;
-    const f = auditFile();
-    enabled = (ready || !!sampleResult()) && !!f && !!state.template && f.info.templates.includes(state.template);
+    enabled = (ready || !!sampleResult()) && auditFiles().length > 0;
     label = 'Run audit';
     renderTemplates();
   }
@@ -427,9 +466,11 @@ function whyNotYet(ready) {
     if (!ready && !sampleResult()) return waiting;
     return state.counting || state.count ? '' : 'There are no numbers in the audit to check.';
   }
-  const f = auditFile();
-  if (!f) return 'Add an export to audit.';
-  if (!state.template || !f.info.templates.includes(state.template)) return 'Pick a template marked "Matches your file".';
+  if (!auditFile()) return 'Add an export to audit.';
+  if (!auditFiles().length) {
+    return state.template === 'account-read' && state.pair && !state.pair.ok ? state.pair.error  // starts with a file name, kept as typed
+      : 'Pick a template marked "Matches your file".';
+  }
   return ready || sampleResult() ? '' : waiting;
 }
 function setMode(mode) {
@@ -469,8 +510,8 @@ function showResults(nodes, page) {
 async function run() {
   if (state.busy) return;
   state.busy = true;
-  const f = state.mode === 'audit' ? auditFile() : null;
-  const rows = f && /report$/i.test(f.info.kind || '') ? f.info.rows : 0;
+  const files = state.mode === 'audit' ? auditFiles() : [];
+  const rows = files.reduce((n, f) => n + (/report$/i.test(f.info.kind || '') ? f.info.rows : 0), 0);
   el.run.disabled = true;
   el.run.replaceChildren(state.mode === 'check' ? `Checking ${plural(state.count, 'number')}…`
     : rows ? `Auditing ${plural(rows, 'row')}…` : 'Running the audit…');
@@ -762,7 +803,8 @@ function reportNode(md) {
   return node;
 }
 async function runAudit() {
-  const file = auditFile();
+  const files = auditFiles();
+  const [file, prior] = files;
   const template = state.meta.templates.find((t) => t.name === state.template);
   const industry = el.industry.value;
   const minCost = parseFloat(el.minCost.value);
@@ -771,17 +813,19 @@ async function runAudit() {
   const pre = sampleResult();
   const t0 = performance.now();
   const res = pre ? structuredClone(pre)
-    : JSON.parse(await engineCall('audit', template.name, file.path, industry, Number.isFinite(minCost) ? minCost : null, brand));
+    : JSON.parse(await engineCall('audit', template.name, file.path, industry, Number.isFinite(minCost) ? minCost : null, brand,
+      prior ? prior.path : ''));
   const ms = performance.now() - t0;
   if (!res.ok) { toast(capital(res.error)); return; }
   const cards = res.cards && res.cards.template === 'search-term-waste' ? res.cards : null;
-  state.lastAudit = { res, cards, client: res.client, token: res.token, fingerprint: res.fingerprint, template,
-    file: { name: file.name, info: file.info }, at: new Date() };
+  state.lastAudit = { res, cards, client: res.client, token: res.token, fingerprints: [res.fingerprint, res.prior_fingerprint], template,
+    file: { name: file.name, info: file.info }, files: files.map((f) => ({ name: f.name, info: f.info })), at: new Date() };
   const badge = res.passed
     ? h('span', { class: 'badge badge-ok' }, icon('check', 13, 3), 'Every number traced to your file')
     : h('span', { class: 'badge badge-bad' }, icon('alert', 13), 'Number check failed');
   const head = h('div', { class: 'rep-head' },
-    h('div', { class: 'stack', style: 'gap:8px' }, h('h2', { class: 'rep-title' }, template.title), h('span', { class: 'hint' }, `${file.name} · ${describe(file.info)}`), badge),
+    h('div', { class: 'stack', style: 'gap:8px' }, h('h2', { class: 'rep-title' }, template.title),
+      files.map((f) => h('span', { class: 'hint' }, `${f.name} · ${describe(f.info)}`)), badge),
     h('div', { class: 'actions' },
       h('button', { class: 'btn', type: 'button', onclick: () => copyText(res.markdown, 'Report copied as markdown') }, icon('copy'), 'Copy'),
       h('button', { class: 'btn btn-dark', type: 'button', onclick: () => download(`openppc-${template.name}.md`, res.markdown) }, icon('download'), 'Download .md')));
@@ -793,7 +837,7 @@ async function runAudit() {
         reportNode(res.markdown))]
     : [h('div', { class: 'card' }, head, reportNode(res.markdown))];
   const left = h('div', { class: 'col' },
-    bubble([file], industry, `Run the ${template.title.toLowerCase()}`,
+    bubble(files, industry, `Run the ${template.title.toLowerCase()}`,
       [!el.threshold.hidden && minCost >= 0 ? `Waste threshold ${el.minCostSign.textContent}${minCost.toLocaleString('en-US')}` : 'Free template',
         brand ? `Brand: ${brand}` : ''].filter(Boolean).join(' · ')),
     h('div', { class: 'col', style: 'gap:10px' }, who(pre ? `${template.title} · the sample, run in advance` : `${template.title} · ${secs(ms)} · on this device`), blocks[0]),
@@ -803,7 +847,7 @@ async function runAudit() {
       h('b', {}, 'Every number in this report traces back to your data.'),
       h('span', {}, 'The report went through the same checker that judges AI audits, before you saw it.'))
     : h('div', { class: 'redbox' }, h('b', {}, 'This report failed its own number check.'), 'That is a bug in OpenPPC. Please report it with the export that caused it.');
-  const right = h('div', { class: 'side' }, checkCard, sourcesCard([file], industry),
+  const right = h('div', { class: 'side' }, checkCard, sourcesCard(files, industry),
     h('div', { class: 'card pad stack' }, h('span', { class: 'card-title' }, 'Send it to a client'),
       h('p', { class: 'small' }, 'Put your logo and colors on this report and save it as a PDF. The numbers stay checked.'),
       h('a', { class: 'btn', href: '#branded' }, icon('print'), 'Make the branded PDF')),
@@ -986,15 +1030,22 @@ function pdfModel(a) {
     else if (node.tagName === 'TABLE') blocks.push({ type: 'htmltable', node });
     else blocks.push({ type: 'html', node });
   }
-  const period = fullPeriod(info.start, info.end);
-  let data = `One export from Google Ads: \`${a.file.name}\`, the ${info.kind.toLowerCase()}`;
-  if (period) data += ` for ${period}${info.days ? ` (${info.days} days)` : ''}`;
-  data += `${info.currency ? `, in ${info.currency}` : ''}. Nothing in the Google Ads account was changed: this report only reads the export.`;
+  const pair = a.files.length > 1;
+  const when = (f) => {
+    const period = fullPeriod(f.info.start, f.info.end);
+    return period ? ` for ${period}${f.info.days ? ` (${f.info.days} days)` : ''}` : '';
+  };
+  let data = pair
+    ? `Two exports of the ${info.kind.toLowerCase()} from Google Ads, one per period: ${a.files.map((f) => `\`${f.name}\`${when(f)}`).join(' and ')}`
+    : `One export from Google Ads: \`${a.file.name}\`, the ${info.kind.toLowerCase()}${when(a.file)}`;
+  data += `${info.currency ? `, in ${info.currency}` : ''}. Nothing in the Google Ads account was changed: this report only reads the export${pair ? 's' : ''}.`;
   const method = [{ type: 'h2', text: 'The data' }, { type: 'p', text: data }];
-  if (a.fingerprint) method.push({ type: 'fingerprint', value: a.fingerprint });
-  method.push({ type: 'check', file: a.file.name });
+  a.files.forEach((f, i) => {
+    if (a.fingerprints[i]) method.push({ type: 'fingerprint', value: a.fingerprints[i], name: pair ? f.name : null });
+  });
+  method.push({ type: 'check', files: a.files.map((f) => f.name) });
   return { title: a.template.title, period: compactPeriod(info.start, info.end), month: monthLabel(info.start, info.end),
-    file: a.file.name, headline: null,
+    file: a.files.map((f) => f.name).join(' and '), headline: null,
     sections: [{ id: 'found', title: 'What we found', blocks }, { id: 'method', title: 'How this report was made', blocks: method }] };
 }
 
@@ -1062,12 +1113,13 @@ function renderBlock(b) {
       h('div', {}, h('h3', {}, b.name), h('span', { class: `pdf-tag ${b.better ? 't-grow' : 't-watch'}` }, b.read)),
       h('div', {}, cmpRow('Yours', b.yours, b.yours_width, true), cmpRow('Industry average', b.average, b.average_width, false)));
     case 'list': return h('ul', { class: 'pdf-list' }, b.items.map((t) => h('li', {}, codeText(t))));
-    case 'fingerprint': return h('div', { class: 'pdf-print' }, h('span', { class: 'pdf-print-t' }, 'Fingerprint of the file'), h('code', {}, `sha256 ${b.value}`));
-    case 'check': return h('section', { class: 'pdf-check', 'data-nocheck': '' }, seal(44), h('div', {},
-      h('h3', {}, 'Every number in this report traces back to the export.'),
+    case 'fingerprint': return h('div', { class: 'pdf-print' },
+      h('span', { class: 'pdf-print-t' }, b.name ? ['Fingerprint of ', h('code', {}, b.name)] : 'Fingerprint of the file'), h('code', {}, `sha256 ${b.value}`));
+    case 'check': { const files = b.files || [b.file]; const many = files.length > 1; return h('section', { class: 'pdf-check', 'data-nocheck': '' }, seal(44), h('div', {},
+      h('h3', {}, `Every number in this report traces back to the export${many ? 's' : ''}.`),
       h('p', {}, 'Before this PDF was made, OpenPPC checked all ', h('span', { class: 'pdf-check-n' }, '000'), ' numbers in it against ',
-        h('code', {}, b.file), '. Code computed every figure; no AI model wrote a number.'),
-      h('p', { class: 'pdf-check-s' }, 'Run OpenPPC on the same file and you get the same numbers.')));
+        files.map((n, i) => [i ? ' and ' : null, h('code', {}, n)]), '. Code computed every figure; no AI model wrote a number.'),
+      h('p', { class: 'pdf-check-s' }, `Run OpenPPC on the same file${many ? 's' : ''} and you get the same numbers.`))); }
     case 'html': { const node = b.node.cloneNode(true); node.classList.add('pdf-html'); return node; }
     default: return null;
   }
@@ -1288,7 +1340,7 @@ async function relayout() {
   } else {
     pdf.ready = true;
     pdf.status.className = 'pdf-status ok';
-    pdf.status.replaceChildren(h('b', {}, `${pages}, ${plural(res.total, 'number')} checked, all traced to ${pdf.audit.file.name}.`),
+    pdf.status.replaceChildren(h('b', {}, `${pages}, ${plural(res.total, 'number')} checked, all traced to ${pdf.model.file}.`),
       'Each page saves exactly as shown. Nothing is cut: what does not fit moves to the next page.');
   }
   if (pdf.save) pdf.save.disabled = !pdf.ready;

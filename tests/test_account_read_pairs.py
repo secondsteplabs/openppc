@@ -1,12 +1,14 @@
 """account-read on two exports of one report, one per period."""
+import json
 from pathlib import Path
 
 import pytest
 
-from openppc import cli, mcp_server
+from openppc import cli, mcp_server, webapi
 from openppc.checkfacts import facts_for_paths
 from openppc.engine.trace import trace
 from openppc.templates import run_template
+from openppc.templates._common import fingerprint
 
 ROOT = Path(__file__).resolve().parent.parent
 EXAMPLES, FIXTURES = ROOT / "examples", ROOT / "tests" / "fixtures"
@@ -95,3 +97,21 @@ def test_the_mcp_tools_take_the_prior_period():
     web = mcp_server.audit_export("account-read", JULY.read_text(encoding="utf-8"), "export.csv",
                                   prior_text=JUNE.read_text(encoding="utf-8"), prior_name="export.csv")
     assert "EFFICIENCY GAIN" in local and _section(local) == _section(web)
+
+
+def test_the_web_app_pairs_two_exports_current_first_and_says_why_two_do_not_pair():
+    assert json.loads(webapi.inspect_pair(json.dumps([str(JUNE), str(JULY)]))) == {
+        "ok": True, "paths": [str(JULY), str(JUNE)]}
+    keywords = str(EXAMPLES / "keywords_acme.csv")
+    assert json.loads(webapi.inspect_pair(json.dumps([str(JULY), keywords]))) == {
+        "ok": False, "error": "search_terms_acme.csv and keywords_acme.csv are different reports. Compare two exports "
+                              "of the same report."}
+
+    res = json.loads(webapi.audit("account-read", str(JULY), "", None, "", str(JUNE)))
+    assert res["ok"] and res["passed"]
+    assert _section(res["markdown"]) == _section(run_template("account-read", [JULY, JUNE])[0])
+    assert res["fingerprint"] == fingerprint(str(JULY)) and res["prior_fingerprint"] == fingerprint(str(JUNE))
+    assert json.loads(webapi.audit("account-read", str(JULY), "", None, "", keywords))["error"].endswith(
+        "are different reports. Compare two exports of the same report.")
+    assert json.loads(webapi.audit("search-term-waste", str(JULY), "", None, "", str(JUNE)))["error"] == (
+        "search-term-waste reads one file. To compare two periods, use account-read.")

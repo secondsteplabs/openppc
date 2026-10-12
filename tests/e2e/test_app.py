@@ -3,6 +3,7 @@ example export, the branded PDF, Stop on a big export, accessibility, and the ph
 
 These pin the app as it is (0.1.11). When a change to the app breaks one, the test or the app is wrong; decide which.
 """
+import re
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
@@ -123,6 +124,7 @@ def test_the_sample_audit_exports_negatives_and_makes_the_branded_pdf(app, tmp_p
     ("search-term-waste", "search_terms_acme.csv"),
     ("keyword-audit", "keywords_acme.csv"),
     ("account-structure", "account_structure_acme.json"),
+    ("account-structure", "editor_acme.csv"),
     ("account-read", "account_acme.json"),
 ])
 def test_each_template_runs_on_its_example_in_the_browser(app, name, export):
@@ -135,6 +137,38 @@ def test_each_template_runs_on_its_example_in_the_browser(app, name, export):
     expect(app.locator(".badge-ok")).to_be_visible(timeout=RUN)
     expect(app.locator("h2.rep-title")).to_have_text(title)
     expect(app.locator(".who").filter(has_text="on this device")).to_be_visible()
+
+
+def test_two_exports_of_one_report_pick_account_read_and_make_the_branded_pdf(app):
+    app.locator("#file-input").set_input_files([str(EXAMPLES / "search_terms_acme_june.csv"),
+                                                str(EXAMPLES / "search_terms_acme.csv")])
+    expect(app.locator(".file-name")).to_have_count(2, timeout=RUN)
+    chosen = app.locator('#templates [role="radio"][aria-checked="true"]')
+    expect(chosen).to_contain_text(TEMPLATES["account-read"].TITLE, timeout=RUN)
+    expect(chosen).to_contain_text("Matches your files")
+    expect(app.locator("#run-btn")).to_be_enabled()
+    app.locator("#run-btn").click()
+    expect(app.locator(".badge-ok")).to_be_visible(timeout=RUN)
+    expect(app.locator(".report")).to_contain_text(
+        "search_terms_acme.csv (current) and search_terms_acme_june.csv (prior)")
+
+    app.get_by_role("link", name="Make the branded PDF").click()
+    expect(app.locator(".pdf-status.ok")).to_contain_text(
+        "all traced to search_terms_acme.csv and search_terms_acme_june.csv", timeout=RUN)
+    expect(app.locator("#pdf-pages")).to_contain_text("Fingerprint of search_terms_acme_june.csv")
+
+
+def test_two_exports_that_do_not_pair_say_why_under_run(app):
+    app.locator("#file-input").set_input_files([str(EXAMPLES / "search_terms_acme.csv"),
+                                                str(EXAMPLES / "keywords_acme.csv")])
+    expect(app.locator(".file-name")).to_have_count(2, timeout=RUN)
+    option = app.locator('#templates [data-name="account-read"]')
+    expect(option).to_contain_text("Your last two exports can't be compared", timeout=RUN)
+    expect(app.locator("#run-btn")).to_be_enabled()  # the newest file's own template stays picked
+    option.click()
+    expect(app.locator("#run-btn")).to_be_disabled()
+    expect(app.locator("#run-hint")).to_have_text(
+        re.compile(r"\.csv are different reports\. Compare two exports of the same report\.$"))
 
 
 def test_a_greyed_out_run_button_says_why(app):

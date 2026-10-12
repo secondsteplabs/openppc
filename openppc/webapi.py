@@ -128,6 +128,21 @@ def _taken(path):
     return _report(path, keep=False)
 
 
+def _pair(paths):
+    """Two report files as account-read's two periods. ValueError says why they can't be compared."""
+    return account_read.from_periods([account_read.period_of(_report(p)) for p in paths])
+
+
+def inspect_pair(paths_json):
+    """Whether two report files can be compared as two periods, and which is the current one (listed first)."""
+    paths = json.loads(paths_json)
+    try:
+        data = _pair(paths)
+    except READ_ERRORS as e:
+        return _json({"ok": False, "error": _clean(e, paths)})
+    return _json({"ok": True, "paths": [data["source"], data["prior_source"]]})
+
+
 def _export_facts(paths):
     key = tuple(_key(p) for p in paths)
     if key not in _EXPORT_FACTS:
@@ -174,31 +189,38 @@ def check(text, paths_json, industry=""):
                   "markdown": render_check(claims, contradictions)})
 
 
-def audit(name, path, industry="", min_cost=None, brand=""):
-    """Run a template on a file. The report has already passed its own number check when passed is true."""
+def audit(name, path, industry="", min_cost=None, brand="", prior=""):
+    """Run a template on a file, or account-read on two exports (prior: the other period's file). The report has
+    already passed its own number check when passed is true."""
     template = TEMPLATES.get(name)
     if template is None:
         return _json({"ok": False, "error": f"unknown template '{name}'"})
+    paths = [path, prior] if prior else [path]
     wrong = _json({"ok": False, "error": f"{os.path.basename(path)} is not a {template.INPUT}."})
-    _step("Reading the file")
+    _step("Reading the files" if prior else "Reading the file")
     try:
-        data = _report(path) if template.INPUT_KIND == "report" else load_input(template, path)
-    except READ_ERRORS:
-        return wrong
+        if prior and template.INPUT_KIND == "metrics":
+            data = _pair(paths)
+        elif template.INPUT_KIND == "report" and not prior:
+            data = _report(path)
+        else:
+            data = load_input(template, paths)
+    except READ_ERRORS as e:
+        return _json({"ok": False, "error": _clean(e, paths)}) if prior else wrong
     if not template.accepts(data):
         return wrong
     try:
         markdown, book, passed = run_template_book(name, path, data, progress=_step, industry=industry or None,
                                                    min_cost=min_cost, brand=brand or None)
     except READ_ERRORS as e:
-        return _json({"ok": False, "error": _clean(e, [path])})
+        return _json({"ok": False, "error": _clean(e, paths)})
     token = f"audit-{next(_TOKENS)}"
     _BOOKS[token] = book
     while len(_BOOKS) > KEEP_AUDITS:
         _BOOKS.pop(next(iter(_BOOKS)))
     return _json({"ok": True, "title": template.TITLE, "markdown": markdown, "passed": passed,
                   "facts": len(book.facts), "cards": book.cards, "client": book.client or None, "token": token,
-                  "fingerprint": fingerprint(path)})
+                  "fingerprint": fingerprint(path), "prior_fingerprint": fingerprint(prior) if prior else None})
 
 
 def verify(token, text, names_json="[]"):
