@@ -26,6 +26,10 @@ site/pages/articles/index.html
   title: Articles: Google Ads audits, checked · OpenPPC
   description: Research and guides on Google Ads audits: how accurate AI-written audits are, how to check an audit's numbers, and how to tell wasted spend from bad luck.
   h1: Google Ads audits, checked
+site/pages/docs/command-line.html
+  title: OpenPPC command line and CI: formats, GitHub Action, Docker
+  description: Run OpenPPC from scripts and CI: HTML, JSON and SARIF output, exit codes, a GitHub Action that fails the build on a wrong number, and Docker images.
+  h1: Command line and CI
 site/pages/docs/index.html
   title: OpenPPC docs: install and use the free Google Ads auditor
   description: How to install and use OpenPPC, the free Google Ads auditor: in your browser with nothing to install, from the command line, or in Claude, Cursor and ChatGPT.

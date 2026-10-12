@@ -55,6 +55,7 @@ OpenPPC does two things. It checks any audit (from ChatGPT, Claude, an agency or
 - [The app]({ORIGIN}/app/): runs in the browser, no sign-up
 - [Install and quick start]({ORIGIN}/docs/install/): browser, command line, self-hosting
 - [Claude, Cursor and ChatGPT]({ORIGIN}/docs/install/#ai): MCP server on your computer (`uvx --from "openppc[mcp]" openppc-mcp`), or a web connector you run with `openppc-mcp --http` (a hosted one is coming soon)
+- [Command line and CI]({ORIGIN}/docs/command-line/): HTML, JSON and SARIF output, exit codes, a GitHub Action that fails the build when an audit has a wrong number, Docker images
 - [Source code]({GITHUB}): MIT license
 
 ## Articles

@@ -4,6 +4,31 @@ OpenPPC follows [semantic versioning](https://semver.org) for 0.x releases: a pa
 behaviour that [docs/compatibility.md](docs/compatibility.md) lists, except to fix a wrong number. A minor release
 (0.x.0) may, and only with an entry under **Breaking** that says what changed and what to do.
 
+## Unreleased (0.3.0)
+
+### Added
+
+- **HTML and JSON output.** `openppc audit` and `openppc check` take `--format html` (one page that opens in any
+  browser and loads nothing) or `--format json` (the report, whether it passed, and every fact, with a
+  `format_version` and a JSON Schema in `openppc/schemas/`). The app renders HTML with the same code.
+- **The app downloads any audit as .html or .json**, from a line under the report's header.
+- **A call to action on the branded PDF's cover**: one line, and a link that works only if it starts with `https:`,
+  `mailto:` or `tel:`.
+- **`check --format sarif`**, for GitHub code scanning: each wrong number, wrong label, contradiction or figure that
+  can't be checked at its line in the audit.
+- **A GitHub Action** (`action.yml`) that fails the job when an audit has numbers that don't trace back to its
+  exports, writes the check to the job summary, and can write SARIF. It installs OpenPPC from its own commit.
+- **Docker images**: the command line (`docker build .`, with no MCP SDK) and the MCP server (`--target mcp`), both
+  running as an ordinary user. CI runs them with `--network none`.
+- **A stable, typed Python API** (ADR-2): `FactBook`, `trace`, `load_report`, `run_template` and the `Template`
+  protocol carry type hints, and `py.typed` ships. mypy checks them in CI.
+- A "Command line and CI" page on the website.
+
+### Changed
+
+- The web app's `check` returns `passed`, as the command line's exit code says.
+- The app's bundle leaves out the command line and the MCP server, which it never runs.
+
 ## Unreleased (0.2.0)
 
 ### Breaking

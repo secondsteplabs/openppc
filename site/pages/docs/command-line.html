@@ -1,0 +1,87 @@
+<!--
+title: OpenPPC command line and CI: formats, GitHub Action, Docker
+description: Run OpenPPC from scripts and CI: HTML, JSON and SARIF output, exit codes, a GitHub Action that fails the build on a wrong number, and Docker images.
+crumb: Command line and CI
+-->
+<div class="wrap doc">
+  <nav class="doc-nav" aria-label="On this page">
+    <a href="#formats">Formats</a>
+    <a href="#exit-codes">Exit codes</a>
+    <a href="#action">GitHub Action</a>
+    <a class="sub" href="#code-scanning">Code scanning</a>
+    <a href="#docker">Docker</a>
+    <a href="#python">From Python</a>
+  </nav>
+  <article class="doc-body">
+    <span class="label">Docs</span>
+    <h1>Command line and CI</h1>
+    <p class="doc-lead">The command line runs the same engine as the app, with no network calls. Its output and exit codes are stable, so scripts and CI jobs can rely on them. Start with the <a href="/docs/install/#computer">install guide</a> if you haven't installed it yet.</p>
+
+    <h2 id="formats">Formats</h2>
+    <p>Reports and checks print as markdown. <code>--format</code> picks another format, and <code>--out</code> writes it to a file:</p>
+    <pre class="code" tabindex="0"><span class="p">$ </span>openppc audit search-term-waste exports/search_terms.csv --format html --out waste.html
+<span class="p">$ </span>openppc audit keyword-audit exports/keywords.csv --format json --out keywords.json
+<span class="p">$ </span>openppc check --audit their-audit.md --data exports/search_terms.csv --format sarif --out check.sarif</pre>
+    <ul>
+      <li><b>md</b>, the default: the report as you see it in the app.</li>
+      <li><b>html</b>: one page that opens in any browser, even offline. It loads nothing from anywhere.</li>
+      <li><b>json</b>, for scripts: the report, whether it passed its own number check, and every fact behind it. Each file says its <code>format_version</code>, which changes only when a reader would break. The schemas are in <a href="https://github.com/secondsteplabs/openppc/tree/main/openppc/schemas">openppc/schemas</a>.</li>
+      <li><b>sarif</b>, for <code>check</code> only: each problem at its line in the audit, for GitHub code scanning and other CI tools.</li>
+    </ul>
+    <p>The app downloads any audit as .html or .json too, from the line under the report's header.</p>
+
+    <h2 id="exit-codes">Exit codes</h2>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr><th>Code</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td>0</td><td>The audit ran, or the check found nothing wrong.</td></tr>
+          <tr><td>1</td><td>Bad input: a missing or unreadable file, the wrong export, or a mistyped command.</td></tr>
+          <tr><td>2</td><td>The check found a wrong number, a wrong label or a contradiction.</td></tr>
+          <tr><td>3</td><td>A bug in OpenPPC. Please <a href="https://github.com/secondsteplabs/openppc/issues">report it</a>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>A number that can't be checked, like a target or a forecast, is never held against an audit, so it doesn't change the exit code.</p>
+
+    <h2 id="action">Fail the build when an audit invents a number</h2>
+    <p>If your team keeps audits in a repository, the OpenPPC GitHub Action checks each one against the exports it was written from. The job fails when a number doesn't hold up, and the full check appears in the job's summary.</p>
+    <pre class="code" tabindex="0">- uses: secondsteplabs/openppc@&lt;commit&gt;  <span class="c"># pin a release's full commit SHA</span>
+  with:
+    audit: audits/july.md
+    data: |
+      exports/search_terms_july.csv
+      exports/keywords_july.csv
+    industry: home-services  <span class="c"># optional</span></pre>
+    <p>The action installs OpenPPC from the same commit, so pinning the action pins the checker too. Keep client exports in a private repository.</p>
+
+    <h3 id="code-scanning">Show problems on the audit's lines</h3>
+    <p>Add <code>sarif</code> and upload the file, and each wrong number appears as a code scanning alert at its line in the audit. The job needs <code>security-events: write</code>.</p>
+    <pre class="code" tabindex="0">- uses: secondsteplabs/openppc@&lt;commit&gt;
+  with:
+    audit: audits/july.md
+    data: exports/search_terms_july.csv
+    sarif: openppc.sarif
+- if: always() &amp;&amp; hashFiles('openppc.sarif') != ''
+  uses: github/codeql-action/upload-sarif@&lt;commit&gt;
+  with:
+    sarif_file: openppc.sarif</pre>
+
+    <h2 id="docker">Docker</h2>
+    <p>The Dockerfile builds two images. The command line image has no MCP library, and both run as an ordinary user. Build them in a clone of the repository:</p>
+    <pre class="code" tabindex="0"><span class="p">$ </span>docker build -t openppc .
+<span class="p">$ </span>docker run --rm --network none -v "$PWD/exports:/data:ro" openppc audit search-term-waste search_terms.csv
+<span class="p">$ </span>docker build --target mcp -t openppc-mcp .
+<span class="p">$ </span>docker run --rm -p 8000:8000 openppc-mcp --http --host 0.0.0.0 --port 8000</pre>
+    <p>The command line needs no network, so <code>--network none</code> costs nothing. Mount your exports read-only at <code>/data</code>.</p>
+
+    <h2 id="python">From Python</h2>
+    <p>Five names are the stable API: <code>FactBook</code>, <code>trace</code>, <code>load_report</code>, <code>run_template</code> and the <code>Template</code> protocol. They carry type hints, and a change that breaks one is listed under Breaking in the changelog.</p>
+    <pre class="code" tabindex="0">from openppc.engine.trace import trace
+from openppc.templates import run_template
+
+markdown, facts, passed = run_template("search-term-waste", "exports/search_terms.csv")
+claims, contradictions = trace(markdown, facts)  <span class="c"># each number, and the fact it traced to</span></pre>
+    <p>The full list of what stays stable between releases is in <a href="https://github.com/secondsteplabs/openppc/blob/main/docs/compatibility.md">docs/compatibility.md</a>.</p>
+  </article>
+</div>

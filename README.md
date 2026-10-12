@@ -77,9 +77,9 @@ python3 -m http.server 8765 --directory web
 What it has:
 
 - **Check**: paste any AI's audit next to the export it was written from, and see each number marked traced, wrong number or wrong label.
-- **Audit**: run a free template on your export. The search-term waste audit comes back as cards: the headline numbers, what to do, and the wasted terms with the chance each one is bad, ready to copy as exact-match negatives or download as a .csv.
+- **Audit**: run a free template on your export. The search-term waste audit comes back as cards: the headline numbers, what to do, and the wasted terms with the chance each one is bad, ready to copy as exact-match negatives or download as a .csv. Any audit downloads as .html, a page to open or send, or as .json for your own tools.
 - **Templates**: every free template, with a link to its code.
-- **Branded PDF**: a client-ready report under your agency's name, logo and brand color: a cover with the headline, then what we found, what we recommend, how the account compares with its industry, and how the report was made (the export's name, dates and SHA-256 fingerprint). Pages are laid out at Letter or A4 size exactly as they print: a block that does not fit moves to the next page, and long tables continue there under their own header, so nothing is cut. Before you can save, the checker reads the text of every page and confirms each number traces to the export. Save it from the browser's print dialog (Chrome and Edge keep the layout exactly). The logo stays in the browser.
+- **Branded PDF**: a client-ready report under your agency's name, logo and brand color: a cover with the headline and an optional call to action (a line, and a link to a https:, mailto: or tel: address), then what we found, what we recommend, how the account compares with its industry, and how the report was made (the export's name, dates and SHA-256 fingerprint). Pages are laid out at Letter or A4 size exactly as they print: a block that does not fit moves to the next page, and long tables continue there under their own header, so nothing is cut. Before you can save, the checker reads the text of every page and confirms each number traces to the export. Save it from the browser's print dialog (Chrome and Edge keep the layout exactly). The logo stays in the browser.
 - **Rules** (coming soon): turn a rulebook rule into a Google Ads Script you install yourself. Nothing is built for it yet.
 
 The first visit downloads about 6 MB of runtime, which your browser then keeps. After changing anything in `openppc/` or `examples/`, rebuild the bundle the page loads (a test fails if you forget):
@@ -145,6 +145,20 @@ openppc-mcp --http --host 0.0.0.0 --port 8000
 Put it behind HTTPS and add `https://your-host/mcp` in ChatGPT (Developer mode) or claude.ai (Connectors). A hosted connector at `https://mcp.openppc.si/mcp` is coming soon. The connector's tools take the export's contents instead of a path, work in a temporary folder that is deleted when the call ends, and keep nothing. To keep an export on your computer while using ChatGPT, run OpenPPC locally and connect it through OpenAI's Secure MCP Tunnel.
 
 Every tool is read-only: `list_templates` everywhere; `audit_account` and `check_numbers` on your computer; `audit_export` and `check_audit` on the connector. From a clone, `uv pip install -e ".[mcp]"` and then `claude mcp add openppc -- openppc-mcp`.
+
+## In scripts, CI and Docker
+
+`--format html`, `json` or (for `check`) `sarif` writes a report or check in another format. JSON carries a `format_version`, with its schemas in `openppc/schemas/`. `check` exits 2 when an audit has a wrong number, a wrong label or a contradiction, so the GitHub Action in this repository can fail a build on one:
+
+```yaml
+- uses: secondsteplabs/openppc@<commit>   # a release's full commit SHA
+  with:
+    audit: audits/july.md
+    data: exports/search_terms_july.csv
+    sarif: openppc.sarif                   # optional: each problem at its line, for code scanning
+```
+
+The Dockerfile builds the command line (`docker build -t openppc .`) and the MCP server (`--target mcp`); the command line image runs with `--network none`. From Python, `run_template`, `trace`, `load_report`, `FactBook` and the `Template` protocol are the typed, stable API. All of it is on the [Command line and CI](https://openppc.si/docs/command-line/) page, and what stays stable between releases is in [docs/compatibility.md](https://github.com/secondsteplabs/openppc/blob/main/docs/compatibility.md).
 
 ## How it works
 

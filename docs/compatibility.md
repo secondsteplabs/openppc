@@ -22,6 +22,30 @@ Everything here stays as it is in a patch release. A minor release may change it
 - `--debug`, before or after the command, prints the traceback of a crash (since 0.1.12)
 - Templates: `search-term-waste`, `keyword-audit`, `account-structure`, `account-read`
 - `--min-cost` must be an amount of zero or more; unset, it is the default in the export's currency.
+- `--format` on `audit` (`md`, `html`, `json`) and `check` (`md`, `html`, `json`, `sarif`); `md` is the default
+  (since 0.3.0). The exit code is the same in every format.
+  - `json` matches `openppc/schemas/audit-report.schema.json` or `check-report.schema.json`. `format_version` (now
+    1) goes up only for a change that breaks a reader; a new key keeps it.
+  - `html` is one page that loads nothing from anywhere, with no date or version in it.
+  - `sarif` is SARIF 2.1.0 with the rules `wrong-number`, `wrong-label`, `contradiction` (errors) and `cant-check`
+    (a note), each result at its line in the audit.
+
+## GitHub Action (`action.yml`)
+
+- Inputs: `audit`, `data` (one path per line), `industry`, `sarif`, `python-version` (since 0.3.0).
+- The step exits with `openppc check`'s code, writes the check to the job summary, and writes `sarif` only when
+  the check ran (exit 0 or 2).
+
+## Docker
+
+- `docker build .` makes the command line image (entrypoint `openppc`, no MCP SDK); `--target mcp` makes the MCP
+  server image (entrypoint `openppc-mcp`, port 8000). Both run as uid 10001 in `/data` (since 0.3.0).
+
+## Python API (ADR-2)
+
+- `openppc.facts.FactBook`, `openppc.engine.trace.trace`, `openppc.ingest.load_report`,
+  `openppc.templates.run_template` and the `openppc.templates.Template` protocol, typed, with `py.typed` (since
+  0.3.0).
 
 ## MCP tools
 
@@ -45,12 +69,17 @@ All are read-only and return markdown.
   - `inspect_pair(paths_json)`: for two report files, `paths` with the current period first; on failure `error`
     says why they can't be compared (since 0.2.0)
   - `count_numbers(text, paths_json)`: a number
-  - `check(text, paths_json, industry)`: `counts` (`total`, `traced`, `mismatch`, `not_in_data`, `cant_check`,
-    `contradictions`), `claims`, `contradictions`, `markdown`
+  - `check(text, paths_json, industry)`: `passed`, `counts` (`total`, `traced`, `mismatch`, `not_in_data`,
+    `cant_check`, `contradictions`), `claims`, `contradictions`, `markdown` (`passed` since 0.3.0)
   - `audit(name, path, industry, min_cost, brand, prior)`: `title`, `markdown`, `passed`, `facts`, `cards`,
     `client`, `token`, `fingerprint`, and `prior_fingerprint` when `prior` names the other period's export (since
     0.2.0)
   - `verify(token, text, names_json)`: `total`, `traced`, `problems`
+  - `export(token, fmt)`: `text`, the audit as `openppc audit --format html` or `json` writes it (since 0.3.0)
+- The branded PDF settings saved in the browser add `ctaText` and `ctaUrl`; the link is used only when it starts
+  with `https:`, `mailto:` or `tel:` (since 0.3.0).
+- The app's bundle lists its modules in `tools/build_web.py`; `openppc/cli.py`, `openppc/mcp_server.py` and
+  `openppc/__main__.py` are not in it (since 0.3.0).
 
 ## Input handling
 
