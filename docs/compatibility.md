@@ -14,7 +14,9 @@ Everything here stays as it is in a patch release. A minor release may change it
 
 ## CLI
 
-- `openppc templates`, `openppc industries`, `openppc --version`
+- `openppc templates`, `openppc industries`, `openppc --version`; these, `audit` and `check` are its only commands,
+  and none goes online. `openppc app`, `openppc fetch` and `openppc site` exit 1 and name the optional companion,
+  `openppc-online`, which has its own command (since 0.4.0)
 - `openppc audit <template> [data...] [--sample] [--industry KEY] [--min-cost AMOUNT] [--brand NAMES] [--out FILE]`:
   one file, or for `account-read` two exports of one report, one per period (since 0.2.0)
 - `openppc check [--audit FILE] [--data FILE...]... [--sample] [--industry KEY] [--out FILE]`: `--data` takes one

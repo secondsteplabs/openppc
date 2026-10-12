@@ -4,6 +4,20 @@ OpenPPC follows [semantic versioning](https://semver.org) for 0.x releases: a pa
 behaviour that [docs/compatibility.md](docs/compatibility.md) lists, except to fix a wrong number. A minor release
 (0.x.0) may, and only with an entry under **Breaking** that says what changed and what to do.
 
+## Unreleased (0.4.0)
+
+### Added
+
+- **The optional companion, `openppc-online`**, a separate package in `companion/` with its own command, for the
+  jobs that need the network. Its first version, 0.1.0, opens the app from your computer
+  (`openppc-online app`), on 127.0.0.1 only. Installing `openppc` never installs it, and `openppc` never calls it
+  ([GOVERNANCE.md](GOVERNANCE.md), pledges 6 to 9).
+
+### Changed
+
+- `openppc app`, `openppc fetch` and `openppc site` say they are not commands, because OpenPPC never goes online,
+  and name the companion that has (or will have) them. They exit 1, as any unknown command does.
+
 ## Unreleased (0.3.1)
 
 ### Added
