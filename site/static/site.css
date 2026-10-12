@@ -3,7 +3,7 @@
 @font-face { font-family: "Geist Mono"; src: url("/fonts/geist-mono-latin.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
 
 :root {
-  --ink: #11181c; --ink2: #26312f; --ink3: #33403d; --muted: #5b6468; --faint: #6b7378;
+  --ink: #11181c; --ink2: #26312f; --ink3: #33403d; --muted: #5b6468; --faint: #666e73;
   --line: #e3e7e5; --line2: #eceeef; --ground: #fbfcfb; --soft: #f4f6f5; --card: #ffffff;
   --accent: #4b32c3; --accent-ink: #36239a; --accent-tint: #efecfb; --accent-soft: #c9c1ff;
   --ok: #1f9d61; --ok-bg: #e3f4ea; --ok-ink: #0b6b3f; --mis-bg: #fdebd0; --mis-ink: #8a4b00; --nid: #c0362c;
@@ -48,6 +48,13 @@ code { font-family: var(--mono); font-size: 0.86em; padding: 2px 6px; border-rad
 .nav-links a:hover, .nav-links a[aria-current="page"] { color: var(--ink); }
 .nav-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
 .nav-right .btn { height: 42px; padding: 0 16px; font-size: 14.5px; }
+.nav-menu { display: none; }
+.nav-menu > summary { width: 42px; padding: 0; list-style: none; }
+.nav-menu > summary::-webkit-details-marker { display: none; }
+.nav-menu-links { position: absolute; top: 100%; left: 0; right: 0; padding: 4px 24px 12px; background: var(--ground); border-bottom: 1px solid var(--line2); box-shadow: 0 18px 30px -20px rgba(17, 24, 28, 0.35); display: flex; flex-direction: column; }
+.nav-menu-links a { padding: 13px 0; border-bottom: 1px solid var(--line2); color: var(--ink3); font-size: 16px; font-weight: 600; text-decoration: none; }
+.nav-menu-links a:last-child { border-bottom: 0; }
+.nav-menu-links a[aria-current="page"] { color: var(--ink); }
 
 /* sections */
 .section { padding-block: 96px; }
@@ -156,7 +163,7 @@ pre.code .p { color: var(--accent-soft); user-select: none; }
 .foot-in { display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr)); gap: 32px; }
 .foot-about { display: flex; flex-direction: column; gap: 12px; max-width: 340px; }
 .foot-about p { font-size: 14.5px; color: var(--muted); }
-.foot h3 { margin-bottom: 12px; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
+.foot h2 { margin-bottom: 12px; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
 .foot ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .foot a { color: var(--ink3); font-size: 15px; text-decoration: none; }
 .foot a:hover { color: var(--accent); }
@@ -208,6 +215,7 @@ figcaption { font-size: 14px; color: var(--faint); }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .faq summary::after { transition: none; } }
 @media (max-width: 960px) {
   .nav-links { display: none; }
+  .nav-menu { display: block; }
   .split, .spot, .claude { grid-template-columns: minmax(0, 1fr); gap: 32px; }
   .spot.flip .spot-text { order: 0; }
   .steps, .cards, .trio, .toc-cards, .ai-grid { grid-template-columns: minmax(0, 1fr); }
@@ -222,6 +230,10 @@ figcaption { font-size: 14px; color: var(--faint); }
   .section { padding-block: 64px; }
   .hero { padding-block: 56px 44px; }
   .nav-right .gh-label { display: none; }
+  .nav-in { gap: 12px; }
+  .nav-right { gap: 8px; }
+  .nav-right .btn { padding: 0 12px; }
+  .nav-menu-links { padding-inline: 18px; }
   .foot-in, .doc-list { grid-template-columns: minmax(0, 1fr); }
   .cta-row .btn { width: 100%; }
 }

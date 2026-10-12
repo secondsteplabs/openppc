@@ -4,6 +4,30 @@ OpenPPC follows [semantic versioning](https://semver.org) for 0.x releases: a pa
 behaviour that [docs/compatibility.md](docs/compatibility.md) lists, except to fix a wrong number. A minor release
 (0.x.0) may, and only with an entry under **Breaking** that says what changed and what to do.
 
+## Unreleased (0.1.13)
+
+### Added
+
+- **The app says what it is doing.** A long audit or check shows each step under the Run button (reading the file,
+  running the audit, checking every number in the report). Stop still works at any step.
+- **A greyed-out Run button says why.** The same line under it names what is missing: the export, the audit, a
+  matching template, or the checker still loading.
+
+### Fixed
+
+- **The engine is downloaded once.** The app fetched `engine.js` a second time inside its worker; the page now hands
+  the worker the copy it already has.
+- **Accessibility in the app.** Every view has a main heading and its own page title, and an unknown page goes home.
+  A skip link reaches the main content. Messages are announced from one live region and no longer cover each other on
+  a phone. The template list moves with the arrow keys, the drop zone shows keyboard focus, wide tables scroll from
+  the keyboard, and small text and links meet contrast and target-size minimums. Copy works on plain HTTP, where the
+  clipboard API is missing. Results say "Checked at" a time, a file it can't read says "Can't read this file", and the
+  form no longer flashes before the home page loads. axe now finds nothing on any view, the results or the branded
+  PDF, on a desktop or a phone.
+- **Accessibility on the website.** Phones get a menu with every link, the GitHub button has a name, footer headings
+  are in order, code blocks in the install guide scroll from the keyboard, and faint text meets contrast. axe finds
+  nothing on any page at either width. The app gets a preview card when its link is shared.
+
 ## Unreleased (0.1.12)
 
 ### Fixed

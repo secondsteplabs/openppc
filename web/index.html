@@ -7,6 +7,17 @@
 <meta name="description" content="Check every number in a Google Ads audit against your own export, or run a free audit of your search terms. Runs in your browser; nothing is uploaded.">
 <link rel="canonical" href="https://openppc.si/app/">
 <title>OpenPPC: check every number in your Google Ads audit</title>
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="OpenPPC">
+<meta property="og:title" content="OpenPPC: check every number in your Google Ads audit">
+<meta property="og:description" content="Check every number in a Google Ads audit against your own export, or run a free audit of your search terms. Runs in your browser; nothing is uploaded.">
+<meta property="og:url" content="https://openppc.si/app/">
+<meta property="og:image" content="https://openppc.si/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="OpenPPC: every number in your Google Ads audit, checked.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://openppc.si/og-image.png">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource-variable/plus-jakarta-sans@5.3.0/index.css" integrity="sha384-CriTXMxa9KSWUY4RPeIP7Xe+CI39CEWYo20uac1eZ4erQw31mZTTxvq6xZdWgidR" crossorigin="anonymous">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource-variable/geist-mono@5.3.0/index.css" integrity="sha384-NST9F93++1eck4FnDE0yqyWiwNNfBoWDI9qHmFymatO15xmb9YIy6A3BP1wUJs2A" crossorigin="anonymous">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource-variable/source-serif-4@5.3.0/index.css" integrity="sha384-BcqMxSEWy7T7vR491w5jVpKFG0b3TfgKXXPd5v6bFEHwlI6bbjKOM8VQL0FY+jmp" crossorigin="anonymous">
@@ -18,6 +29,7 @@
 <script defer src="app.js"></script>
 </head>
 <body>
+<a class="skip-link" id="skip-link" href="#main">Skip to content</a>
 <div class="app">
   <nav class="rail" aria-label="App">
     <a class="rail-logo" href="#home" data-view="home" aria-label="OpenPPC home"><svg width="22" height="20" viewBox="8.4 11 48.6 43.4" aria-hidden="true"><path fill="#ffffff" d="M12.96 30.29 L24.92 41.72 L55.24 11.35 A1 1 0 0 1 56.76 12.65 L26.76 53.17 Q24.98 55.58 23.21 53.15 L9.04 33.71 A2.6 2.6 0 0 1 12.96 30.29 Z"/></svg></a>
@@ -30,7 +42,7 @@
       <a class="ri" href="https://github.com/secondsteplabs/openppc"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 8l-4 4 4 4"/><path d="M16 8l4 4-4 4"/></svg>GitHub</a>
     </div>
   </nav>
-  <div class="main">
+  <main class="main" id="main" tabindex="-1">
     <header class="topbar">
       <div class="crumbs"><b id="crumb-mode">Check an AI audit</b><span class="sep">/</span><span class="page" id="crumb-page">New check</span></div>
       <div class="topbar-right">
@@ -39,7 +51,7 @@
       </div>
     </header>
 
-    <section class="view" id="compose">
+    <section class="view" id="compose" hidden>
       <div class="col">
         <div>
           <h1 id="compose-title">Paste an AI audit. We'll check every number.</h1>
@@ -68,16 +80,17 @@
             <div class="control"><label for="industry">Industry <span class="opt">(optional)</span></label><select id="industry"><option value="">None</option></select></div>
             <div class="control" id="threshold" hidden><label for="min-cost">Waste threshold</label><span class="money"><span id="min-cost-sign">$</span><input id="min-cost" type="number" value="20" min="0" step="1"></span></div>
             <div class="control" id="brand-wrap" hidden><label for="brand">Brand terms <span class="opt">(never flagged as waste)</span></label><input id="brand" class="text-input" type="text" autocomplete="off" spellcheck="false" placeholder="e.g. Acme Plumbing, Acme"></div>
-            <button type="button" class="btn btn-dark run" id="run-btn" disabled>Check numbers</button>
+            <button type="button" class="btn btn-dark run" id="run-btn" disabled aria-describedby="run-hint">Check numbers</button>
             <button type="button" class="btn" id="stop-btn" hidden>Stop</button>
           </div>
+          <p class="hint run-hint" id="run-hint" aria-live="polite"></p>
         </div>
         <div class="chips">
           <button type="button" class="chip" id="sample-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4b32c3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>Try the sample account</button>
         </div>
         <div class="status" id="engine-status" role="status" aria-live="polite"></div>
       </div>
-      <aside class="side">
+      <div class="side">
         <div class="card pad stack">
           <span class="card-title">How results read</span>
           <div class="legend">
@@ -95,7 +108,7 @@
           <span class="card-title">Run it inside Claude</span>
           <p class="small">The same checks work as MCP tools (<code>openppc-mcp</code>). Ask Claude to fact-check an audit and it calls OpenPPC for the numbers.</p>
         </div>
-      </aside>
+      </div>
     </section>
 
     <section class="view" id="results" hidden></section>
@@ -103,7 +116,7 @@
     <section class="view view-wide" id="home" hidden>
       <div class="hero">
         <span class="lbl">Open source · runs on this device</span>
-        <h2 class="h1">Every number in your Google Ads audit, checked.</h2>
+        <h1 class="h1">Every number in your Google Ads audit, checked.</h1>
         <p class="sub">Run a free audit on your own export, or paste any AI's audit and see which numbers hold up. Code computes every figure and traces it back to your file; nothing is uploaded.</p>
       </div>
       <div class="home-grid">
@@ -133,7 +146,7 @@
 
     <section class="view view-wide" id="gallery" hidden>
       <div>
-        <h2 class="h1">Templates</h2>
+        <h1 class="h1">Templates</h1>
         <p class="sub">Free templates are open source: read the code, fork them, or write your own. Every number they print is registered, so the checker can trace it.</p>
       </div>
       <span class="lbl">Free · open source</span>
@@ -155,7 +168,7 @@
     <section class="view view-wide" id="rules" hidden>
       <div class="hero">
         <span class="pill p-soon" style="align-self:flex-start">Coming soon</span>
-        <h2 class="h1">Rules</h2>
+        <h1 class="h1">Rules</h1>
         <p class="sub">Turn a rule from the open rulebook into something that runs on its own, without giving OpenPPC access to your account.</p>
       </div>
       <ol class="steps">
@@ -171,9 +184,10 @@
 
     <section class="view" id="branded" hidden>
       <div class="col" id="branded-main"></div>
-      <aside class="side no-print" id="branded-side"></aside>
+      <div class="side no-print" id="branded-side"></div>
     </section>
-  </div>
+  </main>
 </div>
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
 </body>
 </html>

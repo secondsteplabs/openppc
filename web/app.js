@@ -6,6 +6,8 @@
 const REPO = 'https://github.com/secondsteplabs/openppc';
 const VIEWS = ['home', 'check', 'audit', 'templates', 'rules', 'branded'];
 const PAGES = { home: 'Home', templates: 'Templates', rules: 'Rules', branded: 'Branded PDF' };
+const TITLE = document.title;
+const TITLES = { ...PAGES, check: 'Check an AI audit', audit: 'Audit my export' };
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const ICONS = {
   check: '<path d="M5 12.5l4.2 4.2L19 7"/>',
@@ -69,10 +71,14 @@ function debounce(fn, wait) { let t; return (...a) => { clearTimeout(t); t = set
 // The engine blocks the page while it works, so long calls wait for the browser to paint a "working" state first.
 const nextPaint = () => new Promise((done) => requestAnimationFrame(() => setTimeout(done, 0)));
 function b64bytes(b64) { const bin = atob(b64); const out = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i); return out; }
+// One toast at a time, in a live region that is always on the page, so screen readers announce it. It stays long
+// enough to read: at least 5 s, longer for long text.
+let toastTimer;
 function toast(message) {
-  const node = h('div', { class: 'toast', role: 'status' }, message);
-  document.body.append(node);
-  setTimeout(() => node.remove(), 2800);
+  const node = h('div', { class: 'toast' }, message);
+  el.toasts.replaceChildren(node);
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => node.remove(), Math.max(5000, 60 * String(message).length));
 }
 function download(name, text, type = 'text/markdown') {
   const url = URL.createObjectURL(new Blob([text], { type }));
@@ -80,9 +86,17 @@ function download(name, text, type = 'text/markdown') {
   document.body.append(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
+// The clipboard API needs HTTPS or localhost; a copy self-hosted over plain HTTP falls back to the old way.
 async function copyText(text, done, fallback = 'Copy did not work here. Download the .md instead.') {
-  try { await navigator.clipboard.writeText(text); toast(done); }
-  catch { toast(fallback); }
+  try { await navigator.clipboard.writeText(text); toast(done); return; } catch { /* try the old way */ }
+  const area = h('textarea', { readonly: true, style: 'position:fixed;top:0;left:0;opacity:0' });
+  area.value = text;
+  document.body.append(area);
+  area.select();
+  let copied = false;
+  try { copied = document.execCommand('copy'); } catch { copied = false; }
+  area.remove();
+  toast(copied ? done : fallback);
 }
 function formatPeriod(start, end) {
   if (!start || !end) return '';
@@ -111,10 +125,12 @@ class Stopped extends Error { constructor() { super('stopped'); } }
 function engineStart() {
   const worker = new Worker('engine-worker.js', { type: 'module' });
   engine.worker = worker;
+  worker.postMessage({ op: 'bundle', files: window.OPENPPC_BUNDLE.files });  // engine.js is downloaded once, here
   return new Promise((resolve, reject) => {
     worker.onmessage = (e) => {
       const m = e.data;
       if (m.type === 'status') status(m.text, 'loading');
+      else if (m.type === 'progress') { if (state.busy) el.runHint.textContent = `${m.text}…`; }
       else if (m.type === 'ready') resolve(m.meta);
       else if (m.type === 'failed') reject(new Error(m.error));
       else {
@@ -261,7 +277,7 @@ function auditFile() {
 function fileRow(f) {
   const info = f.info;
   const bad = info && !info.ok;
-  const meta = info ? (bad ? "Can't read this one yet" : describe(info))
+  const meta = info ? (bad ? "Can't read this file" : describe(info))
     : f.reading ? 'Reading the file…' : state.engine === 'error' ? "The checker can't run in this browser" : 'Waiting for the checker to load';
   const row = h('div', { class: 'file' + (bad ? ' bad' : '') },
     h('span', { class: 'file-icon' }, icon(bad ? 'alert' : 'file', 18)),
@@ -353,14 +369,29 @@ function renderTemplates() {
   if (!state.meta) return;
   const f = auditFile();
   const fits = f ? f.info.templates : [];
-  el.templates.replaceChildren(...state.meta.templates.map((t) => {
+  const hadFocus = el.templates.contains(document.activeElement);
+  const options = state.meta.templates.map((t) => {
     const fit = fits.includes(t.name);
     return h('button', {
-      type: 'button', role: 'radio', class: 'tpl', 'aria-checked': String(state.template === t.name),
-      disabled: f ? !fit : false, onclick: () => { state.template = t.name; refresh(); },
+      type: 'button', role: 'radio', class: 'tpl', 'aria-checked': String(state.template === t.name), tabindex: '-1',
+      'data-name': t.name, disabled: f ? !fit : false, onclick: () => { state.template = t.name; refresh(); },
     }, h('span', { class: 'tpl-t' }, t.title), h('span', { class: 'tpl-s' }, t.summary),
     h('span', { class: 'tpl-f' + (fit ? ' fit' : '') }, fit ? 'Matches your file' : `Needs ${an(t.input)}`));
-  }));
+  });
+  // a radio group is one tab stop, on the chosen option; arrow keys move the choice (moveTemplate)
+  const current = options.find((o) => o.dataset.name === state.template && !o.disabled) || options.find((o) => !o.disabled);
+  if (current) current.tabIndex = 0;
+  el.templates.replaceChildren(...options);
+  if (hadFocus && current) current.focus();
+}
+function moveTemplate(e) {
+  const step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[e.key];
+  const options = [...el.templates.querySelectorAll('.tpl:not(:disabled)')];
+  const at = options.indexOf(document.activeElement);
+  if (!step || at < 0) return;
+  e.preventDefault();
+  state.template = options[(at + step + options.length) % options.length].dataset.name;
+  refresh();
 }
 function refresh() {
   const ready = state.engine === 'ready';
@@ -380,11 +411,26 @@ function refresh() {
   if (!state.busy) {  // while a run is going, the button keeps its "Checking…" label
     el.run.disabled = !enabled;
     el.run.replaceChildren(label, icon('up', 16, 2.4));
+    el.runHint.textContent = enabled ? '' : whyNotYet(ready);
   }
   if (state.autorun && enabled && state.mode === 'audit' && state.view === 'audit') {
     state.autorun = false;
     setTimeout(run, 0);
   }
+}
+// Why Run is greyed out, under it: a disabled button can't say so itself.
+function whyNotYet(ready) {
+  const waiting = state.engine === 'error' ? '' : 'Waiting for the checker to load.';
+  if (state.mode === 'check') {
+    if (!goodFiles().length) return 'Add the export the audit was written from.';
+    if (!el.text.value.trim()) return 'Paste the audit to check.';
+    if (!ready && !sampleResult()) return waiting;
+    return state.counting || state.count ? '' : 'There are no numbers in the audit to check.';
+  }
+  const f = auditFile();
+  if (!f) return 'Add an export to audit.';
+  if (!state.template || !f.info.templates.includes(state.template)) return 'Pick a template marked "Matches your file".';
+  return ready || sampleResult() ? '' : waiting;
 }
 function setMode(mode) {
   state.mode = mode;
@@ -412,7 +458,7 @@ function showCompose() {
 }
 function showResults(nodes, page) {
   state.saved[state.mode] = { nodes, page };
-  el.results.replaceChildren(...nodes);
+  el.results.replaceChildren(h('h1', { class: 'sr-only' }, page), ...nodes);
   el.compose.hidden = true;
   el.results.hidden = false;
   el.crumbPage.textContent = page;
@@ -428,6 +474,7 @@ async function run() {
   el.run.disabled = true;
   el.run.replaceChildren(state.mode === 'check' ? `Checking ${plural(state.count, 'number')}…`
     : rows ? `Auditing ${plural(rows, 'row')}…` : 'Running the audit…');
+  el.runHint.textContent = '';
   el.stop.hidden = false;
   await nextPaint();
   try {
@@ -467,7 +514,7 @@ async function runCheck() {
     annotated(text, res),
     numbersTable(res.claims),
     h('div', { class: 'chips' }, h('button', { class: 'btn', type: 'button', onclick: showCompose }, 'Edit the audit and check again')));
-  const right = h('aside', { class: 'side' }, scoreCard(res.counts), sourcesCard(files, industry), trustCard());
+  const right = h('div', { class: 'side' }, scoreCard(res.counts), sourcesCard(files, industry), trustCard());
   showResults([left, right], title || 'Number check');
 }
 function firstTitle(text) {
@@ -652,7 +699,7 @@ function numbersTable(claims) {
   fill('all');
   return h('div', { class: 'card', id: 'all', style: 'overflow:hidden' },
     h('div', { class: 'card-head' }, h('span', { class: 'card-title' }, `All ${plural(claims.length, 'number')}`), seg),
-    h('div', { class: 'table-wrap' }, h('table', { class: 't' },
+    h('div', { class: 'table-wrap', tabindex: '0', role: 'region', 'aria-label': 'Every number in the audit' }, h('table', { class: 't' },
       h('thead', {}, h('tr', {}, h('th', { style: 'width:56px' }, 'Line'), h('th', { style: 'width:110px' }, 'As written'),
         h('th', { style: 'width:130px' }, 'Verdict'), h('th', {}, 'What your file says'))),
       tbody)),
@@ -676,7 +723,7 @@ function scoreCard(c) {
   const bad = c.mismatch + c.not_in_data;
   const tile = (n, color, label) => h('div', { class: 'tile' }, h('b', { class: 'num', style: `color:${color}` }, num(n)), h('span', {}, label));
   return h('div', { class: 'card score' },
-    h('div', { style: 'display:flex;align-items:center;justify-content:space-between' }, h('span', { class: 'card-title' }, 'Number check score'), h('span', { class: 'hint' }, 'Just now')),
+    h('div', { style: 'display:flex;align-items:center;justify-content:space-between' }, h('span', { class: 'card-title' }, 'Number check score'), h('span', { class: 'hint' }, `Checked at ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`)),
     h('div', { class: 'score-row' },
       h('div', { class: 'ring' }, ring, h('div', { class: 'ring-c' }, h('span', { class: 'ring-n num' }, num(c.traced), h('small', {}, `/${num(c.total)}`)), h('span', { class: 'ring-l' }, 'traced'))),
       h('p', { class: 'small', style: 'font-size:14px;color:var(--ink3)' }, `${num(c.traced)} of ${plural(c.total, 'number')} trace to your export.`,
@@ -756,7 +803,7 @@ async function runAudit() {
       h('b', {}, 'Every number in this report traces back to your data.'),
       h('span', {}, 'The report went through the same checker that judges AI audits, before you saw it.'))
     : h('div', { class: 'redbox' }, h('b', {}, 'This report failed its own number check.'), 'That is a bug in OpenPPC. Please report it with the export that caused it.');
-  const right = h('aside', { class: 'side' }, checkCard, sourcesCard([file], industry),
+  const right = h('div', { class: 'side' }, checkCard, sourcesCard([file], industry),
     h('div', { class: 'card pad stack' }, h('span', { class: 'card-title' }, 'Send it to a client'),
       h('p', { class: 'small' }, 'Put your logo and colors on this report and save it as a PDF. The numbers stay checked.'),
       h('a', { class: 'btn', href: '#branded' }, icon('print'), 'Make the branded PDF')),
@@ -811,7 +858,7 @@ function wasteCard(cards) {
       h('div', { class: 'actions' },
         h('button', { class: 'btn', type: 'button', onclick: () => downloadNegatives(chosen()) }, icon('download'), 'Download .csv'),
         h('button', { class: 'btn btn-dark', type: 'button', onclick: () => copyNegatives(chosen()) }, icon('copy'), 'Copy as negatives'))),
-    h('div', { class: 'table-wrap' }, h('table', { class: 't waste' },
+    h('div', { class: 'table-wrap', tabindex: '0', role: 'region', 'aria-label': 'Wasted spend, ranked' }, h('table', { class: 't waste' },
       h('thead', {}, h('tr', {}, h('th', { class: 'pick' }, h('label', { class: 'hit' }, all)), h('th', {}, 'Search term'), h('th', {}, 'Cost'),
         h('th', { class: 'clicks' }, 'Clicks'), h('th', { class: 'wide-only' }, 'Share'), h('th', {}, "Chance it's bad"), h('th', { class: 'wide-only' }, 'Match type'), h('th', { class: 'wide-only' }, 'Suggested'))),
       h('tbody', {}, rows.map((r, i) => h('tr', {},
@@ -960,7 +1007,7 @@ function coverSheet(kit, model) {
     h('div', { class: 'cover-top' }, h('div', { class: 'cover-brand' }, mark, kit.agency ? h('span', { class: 'cover-agency' }, kit.agency) : null),
       h('span', { class: 'cover-conf' }, 'Confidential')),
     h('div', { class: 'cover-title' }, kit.client ? h('span', { class: 'cover-eyebrow' }, title) : null,
-      h('h1', { class: 'cover-h1' }, kit.client || title), h('span', { class: 'cover-sub' }, ['Google Ads', model.period].filter(Boolean).join(' · '))),
+      h('h2', { class: 'cover-h1' }, kit.client || title), h('span', { class: 'cover-sub' }, ['Google Ads', model.period].filter(Boolean).join(' · '))),
     head ? h('section', { class: 'cover-headline' }, h('span', { class: 'cover-label' }, 'The headline'),
       head.value ? h('span', { class: 'cover-value' }, head.value) : null, h('span', { class: 'cover-text' }, head.text),
       head.stats.length ? h('div', { class: 'cover-rule' }) : null,
@@ -1007,7 +1054,7 @@ function renderBlock(b) {
     case 'p': return h('p', { class: 'pdf-p' }, codeText(b.text));
     case 'note': return h('p', { class: 'pdf-note' }, codeText(b.text));
     case 'caption': return h('p', { class: 'pdf-caption' }, b.text);
-    case 'h2': return h('h2', { class: 'pdf-h2', 'data-keep': 'next' }, b.text);
+    case 'h2': return h('h3', { class: 'pdf-h2', 'data-keep': 'next' }, b.text);
     case 'stats': return h('div', { class: 'pdf-stats' }, h('span', { class: 'pdf-stats-t' }, b.title),
       h('div', { class: 'pdf-stats-g' }, b.items.map((i) => h('div', {}, h('span', { class: 'v' }, i.value), h('span', { class: 'l' }, i.label)))));
     case 'step': return stepCard(b, false, null);
@@ -1070,7 +1117,7 @@ function paginate(model, kit, host) {
   const fits = () => page.body.scrollHeight <= page.body.clientHeight + 1;
   const newPage = (section, continued) => {
     page = pageSheet(kit, model);
-    page.body.append(continued ? h('span', { class: 'pdf-cont' }, `${section.title}, continued`) : h('h1', { class: 'pdf-h1' }, section.title));
+    page.body.append(continued ? h('span', { class: 'pdf-cont' }, `${section.title}, continued`) : h('h2', { class: 'pdf-h1' }, section.title));
     host.append(page.sheet);
     sheets.push(page.sheet);
   };
@@ -1349,7 +1396,9 @@ function go(view) {
 function route() {
   const asked = location.hash.slice(1);
   const view = VIEWS.includes(asked) ? asked : 'home';
+  if (asked && asked !== view) history.replaceState(null, '', '#home');
   state.view = view;
+  document.title = view === 'home' ? TITLE : `${TITLES[view]} · OpenPPC`;
   if (view !== 'branded') document.getElementById('page-size')?.remove();  // the PDF's page size is for the PDF only
   document.querySelectorAll('.rail [data-mode], .rail [data-view]').forEach((n) => {
     if ((n.dataset.mode || n.dataset.view) === view) n.setAttribute('aria-current', 'page'); else n.removeAttribute('aria-current');
@@ -1386,7 +1435,8 @@ function init() {
     industry: document.getElementById('industry'), minCost: document.getElementById('min-cost'), threshold: document.getElementById('threshold'),
     minCostSign: document.getElementById('min-cost-sign'),
     templates: document.getElementById('templates'), templateField: document.getElementById('template-field'), auditField: document.getElementById('audit-field'),
-    run: document.getElementById('run-btn'), stop: document.getElementById('stop-btn'), sample: document.getElementById('sample-btn'), status: document.getElementById('engine-status'),
+    toasts: document.getElementById('toasts'), main: document.getElementById('main'),
+    run: document.getElementById('run-btn'), runHint: document.getElementById('run-hint'), stop: document.getElementById('stop-btn'), sample: document.getElementById('sample-btn'), status: document.getElementById('engine-status'),
     compose: document.getElementById('compose'), results: document.getElementById('results'), newBtn: document.getElementById('new-btn'),
     crumbMode: document.getElementById('crumb-mode'), crumbPage: document.getElementById('crumb-page'),
     brand: document.getElementById('brand'), brandWrap: document.getElementById('brand-wrap'),
@@ -1409,11 +1459,14 @@ function init() {
   });
   el.text.addEventListener('input', debounce(updateCount, 250));
   el.minCost.addEventListener('input', () => { el.minCost.dataset.edited = '1'; });
+  el.templates.addEventListener('keydown', moveTemplate);
   el.run.addEventListener('click', run);
   el.stop.addEventListener('click', stopRun);
   el.sample.addEventListener('click', loadSample);
   el.newBtn.addEventListener('click', () => { showCompose(); window.scrollTo({ top: 0 }); });
   document.getElementById('home-sample').addEventListener('click', trySample);
+  // the page routes by hash, so the skip link moves focus itself instead of setting #main
+  document.getElementById('skip-link').addEventListener('click', (e) => { e.preventDefault(); el.main.focus(); });
   window.addEventListener('hashchange', route);
   try { el.brand.value = localStorage.getItem('openppc.brand') || ''; } catch { /* no storage: start empty */ }
   route();

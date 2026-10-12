@@ -82,7 +82,7 @@ def test_the_app_names_its_files_by_content(tmp_path):
     for name in ("style.css", "engine.js", "app.js"):
         assert re.search(rf'"{re.escape(name)}\?v=[0-9a-f]{{12}}"', index), name
     assert re.search(r"new Worker\('engine-worker\.js\?v=[0-9a-f]{12}'", appjs)
-    assert re.search(r"import\('\./engine\.js\?v=[0-9a-f]{12}'\)", worker)
+    assert not re.search(r"import\([^)]*engine\.js", worker)  # the page hands the worker the engine it loaded
 
 
 def test_pages_name_their_images_and_video_by_content(tmp_path):
@@ -143,7 +143,13 @@ def test_pages_have_one_h1_a_self_canonical_and_search_sized_snippets(tmp_path):
     report = _site().build(tmp_path)
     for url in report["pages"]:
         html = (tmp_path / url.strip("/") / "index.html").read_text(encoding="utf-8") if url != "/" else (tmp_path / "index.html").read_text(encoding="utf-8")
-        assert len(re.findall(r"<h1[\s>]", html)) == 1, url
+        if url == "/app/":
+            # one view shows at a time, and each needs its own main heading
+            views = re.split(r'<section class="view', html)[1:]
+            assert [len(re.findall(r"<h1[\s>]", v)) for v in views].count(1) >= 4, url
+            assert all(len(re.findall(r"<h1[\s>]", v)) <= 1 for v in views), url
+        else:
+            assert len(re.findall(r"<h1[\s>]", html)) == 1, url
         assert re.findall(r'<link rel="canonical" href="([^"]+)"', html) == [f"https://openppc.si{url}"], url
         if url != "/app/":
             title = re.search(r"<title>(.*?)</title>", html, re.S).group(1)

@@ -1,11 +1,13 @@
 /* OpenPPC's engine worker: Pyodide and the openppc package run here, off the page's thread, so a large
    export never freezes the tab. app.js talks to it with messages:
 
-     page -> worker  {id, op: 'write', path, bytes}   put a file in the in-memory file system
+     page -> worker  {op: 'bundle', files}            the openppc package, from the engine.js the page has loaded
+                     {id, op: 'write', path, bytes}   put a file in the in-memory file system
                      {id, op: 'call', fn, args}       call openppc.webapi.fn(*args)
      worker -> page  {type: 'status', text}           while starting
                      {type: 'ready', meta}            started; meta is webapi.meta()
                      {type: 'failed', error}          could not start
+                     {type: 'progress', text}         the step a long call has reached
                      {id, ok: true, result}           a call's answer
                      {id, ok: false, error}           a call that failed
 
@@ -17,6 +19,8 @@ const PYODIDE_SRI = 'sha384-Lp79fMwxa4n2BLtugpUAoQMlbxIdg8iCUiP1r3h7nJLkQjwlXT1J
 
 let py = null;
 let api = null;
+let gotBundle;
+const bundle = new Promise((resolve) => { gotBundle = resolve; });
 
 const reply = (message) => postMessage(message);
 const errorText = (e) => (e instanceof Error && e.message ? e.message : String(e));
@@ -38,8 +42,7 @@ async function start() {
   try {
     const runtime = await loadRuntime();
     reply({ type: 'status', text: 'Loading the OpenPPC engine…' });
-    await import('./engine.js');  // the openppc package and the samples, as globalThis.OPENPPC_BUNDLE
-    for (const [path, source] of Object.entries(self.OPENPPC_BUNDLE.files)) {
+    for (const [path, source] of Object.entries(await bundle)) {
       runtime.FS.mkdirTree('/app/' + path.split('/').slice(0, -1).join('/'));
       runtime.FS.writeFile('/app/' + path, source);
     }
@@ -47,6 +50,7 @@ async function start() {
     runtime.runPython("import sys\nsys.path.insert(0, '/app')");
     py = runtime;
     api = runtime.pyimport('openppc.webapi');
+    api.on_progress((text) => reply({ type: 'progress', text: String(text) }));
     reply({ type: 'ready', meta: JSON.parse(String(api.meta())) });
   } catch (e) {
     reply({ type: 'failed', error: errorText(e) });
@@ -57,6 +61,7 @@ const started = start();
 
 self.onmessage = async (e) => {
   const m = e.data;
+  if (m.op === 'bundle') { gotBundle(m.files); return; }
   await started;
   try {
     if (!py || !api) throw new Error('the checker did not start');

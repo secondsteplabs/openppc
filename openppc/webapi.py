@@ -22,12 +22,24 @@ READ_ERRORS = (ValueError, KeyError, TypeError, UnicodeDecodeError, OSError)
 KEEP_AUDITS = 8  # recent audits whose facts the app can still check a branded PDF against
 _BOOKS = {}
 _TOKENS = itertools.count(1)
+_progress = None
 WRONG_FILE = ("Export a Search terms or Keywords report from Google Ads: Campaigns > Insights and "
               "reports > Search terms, pick the date range, then Download > .csv.")
 
 
 def _json(obj):
     return json.dumps(obj, default=str)
+
+
+def on_progress(fn):
+    """The worker hands over fn(step), which posts each step of a long call to the page while the call runs."""
+    global _progress
+    _progress = fn
+
+
+def _step(text):
+    if _progress is not None:
+        _progress(text)
 
 
 def _clean(error, paths):
@@ -133,6 +145,7 @@ def count_numbers(text, paths_json="[]"):
 def check(text, paths_json, industry=""):
     """Check every number in an audit against the files (and optionally an industry's averages)."""
     paths = json.loads(paths_json)
+    _step("Reading the exports")
     try:
         if report_settings(text):  # an OpenPPC report: its audit is re-run with the settings it was made with
             facts = facts_for_check(text, paths, industry or None, load=_taken)
@@ -140,6 +153,7 @@ def check(text, paths_json, industry=""):
             facts = _export_facts(paths) + industry_facts(industry or None)
     except READ_ERRORS as e:
         return _json({"ok": False, "error": _clean(e, paths)})
+    _step("Checking every number in the audit")
     claims, contradictions = trace(text, facts)
     counts = {
         "total": len(claims),
@@ -160,6 +174,7 @@ def audit(name, path, industry="", min_cost=None, brand=""):
     if template is None:
         return _json({"ok": False, "error": f"unknown template '{name}'"})
     wrong = _json({"ok": False, "error": f"{os.path.basename(path)} is not a {template.INPUT}."})
+    _step("Reading the file")
     try:
         data = _report(path) if template.INPUT_KIND == "report" else load_input(template, path)
     except READ_ERRORS:
@@ -167,8 +182,8 @@ def audit(name, path, industry="", min_cost=None, brand=""):
     if not template.accepts(data):
         return wrong
     try:
-        markdown, book, passed = run_template_book(name, path, data, industry=industry or None, min_cost=min_cost,
-                                                   brand=brand or None)
+        markdown, book, passed = run_template_book(name, path, data, progress=_step, industry=industry or None,
+                                                   min_cost=min_cost, brand=brand or None)
     except READ_ERRORS as e:
         return _json({"ok": False, "error": _clean(e, [path])})
     token = f"audit-{next(_TOKENS)}"

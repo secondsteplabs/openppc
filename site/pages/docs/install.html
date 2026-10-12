@@ -79,22 +79,22 @@ crumb: Install and quick start
 
     <h2 id="computer">Run it on your computer</h2>
     <p>The command line runs the same engine with no network calls. You need Python 3.10 or newer.</p>
-    <pre class="code"><span class="p">$ </span>pip install openppc</pre>
+    <pre class="code" tabindex="0"><span class="p">$ </span>pip install openppc</pre>
     <p>Try it on the sample account that ships with OpenPPC, a made-up plumbing company, which needs no account and no keys:</p>
-    <pre class="code"><span class="p">$ </span>openppc audit search-term-waste --sample
+    <pre class="code" tabindex="0"><span class="p">$ </span>openppc audit search-term-waste --sample
 
 <span class="c"># Search-term waste audit</span>
 <span class="c">## Summary</span>
 **6 search terms spent $767.20 and never converted.** That is 15.4% of the
 $4,973.64 total cost in this export, and each one cost at least $20.00.</pre>
-    <pre class="code"><span class="p">$ </span>openppc check --sample
+    <pre class="code" tabindex="0"><span class="p">$ </span>openppc check --sample
 
 <span class="c"># Number check</span>
 **11 numbers found: 6 traced to your data, 3 wrong numbers, 1 wrong label,
 1 can't be checked from an export.** 1 sentence contradicts its own numbers.</pre>
     <h3>Your own data</h3>
     <p>Download a report from Google Ads and pass its path. In a clone of the repo, keep exports in the <code>exports/</code> folder, which Git ignores, so they are never committed.</p>
-    <pre class="code"><span class="p">$ </span>openppc audit search-term-waste exports/search_terms.csv --brand "Your Brand, Short Name"
+    <pre class="code" tabindex="0"><span class="p">$ </span>openppc audit search-term-waste exports/search_terms.csv --brand "Your Brand, Short Name"
 <span class="p">$ </span>openppc check --audit my-audit.md --data exports/search_terms.csv
 <span class="p">$ </span>openppc templates   <span class="c"># every template</span>
 <span class="p">$ </span>openppc industries  <span class="c"># every benchmark industry</span></pre>
@@ -103,10 +103,10 @@ $4,973.64 total cost in this export, and each one cost at least $20.00.</pre>
     <p>OpenPPC is an MCP server, so AI assistants can call it while they work. Your assistant writes the words, and OpenPPC supplies and checks the numbers. On your computer it reads your exports where they are. These setups use <a href="https://docs.astral.sh/uv/">uv</a>, which fetches OpenPPC from PyPI and runs it for you.</p>
 
     <h3 id="claude">Claude Code</h3>
-    <pre class="code"><span class="p">$ </span>claude mcp add openppc -- uvx --from "openppc[mcp]" openppc-mcp</pre>
+    <pre class="code" tabindex="0"><span class="p">$ </span>claude mcp add openppc -- uvx --from "openppc[mcp]" openppc-mcp</pre>
     <h3>Claude Desktop</h3>
     <p>Open <b>Settings</b>, then <b>Developer</b>, then <b>Edit Config</b>, add OpenPPC to <code>claude_desktop_config.json</code>, and restart Claude Desktop.</p>
-    <pre class="code">{
+    <pre class="code" tabindex="0">{
   "mcpServers": {
     "openppc": {
       "command": "uvx",
@@ -120,7 +120,7 @@ $4,973.64 total cost in this export, and each one cost at least $20.00.</pre>
     <h3 id="cursor">Cursor</h3>
     <p>Click <b>Add to Cursor</b>, or open Cursor's MCP settings and add the server to <code>~/.cursor/mcp.json</code>, or to <code>.cursor/mcp.json</code> in a project.</p>
     <p><a class="btn btn-dark" href="cursor://anysphere.cursor-deeplink/mcp/install?name=openppc&amp;config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJvcGVucHBjW21jcF0iLCJvcGVucHBjLW1jcCJdfQ==">Add to Cursor</a></p>
-    <pre class="code">{
+    <pre class="code" tabindex="0">{
   "mcpServers": {
     "openppc": {
       "command": "uvx",
@@ -141,13 +141,13 @@ $4,973.64 total cost in this export, and each one cost at least $20.00.</pre>
 
     <h3 id="connector">Run the connector yourself</h3>
     <p>The connector is the same program with <code>--http</code>. Its tools then take the file's contents and never read paths:</p>
-    <pre class="code"><span class="p">$ </span>openppc-mcp --http --host 0.0.0.0 --port 8000</pre>
+    <pre class="code" tabindex="0"><span class="p">$ </span>openppc-mcp --http --host 0.0.0.0 --port 8000</pre>
     <p>Put it behind HTTPS and point ChatGPT or claude.ai at <code>https://your-host/mcp</code>.</p>
     <p>Every assistant gets the same three read-only tools: <code>list_templates</code>, an audit tool and a check tool. On your computer they are <code>audit_account</code> and <code>check_numbers</code>, which read files by path; on the connector they are <code>audit_export</code> and <code>check_audit</code>, which take the file's contents. Try asking: "Check every number in this audit against my search terms export."</p>
 
     <h2 id="self-host">Host it yourself</h2>
     <p>The browser app is a folder of static files, with no server code. Serve the <code>web</code> folder from any static host, or run it locally:</p>
-    <pre class="code"><span class="p">$ </span>python3 -m http.server 8765 --directory web</pre>
+    <pre class="code" tabindex="0"><span class="p">$ </span>python3 -m http.server 8765 --directory web</pre>
     <p>Then open <code>http://localhost:8765</code>.</p>
 
     <h2 id="trouble">If something goes wrong</h2>

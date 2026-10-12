@@ -23,10 +23,10 @@ AUTHOR_URL = "https://www.linkedin.com/in/shivendrarawat"  # the byline on every
 COMPANY = {"@type": "Organization", "name": "Second Step", "url": "https://getsecondstep.com"}
 AUTHOR = {"@type": "Person", "name": "Shivendra Rawat", "url": AUTHOR_URL, "jobTitle": "Founder",
           "worksFor": COMPANY, "sameAs": [AUTHOR_URL, "https://getsecondstep.com"]}
-AUTHOR_BIO = ('<aside class="author-bio" id="author"><span class="label">About the author</span>'
+AUTHOR_BIO = ('<div class="author-bio" id="author"><span class="label">About the author</span>'
               '<p><b>Shivendra Rawat</b> founded <a href="https://getsecondstep.com">Second Step</a>, a performance marketing '
               'agency that runs Google Ads for businesses in the US and India, and builds OpenPPC at Second Step Labs. '
-              f'<a href="{AUTHOR_URL}">LinkedIn</a></p></aside>')
+              f'<a href="{AUTHOR_URL}">LinkedIn</a></p></div>')
 GITHUB = "https://github.com/secondsteplabs/openppc"
 # brand/ is the one source of the logo; the site serves copies of these files at its root
 BRAND = {"openppc-logo.svg": "logo.svg", "openppc-icon.svg": "favicon.svg", "png/favicon.ico": "favicon.ico",
@@ -187,7 +187,6 @@ def version_app(app):
         assert text.count(old) == 1, f"{name}: expected one {old!r}"
         path.write_text(text.replace(old, new), encoding="utf-8")
 
-    point("engine-worker.js", "import('./engine.js')", f"import('./{tag('engine.js')}')")
     point("app.js", "new Worker('engine-worker.js'", f"new Worker('{tag('engine-worker.js')}'")
     for old in ('href="style.css"', 'src="engine.js"', 'src="app.js"'):
         name = old.split('"')[1]

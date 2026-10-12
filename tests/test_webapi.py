@@ -56,6 +56,17 @@ def test_check_matches_the_cli():
     assert res["contradictions"][0]["line"] == 11
 
 
+def test_a_long_call_tells_the_page_each_step(monkeypatch):
+    steps = []
+    monkeypatch.setattr(webapi, "_progress", steps.append)
+    assert json.loads(webapi.audit("search-term-waste", SAMPLE_CSV))["ok"]
+    assert steps == ["Reading the file", "Running the audit", "Checking every number in the report"]
+    steps.clear()
+    text = (EX / "ai_audit_sample.md").read_text(encoding="utf-8")
+    assert json.loads(webapi.check(text, json.dumps([SAMPLE_CSV])))["ok"]
+    assert steps == ["Reading the exports", "Checking every number in the audit"]
+
+
 def test_audit_passes_its_own_check():
     res = json.loads(webapi.audit("search-term-waste", SAMPLE_CSV, "home-services", 20))
     assert res["ok"] and res["passed"] and "$767.20" in res["markdown"]

@@ -17,8 +17,8 @@ pytestmark = pytest.mark.e2e
 RUN = 120_000  # ms: one audit or check in the browser, generous for slow CI machines
 EXAMPLES = ROOT / "examples"
 AXE = "https://cdn.jsdelivr.net/npm/axe-core@4.10.3/axe.min.js"
-# Serious or critical axe rules the app is allowed to break. Empty since 0.1.11, when the two grey text tokens were
-# darkened to reach 4.5:1; add a rule here only with a reason.
+# axe rules the app is allowed to break, at any impact. Empty since 0.1.13 (serious and critical ones since 0.1.11);
+# add a rule here only with a reason.
 KNOWN_AXE: set[str] = set()
 
 WASTED = ["free plumbing estimate", "plumber jobs hiring", "how to unclog a drain yourself", "plumbing franchise cost",
@@ -137,6 +137,31 @@ def test_each_template_runs_on_its_example_in_the_browser(app, name, export):
     expect(app.locator(".who").filter(has_text="on this device")).to_be_visible()
 
 
+def test_a_greyed_out_run_button_says_why(app):
+    expect(app.locator("#run-btn")).to_be_disabled()
+    expect(app.locator("#run-hint")).to_have_text("Add an export to audit.")
+    _hash(app, "#check")
+    app.locator("#file-input").set_input_files(str(EXAMPLES / "search_terms_acme.csv"))
+    expect(app.locator("#run-hint")).to_have_text("Paste the audit to check.", timeout=RUN)
+    app.locator("#audit-text").fill("The account is fine.")
+    expect(app.locator("#run-hint")).to_have_text("There are no numbers in the audit to check.")
+    app.locator("#audit-text").fill("Cost was $4,973.64.")
+    expect(app.locator("#run-btn")).to_be_enabled()
+    expect(app.locator("#run-hint")).to_be_empty()
+
+
+def test_the_engine_is_downloaded_once(browser, site):
+    ctx = browser.new_context()
+    fetched = []
+    ctx.on("request", lambda r: fetched.append(r.url.split("?")[0].rsplit("/", 1)[-1]))
+    page = ctx.new_page()
+    page.goto(site + "#audit")
+    expect(page.locator("#engine-status")).to_have_text(READY, timeout=BOOT)
+    ctx.close()
+    assert "pyodide.mjs" in fetched  # the worker's own requests are seen too
+    assert fetched.count("engine.js") == 1
+
+
 def test_a_file_it_cannot_read_offers_a_report_with_only_its_column_names(app, tmp_path):
     export = tmp_path / "birch_lane_terms.csv"
     export.write_bytes((ROOT / "tests" / "fixtures" / "search_terms_german_headers.csv").read_bytes())
@@ -177,6 +202,7 @@ def test_stop_restarts_the_checker_and_the_next_run_works(app, tmp_path):
     expect(app.locator("#run-btn")).to_be_enabled(timeout=RUN)
     app.locator("#run-btn").click()
     expect(app.locator("#run-btn")).to_contain_text("Auditing 100,000 rows")
+    expect(app.locator("#run-hint")).to_have_text("Running the audit…")
     app.locator("#stop-btn").click()
     expect(app.locator(".toast")).to_contain_text("Stopped.")
     expect(app.locator("#engine-status")).to_have_text(READY, timeout=BOOT)
@@ -189,21 +215,82 @@ def _axe(page):
     page.add_script_tag(url=AXE)
     found = page.evaluate("""async () => {
         const r = await axe.run(document, { resultTypes: ['violations'] });
-        return r.violations.filter((v) => ['serious', 'critical'].includes(v.impact)).map((v) => v.id);
+        return r.violations.map((v) => v.id);
     }""")
     return set(found)
 
 
 @pytest.mark.parametrize("route", ["#home", "#check", "#audit", "#templates", "#rules", "#branded"])
-def test_no_new_serious_accessibility_findings_on_desktop(app, route):
+def test_no_new_accessibility_findings_on_desktop(app, route):
     _hash(app, route)
     assert _axe(app) <= KNOWN_AXE
 
 
-def test_no_new_serious_accessibility_findings_on_a_phone_after_an_audit(phone):
-    phone.locator("#home-sample").click()
-    expect(phone.locator(".badge-ok")).to_be_visible(timeout=RUN)
-    assert _axe(phone) <= KNOWN_AXE
+def _results_and_pdf(page):
+    """The check's results, the audit's results and the branded PDF made from it, each scanned by axe."""
+    _hash(page, "#check")
+    page.locator("#sample-btn").click()
+    expect(page.locator("#run-btn")).to_be_enabled(timeout=RUN)
+    page.locator("#run-btn").click()
+    expect(page.locator("#all")).to_be_visible(timeout=RUN)
+    found = _axe(page)
+    _hash(page, "#home")
+    page.locator("#home-sample").click()
+    expect(page.locator(".badge-ok")).to_be_visible(timeout=RUN)
+    found |= _axe(page)
+    _hash(page, "#branded")
+    expect(page.locator(".pdf-status.ok")).to_be_visible(timeout=RUN)
+    return found | _axe(page)
+
+
+def test_no_new_accessibility_findings_on_results_and_the_pdf_on_desktop(app):
+    assert _results_and_pdf(app) <= KNOWN_AXE
+
+
+def test_no_new_accessibility_findings_on_results_and_the_pdf_on_a_phone(phone):
+    assert _results_and_pdf(phone) <= KNOWN_AXE
+
+
+def test_the_keyboard_reaches_everything(app):
+    app.keyboard.press("Tab")
+    expect(app.locator("#skip-link")).to_be_focused()
+    app.keyboard.press("Enter")
+    expect(app.locator("#main")).to_be_focused()
+    assert app.evaluate("location.hash") == "#audit"  # skipping is not a page change
+    app.locator("#file-input").focus()
+    assert app.evaluate("getComputedStyle(document.getElementById('drop')).outlineStyle") == "solid"
+
+    assert app.locator('.tpl[tabindex="0"]').count() == 1  # the radio group is one tab stop
+    app.locator('.tpl[tabindex="0"]').focus()
+    app.keyboard.press("ArrowDown")
+    checked = app.locator('.tpl[aria-checked="true"]')
+    expect(checked).to_contain_text(TEMPLATES["keyword-audit"].TITLE)
+    expect(checked).to_be_focused()
+    expect(checked).to_have_attribute("tabindex", "0")
+    app.keyboard.press("ArrowUp")
+    expect(app.locator('.tpl[aria-checked="true"]')).to_contain_text(TEMPLATES["search-term-waste"].TITLE)
+
+
+def test_each_page_has_its_own_title_and_an_unknown_one_goes_home(app):
+    assert app.title() == "Audit my export · OpenPPC"
+    _hash(app, "#templates")
+    expect(app).to_have_title("Templates · OpenPPC")
+    _hash(app, "#nope")
+    expect(app).to_have_title("OpenPPC: check every number in your Google Ads audit")
+    assert app.evaluate("location.hash") == "#home"
+
+
+def test_copy_works_without_the_clipboard_api_and_messages_stay_in_one_live_region(app):
+    _hash(app, "#home")
+    app.locator("#home-sample").click()
+    expect(app.locator(".badge-ok")).to_be_visible(timeout=RUN)
+    app.evaluate("() => { navigator.clipboard.writeText = () => Promise.reject(new Error('plain HTTP')); }")
+    app.get_by_role("button", name="Copy", exact=True).click()
+    expect(app.locator("#toasts .toast")).to_have_text("Report copied as markdown")
+    assert app.evaluate("navigator.clipboard.readText()").startswith("# Search-term waste audit")
+    app.get_by_role("button", name="Copy as negatives").click()  # nothing ticked: a message, not a copy
+    expect(app.locator(".toast")).to_have_count(1)
+    expect(app.locator("#toasts")).to_have_attribute("aria-live", "polite")
 
 
 def test_nothing_scrolls_sideways_on_a_phone(phone):
