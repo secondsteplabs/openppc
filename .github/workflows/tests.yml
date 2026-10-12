@@ -57,6 +57,26 @@ jobs:
           audit: ${{ runner.temp }}/report.md
           data: examples/search_terms_acme.csv
 
+  docker:  # both images build, and they run with no network at all
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - run: docker build -t openppc .
+      - run: docker build --target mcp -t openppc-mcp .
+      - run: docker run --rm --network none openppc audit search-term-waste --sample
+      - run: docker run --rm --network none -v "$PWD/examples:/data:ro" openppc audit keyword-audit keywords_acme.csv
+      - run: |  # the sample AI audit has wrong numbers on purpose: exit 2
+          status=0
+          docker run --rm --network none openppc check --sample || status=$?
+          test "$status" = 2
+      - run: |  # the command line image has no MCP SDK; the MCP image has it and its server loads
+          docker run --rm --network none --entrypoint python openppc -c "import importlib.util as u; assert u.find_spec('mcp') is None"
+          docker run --rm --network none --entrypoint python openppc-mcp -c "import openppc.mcp_server as m; assert m.Server"
+          docker run --rm --network none openppc-mcp --help
+
   web-app:  # the app in Chromium, loading its Python runtime from the CDN like a visitor
     runs-on: ubuntu-latest
     timeout-minutes: 20

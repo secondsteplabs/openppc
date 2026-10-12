@@ -1,0 +1,14 @@
+# An allowlist: only what builds the package enters the build, so a client export or a .env left in the working
+# copy never reaches an image. A file the Dockerfile copies must be listed here too.
+*
+!pyproject.toml
+!README.md
+!LICENSE
+!openppc
+!examples/search_terms_acme.csv
+!examples/keywords_acme.csv
+!examples/account_structure_acme.json
+!examples/account_acme.json
+!examples/ai_audit_sample.md
+**/__pycache__
+**/*.pyc
