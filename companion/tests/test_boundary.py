@@ -8,13 +8,14 @@ from conftest import ask
 
 PACKAGE = Path(__file__).resolve().parent.parent / "openppc_online"
 CLIENTS = {"urllib.request", "http.client", "ssl", "socket", "urllib3", "requests", "httpx", "aiohttp", "ftplib",
-           "smtplib", "poplib", "imaplib", "telnetlib", "xmlrpc", "asyncio"}
+           "smtplib", "poplib", "imaplib", "telnetlib", "xmlrpc", "asyncio", "playwright"}
 # which files may import each part of the network stack, and why
 ALLOWED = {"http.server": {"app.py"},  # the app's server, bound to 127.0.0.1
            "webbrowser": {"app.py"},   # opens the app's own address
            # the site check's guard, and the browser's proxy: every connection is checked before it is made
            "http.client": {"siteaudit/net.py"}, "ssl": {"siteaudit/net.py"}, "socket": {"siteaudit/net.py"},
            "socketserver": {"siteaudit/net.py"},
+           "playwright.sync_api": {"siteaudit/render.py"},  # the --render browser, pointed at the guard's proxy
            "urllib.request": {"siteaudit/crux.py"}}  # Chrome's UX Report API, never the audited site
 # the core's stable API (ADR-2): what the companion may import from openppc, by module
 STABLE = {"openppc": {"__version__"}, "openppc.facts": {"FactBook"}, "openppc.engine.trace": {"trace"},

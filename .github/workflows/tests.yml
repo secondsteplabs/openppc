@@ -59,7 +59,8 @@ jobs:
           import glob, zipfile
           names = set(zipfile.ZipFile(glob.glob("companion/dist/*.whl")[0]).namelist())
           need = {f"openppc_online/web/{f}" for f in ("index.html", "app.js", "engine.js", "engine-worker.js", "style.css")}
-          need |= {"openppc_online/local/local.js", "openppc_online/siteaudit/signatures.json"}
+          need |= {"openppc_online/local/local.js", "openppc_online/siteaudit/signatures.json",
+                   "openppc_online/siteaudit/vendor/axe.min.js"}
           need |= {f"openppc_online/schemas/site-{f}.schema.json" for f in ("config", "report")}
           missing = need - names
           assert not missing, missing
