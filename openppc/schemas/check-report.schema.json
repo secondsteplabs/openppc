@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/secondsteplabs/openppc/main/openppc/schemas/check-report.schema.json",
+  "title": "openppc check --format json",
+  "description": "format_version changes only when a change would break a reader; new keys can appear without it.",
+  "type": "object",
+  "required": ["format_version", "openppc", "passed", "counts", "claims", "contradictions", "markdown"],
+  "properties": {
+    "format_version": {"const": 1},
+    "openppc": {"type": "string", "description": "The OpenPPC version that wrote this."},
+    "passed": {"type": "boolean",
+               "description": "No wrong number, wrong label or contradiction; the exit code is 0 exactly when true."},
+    "counts": {
+      "type": "object",
+      "required": ["total", "traced", "mismatch", "not_in_data", "cant_check", "contradictions"],
+      "additionalProperties": {"type": "integer"}
+    },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["line", "written", "value", "verdict", "detail", "context"],
+        "properties": {
+          "line": {"type": "integer"},
+          "written": {"type": "string"},
+          "value": {"type": "number"},
+          "verdict": {"enum": ["traced", "mismatch", "not in data", "can't check"]},
+          "detail": {"type": "string"},
+          "context": {"type": "string"}
+        }
+      }
+    },
+    "contradictions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["line", "problem", "context"],
+        "properties": {"line": {"type": "integer"}, "problem": {"type": "string"}, "context": {"type": "string"}}
+      }
+    },
+    "markdown": {"type": "string", "description": "The check, exactly as --format md writes it."}
+  }
+}

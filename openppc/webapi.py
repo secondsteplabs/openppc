@@ -6,7 +6,6 @@ function returns a JSON string, except count_numbers. Nothing here touches the n
 import itertools
 import json
 import os
-from dataclasses import asdict
 
 from . import __version__
 from .checkfacts import facts_for_check, facts_for_paths, industry_facts, report_settings
@@ -17,6 +16,7 @@ from .ingest.account import is_snapshot, read_json, snapshot
 from .ingest.editor import is_editor_export, load_editor
 from .templates import TEMPLATES, account_read, load_input, run_template_book
 from .facts import SYMBOLS
+from .formats import check_result
 from .templates._common import fingerprint, min_cost_for
 
 READ_ERRORS = (ValueError, KeyError, TypeError, UnicodeDecodeError, OSError)
@@ -176,17 +176,7 @@ def check(text, paths_json, industry=""):
         return _json({"ok": False, "error": _clean(e, paths)})
     _step("Checking every number in the audit")
     claims, contradictions = trace(text, facts)
-    counts = {
-        "total": len(claims),
-        "traced": sum(c.verdict == "traced" for c in claims),
-        "mismatch": sum(c.verdict == "mismatch" for c in claims),
-        "not_in_data": sum(c.verdict == "not in data" for c in claims),
-        "cant_check": sum(c.verdict == "can't check" for c in claims),
-        "contradictions": len(contradictions),
-    }
-    return _json({"ok": True, "counts": counts, "claims": [asdict(c) for c in claims],
-                  "contradictions": [{"line": n, "problem": p, "context": ctx} for n, p, ctx in contradictions],
-                  "markdown": render_check(claims, contradictions)})
+    return _json({"ok": True, **check_result(claims, contradictions, render_check(claims, contradictions))})
 
 
 def audit(name, path, industry="", min_cost=None, brand="", prior=""):

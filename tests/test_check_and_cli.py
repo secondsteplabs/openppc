@@ -120,7 +120,7 @@ def test_check_takes_several_exports_after_one_data_flag(capsys):
 def test_a_crash_exits_3_in_one_line_and_debug_shows_the_traceback(monkeypatch, capsys):
     def broken(*args, **kwargs):
         raise ZeroDivisionError("division by zero")
-    monkeypatch.setattr("openppc.cli.run_template", broken)
+    monkeypatch.setattr("openppc.cli.run_template_book", broken)
     assert main(["audit", "search-term-waste", "--sample"]) == 3
     err = capsys.readouterr().err
     assert err.count("\n") == 1 and "(ZeroDivisionError: division by zero). This is a bug" in err

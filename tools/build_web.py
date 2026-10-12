@@ -22,7 +22,7 @@ SAMPLES = ("search_terms_acme.csv", "keywords_acme.csv", "account_acme.json", "a
 # NOT_BUNDLED.
 BUNDLE = (
     "openppc/__init__.py", "openppc/__main__.py", "openppc/checkfacts.py", "openppc/cli.py", "openppc/facts.py",
-    "openppc/mcp_server.py", "openppc/samples.py", "openppc/webapi.py",
+    "openppc/formats.py", "openppc/mcp_server.py", "openppc/samples.py", "openppc/webapi.py",
     "openppc/engine/__init__.py", "openppc/engine/benchmarks.py", "openppc/engine/findings.py",
     "openppc/engine/trace.py", "openppc/engine/waste_model.py",
     "openppc/ingest/__init__.py", "openppc/ingest/account.py", "openppc/ingest/editor.py",

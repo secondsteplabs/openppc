@@ -7,9 +7,11 @@
     openppc audit search-term-waste exports/search_terms.csv --industry home-services
     openppc audit account-read exports/search_terms_june.csv exports/search_terms_july.csv
     openppc check --audit their_audit.md --data exports/search_terms.csv
+    openppc audit search-term-waste exports/search_terms.csv --format html --out report.html
 
 Exit codes: 0 clean, 1 bad input, 2 the check found problems, 3 a bug in OpenPPC: our own report failed
-its number check, or the command crashed (--debug prints the traceback).
+its number check, or the command crashed (--debug prints the traceback). --format changes what is written,
+never the exit code.
 """
 import argparse
 import sys
@@ -21,8 +23,9 @@ from .checkfacts import facts_for_check
 from .engine import benchmarks
 from . import samples
 from .engine.trace import render_check, trace
+from .formats import audit_as, check_as, check_result
 from .ingest import read_text
-from .templates import TEMPLATES, run_template
+from .templates import TEMPLATES, run_template_book
 
 ISSUES = "https://github.com/secondsteplabs/openppc/issues"
 
@@ -71,6 +74,8 @@ def _parser():
                    help="cost threshold for a waste flag (default: about $20, in the export's currency)")
     a.add_argument("--brand", help="your brand names, comma-separated; brand terms are never flagged as waste")
     a.add_argument("--out", help="write the report here instead of printing it")
+    a.add_argument("--format", choices=("md", "html", "json"), default="md",
+                   help="md (default); html, one page that opens in any browser; or json, for scripts")
     c = sub.add_parser("check", help="check the numbers in any audit against your data", parents=[debug])
     c.add_argument("--audit", help="the audit to check (.md or .txt)")
     c.add_argument("--data", action="extend", nargs="+",
@@ -79,6 +84,8 @@ def _parser():
                    help="check the sample AI audit against the made-up Acme Plumbing export")
     c.add_argument("--industry", help="also accept this industry's published averages")
     c.add_argument("--out", help="write the result here instead of printing it")
+    c.add_argument("--format", choices=("md", "html", "json"), default="md",
+                   help="md (default); html, one page that opens in any browser; or json, for scripts")
     return ap
 
 
@@ -119,9 +126,9 @@ def main(argv=None):
             if args.sample:
                 args.data = [str(samples.path(samples.EXPORTS[args.template]))]
                 args.industry = args.industry or samples.INDUSTRY
-            markdown, _, passed = run_template(args.template, args.data, industry=args.industry,
-                                               min_cost=args.min_cost, brand=args.brand)
-            _emit(markdown, args.out)
+            markdown, book, passed = run_template_book(args.template, args.data, industry=args.industry,
+                                                       min_cost=args.min_cost, brand=args.brand)
+            _emit(audit_as(args.format, TEMPLATES[args.template], markdown, book, passed), args.out)
             return 0 if passed else 3
         if args.command == "check":
             if args.sample and (args.audit or args.data) or not args.sample and not (args.audit and args.data):
@@ -131,10 +138,9 @@ def main(argv=None):
                 args.industry = args.industry or samples.INDUSTRY
             text = read_text(args.audit)
             claims, contradictions = trace(text, facts_for_check(text, args.data, args.industry))
-            _emit(render_check(claims, contradictions), args.out)
-            # can't check is never held against an audit: only wrong numbers, wrong labels and contradictions fail
-            clean = not any(c.verdict in ("mismatch", "not in data") for c in claims) and not contradictions
-            return 0 if clean else 2
+            result = check_result(claims, contradictions, render_check(claims, contradictions))
+            _emit(check_as(args.format, result), args.out)
+            return 0 if result["passed"] else 2
     except (ValueError, OSError, KeyError) as e:
         print(f"openppc: {explain(e)}", file=sys.stderr)
         return 1

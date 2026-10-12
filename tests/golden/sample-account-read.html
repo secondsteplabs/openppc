@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Account read: period over period</title>
+<style>body{font:15px/1.55 system-ui,-apple-system,'Segoe UI',sans-serif;color:#1f2937;max-width:980px;margin:40px auto;padding:0 20px}h1,h2,h3{line-height:1.25}code{font:13px ui-monospace,Consolas,monospace;background:#f1f3f5;padding:1px 4px;border-radius:3px}.table{overflow-x:auto;margin:12px 0}table{border-collapse:collapse;min-width:100%}th,td{border:1px solid #dfe3e5;padding:6px 9px;text-align:left;vertical-align:top}th{background:#f6f7f8}hr{border:0;border-top:1px solid #dfe3e5;margin:28px 0}</style>
+</head>
+<body>
+<h1>Account read: period over period</h1>
+<p>Source: <code>account_acme.json</code> · July 2026 vs June 2026 · currency USD</p>
+<p><em>Built by OpenPPC, read-only: computed from this file alone, with no network calls.</em></p>
+<h2>Period over period</h2>
+<ul><li>Spend: 4,974, from 5,210. DOWN 5%.</li><li>Impressions: 9,852, from 11,890. DOWN 17%.</li><li>Clicks: 732, from 760. DOWN 4%.</li><li>CTR: 7.43%, from 6.39%. UP.</li><li>Conversions: 85, from 71. UP 20%.</li><li>CPA: 58.51, from 73.38. DOWN 20% (improved).</li></ul>
+<h2>Read</h2>
+<p>EFFICIENCY GAIN. Conversions up 20% and CPA down 20% on down spend. More output at lower cost.</p>
+<p><strong>Biggest move:</strong> CPA down 20%</p>
+<h2>Flags</h2>
+<p>None.</p>
+<h2>How this was computed</h2>
+<ul><li>Every change is current minus prior, divided by prior. A move smaller than 3% is called flat.</li><li>The read is the first rule that matches, in priority order: tracking problems, small samples, then the spend, conversion and CPA patterns. The rules live in <code>openppc/engine/findings.py</code>.</li><li>A conversion is whatever this account counts as one. Seasonal businesses should compare against the same period last year, not the previous one.</li></ul>
+<hr>
+<p>Number check: every number in this report traces back to your data.</p>
+</body>
+</html>

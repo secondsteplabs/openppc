@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/secondsteplabs/openppc/main/openppc/schemas/audit-report.schema.json",
+  "title": "openppc audit TEMPLATE --format json",
+  "description": "format_version changes only when a change would break a reader; new keys can appear without it.",
+  "type": "object",
+  "required": ["format_version", "openppc", "template", "title", "passed", "markdown", "facts", "cards"],
+  "properties": {
+    "format_version": {"const": 1},
+    "openppc": {"type": "string", "description": "The OpenPPC version that wrote this."},
+    "template": {"type": "string"},
+    "title": {"type": "string"},
+    "passed": {"type": "boolean", "description": "The report passed its own number check."},
+    "markdown": {"type": "string", "description": "The report, exactly as --format md writes it."},
+    "facts": {"type": "array", "items": {"$ref": "#/$defs/fact"},
+              "description": "Every figure the report may print, each traced to the file."},
+    "cards": {"type": "object", "description": "The template's results as data; their shape is the template's own."}
+  },
+  "$defs": {
+    "fact": {
+      "type": "object",
+      "required": ["label", "value", "kind", "metric", "entity", "level", "currency"],
+      "properties": {
+        "label": {"type": "string"},
+        "value": {"type": "number"},
+        "kind": {"enum": ["money", "pct", "count"]},
+        "metric": {"type": "string"},
+        "entity": {"type": "string"},
+        "level": {"type": "string"},
+        "currency": {"type": "string"}
+      }
+    }
+  }
+}

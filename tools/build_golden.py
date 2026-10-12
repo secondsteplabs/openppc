@@ -1,8 +1,8 @@
 """Build tests/golden/: what OpenPPC shows users today, so a change to any of it is seen and reviewed.
 
 It holds every template's report on the sample and on each fixture, the app's cards and the branded client
-report's pages, `check` on the sample audit, the MCP tools' answers, and each site page's title, description and
-H1. Run it after an intended change, and review the diff before committing:
+report's pages, `check` on the sample audit, the sample reports and check as HTML, the MCP tools' answers, and
+each site page's title, description and H1. Run it after an intended change, and review the diff before committing:
 
     python tools/build_golden.py
 
@@ -41,6 +41,7 @@ def golden():
     from openppc import mcp_server, samples
     from openppc.checkfacts import facts_for_check
     from openppc.engine.trace import render_check, trace
+    from openppc.formats import CHECK_TITLE, to_html
     from openppc.ingest import load_report
     from openppc.ingest.editor import is_editor_export
     from openppc.templates import TEMPLATES, run_template_book
@@ -52,6 +53,8 @@ def golden():
             markdown, book, passed = run_template_book(name, path, industry=industry)
             out[f"sample-{name}{label}.md"] = f"<!-- passed: {passed} -->\n{markdown}"
             out[f"sample-{name}{label}.json"] = _json({"cards": book.cards, "client": book.client})
+            if not label:
+                out[f"sample-{name}.html"] = to_html(markdown, TEMPLATES[name].TITLE)
         out[f"mcp-audit_account-{name}.md"] = mcp_server.audit_account(name, path, samples.INDUSTRY)
     pair = [str(samples.path(samples.EXPORTS["search-term-waste"])), str(samples.path("search_terms_acme_june.csv"))]
     markdown, _, passed = run_template_book("account-read", pair)
@@ -60,6 +63,7 @@ def golden():
     data = [str(samples.path(samples.AUDIT_DATA))]
     for label, industry in (("", None), ("-industry", samples.INDUSTRY)):
         out[f"check-sample{label}.md"] = render_check(*trace(audit, facts_for_check(audit, data, industry)))
+    out["check-sample.html"] = to_html(out["check-sample.md"], CHECK_TITLE)
     out["mcp-check_numbers.md"] = mcp_server.check_numbers(audit, data)
     for path in sorted(FIXTURES.glob("*.csv")):
         if is_editor_export(path):
