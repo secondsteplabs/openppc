@@ -12,6 +12,8 @@ from pathlib import Path
 
 HERE = Path(__file__).parent
 PERIOD = "July 1, 2026 - July 31, 2026"
+JUNE = "June 1, 2026 - June 30, 2026"
+PRIOR = {"spend": 5210.00, "impressions": 11890, "clicks": 760, "conversions": 71}  # June's totals
 
 # search term, match type, added/excluded, campaign, ad group, clicks, impressions, cost, conversions
 SEARCH_TERMS = [
@@ -73,20 +75,34 @@ def total_row(label, rows, clicks_i, impr_i, cost_i, conv_i, width, positions):
     return out
 
 
-def write_search_terms(path):
+def june_terms():
+    """July's search terms at June's pace, each figure scaled to June's totals and the remainder put on the first
+    term, so June's export adds up to the prior period in account_acme.json."""
+    rows = [list(r) for r in SEARCH_TERMS]
+    for i, key, money in ((5, "clicks", False), (6, "impressions", False), (7, "spend", True),
+                          (8, "conversions", False)):
+        july = sum(r[i] for r in SEARCH_TERMS)
+        for r in rows:
+            r[i] = round(r[i] * PRIOR[key] / july, 2) if money else round(r[i] * PRIOR[key] / july)
+        rest = sum(r[i] for r in rows[1:])
+        rows[0][i] = round(PRIOR[key] - rest, 2) if money else PRIOR[key] - rest
+    return [tuple(r) for r in rows]
+
+
+def write_search_terms(path, rows=SEARCH_TERMS, period=PERIOD):
     header = ["Search term", "Match type", "Added/Excluded", "Campaign", "Ad group", "Clicks", "Impr.", "CTR",
               "Currency code", "Avg. CPC", "Cost", "Conv. rate", "Conversions", "Cost / conv."]
     pos = {"clicks": 5, "impr": 6, "ctr": 7, "currency": 8, "cpc": 9, "cost": 10, "cvr": 11, "conv": 12, "cpa": 13}
     with open(path, "w", newline="", encoding="utf-8") as f:
-        f.write("Search terms report\n" + PERIOD + "\n")
+        f.write("Search terms report\n" + period + "\n")
         w = csv.writer(f)
         w.writerow(header)
-        for term, mt, ae, camp, ag, clicks, impr, cost, conv in SEARCH_TERMS:
+        for term, mt, ae, camp, ag, clicks, impr, cost, conv in rows:
             ctr, cpc, cvr, cpa = derived(clicks, impr, cost, conv)
             w.writerow([term, mt, ae, camp, ag, clicks, f"{impr:,}", ctr, "USD", cpc, f"{cost:,.2f}", cvr,
                         f"{conv:.2f}", cpa])
         for label in ("Total: Search terms", "Total: Account"):
-            w.writerow(total_row(label, SEARCH_TERMS, 5, 6, 7, 8, len(header), pos))
+            w.writerow(total_row(label, rows, 5, 6, 7, 8, len(header), pos))
 
 
 def write_keywords(path):
@@ -110,12 +126,13 @@ def write_account(path):
     data = {"meta": {"currency": "USD", "window": "July 2026 vs June 2026",
                      "business_model": "plumbing (lead-gen)"},
             "current": cur,
-            "prior": {"spend": 5210.00, "impressions": 11890, "clicks": 760, "conversions": 71}}
-    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+            "prior": PRIOR}
+    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8", newline="\n")
 
 
 if __name__ == "__main__":
     write_search_terms(HERE / "search_terms_acme.csv")
+    write_search_terms(HERE / "search_terms_acme_june.csv", june_terms(), JUNE)
     write_keywords(HERE / "keywords_acme.csv")
     write_account(HERE / "account_acme.json")
-    print("wrote search_terms_acme.csv, keywords_acme.csv, account_acme.json")
+    print("wrote search_terms_acme.csv, search_terms_acme_june.csv, keywords_acme.csv, account_acme.json")

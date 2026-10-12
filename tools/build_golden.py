@@ -53,6 +53,9 @@ def golden():
             out[f"sample-{name}{label}.md"] = f"<!-- passed: {passed} -->\n{markdown}"
             out[f"sample-{name}{label}.json"] = _json({"cards": book.cards, "client": book.client})
         out[f"mcp-audit_account-{name}.md"] = mcp_server.audit_account(name, path, samples.INDUSTRY)
+    pair = [str(samples.path(samples.EXPORTS["search-term-waste"])), str(samples.path("search_terms_acme_june.csv"))]
+    markdown, _, passed = run_template_book("account-read", pair)
+    out["sample-account-read-pair.md"] = f"<!-- passed: {passed} -->\n{markdown}"
     audit = samples.path(samples.AUDIT).read_text(encoding="utf-8")
     data = [str(samples.path(samples.AUDIT_DATA))]
     for label, industry in (("", None), ("-industry", samples.INDUSTRY)):

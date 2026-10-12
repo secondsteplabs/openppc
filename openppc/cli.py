@@ -5,6 +5,7 @@
     openppc audit search-term-waste --sample
     openppc check --sample
     openppc audit search-term-waste exports/search_terms.csv --industry home-services
+    openppc audit account-read exports/search_terms_june.csv exports/search_terms_july.csv
     openppc check --audit their_audit.md --data exports/search_terms.csv
 
 Exit codes: 0 clean, 1 bad input, 2 the check found problems, 3 a bug in OpenPPC: our own report failed
@@ -52,7 +53,9 @@ def _parser():
     sub.add_parser("industries", help="list the benchmark industries", parents=[debug])
     a = sub.add_parser("audit", help="run a template on an export", parents=[debug])
     a.add_argument("template", choices=sorted(TEMPLATES))
-    a.add_argument("data", nargs="?", help="your export (.csv) or two-period totals (.json)")
+    a.add_argument("data", nargs="*",
+                   help="your export (.csv), or for account-read two exports of one report, one per period, or "
+                        "two-period totals (.json)")
     a.add_argument("--sample", action="store_true",
                    help="run on the made-up Acme Plumbing account that ships with OpenPPC")
     a.add_argument("--industry", help="compare against an industry average, e.g. home-services")
@@ -106,7 +109,7 @@ def main(argv=None):
             if args.sample == bool(args.data):
                 raise ValueError("give your export's path, or --sample to try the made-up Acme Plumbing account")
             if args.sample:
-                args.data = str(samples.path(samples.EXPORTS[args.template]))
+                args.data = [str(samples.path(samples.EXPORTS[args.template]))]
                 args.industry = args.industry or samples.INDUSTRY
             markdown, _, passed = run_template(args.template, args.data, industry=args.industry,
                                                min_cost=args.min_cost, brand=args.brand)

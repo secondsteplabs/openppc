@@ -270,8 +270,10 @@ def facts_for_check(text, paths, industry=None, load=load_report):
 
 
 def facts_for_paths(paths, industry=None, settings=None, load=load_report):
-    """load reads a report file: the app passes one that hands over a file it has already read."""
+    """load reads a report file: the app passes one that hands over a file it has already read. Two exports that
+    make two periods of one report also bring the period-over-period read's figures."""
     facts = FactList()
+    periods = []
     for path in paths:
         if str(path).lower().endswith(".json"):
             raw = read_json(path)
@@ -284,7 +286,13 @@ def facts_for_paths(paths, industry=None, settings=None, load=load_report):
             _, book = account_structure.run(load_editor(path))
             facts += [f for f in book.facts if f.metric != "rule"]
         else:
-            facts += facts_for_report(load(path), settings)
+            report = load(path)
+            periods.append(account_read.period_of(report))
+            facts += facts_for_report(report, settings)
+            del report
+    if len(paths) == len(periods) == 2 and account_read.pair_problem(*periods) is None:
+        _, book = account_read.run(account_read.from_periods(periods))
+        facts += [f for f in book.facts if f.metric != "rule"]
     facts += industry_facts(industry)
     return facts
 

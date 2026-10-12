@@ -1,35 +1,97 @@
 """Account read: what changed between two periods, classified by explicit rules.
 
-Input: a small .json file with the account's totals for two periods:
+Input: two exports of the same Google Ads report, one per period (say the Search terms
+report for June and the one for July), or a small .json file with the account's totals
+for two periods:
 
     {"meta": {"currency": "USD", "window": "July 2026 vs June 2026",
               "business_model": "plumbing (lead-gen)"},
      "current": {"spend": 4973.64, "impressions": 9852, "clicks": 732, "conversions": 85},
      "prior":   {"spend": 5210.00, "impressions": 11890, "clicks": 760, "conversions": 71}}
 
-Every direction and percentage is computed in code (engine/findings.py). Nothing here
-is left for a model to work out, because that is where models go wrong.
+With two exports, each period's totals are the sums of its rows, and the file with the later
+dates is the current period. Every direction and percentage is computed in code
+(engine/findings.py). Nothing here is left for a model to work out, because that is where
+models go wrong.
 """
 import os
+from collections import namedtuple
 
 from ..engine import benchmarks
 from ..engine.findings import CPA_BAND, FLAT, THIN_DATA, build_findings
 from ..facts import FactBook
+from ..ingest import load_report
 from ..ingest.account import read_json
-from ._common import conv_dp
+from ..ingest.google_ads_csv import GOOGLE
+from ._common import conv_dp, period, totals
 
 NAME = "account-read"
 TITLE = "Account read: period over period"
 TIER = "free"
 INPUT_KIND = "metrics"
-INPUT = "two-period totals (.json)"
+INPUT = "pair of exports, one per period (.csv), or two-period totals (.json)"
 SUMMARY = ("What changed between two periods, classified by explicit rules: efficiency win, "
            "over-expansion, broken tracking, and more. Every direction is computed, never guessed.")
 KEYS = ("cs", "ps", "ci", "pi", "cc", "pc", "cv", "pv")
+NEEDS = ("cost", "clicks", "impressions", "conversions")
+ROW_KEYS = ("search_term", "keyword", "ad_group", "campaign")
+# One export, as much of it as comparing two periods needs: no rows, so a pair of big files is never held at once
+Period = namedtuple("Period", "source kind platform currency start end days missing notes totals")
 
 
 def accepts(data):
     return isinstance(data, dict) and "metrics" in data
+
+
+def load(paths):
+    """Two-period totals from a .json file, or from two exports of the same report."""
+    paths = [str(p) for p in paths]
+    if len(paths) == 2:
+        return from_periods([period_of(load_report(p)) for p in paths])
+    if len(paths) == 1 and paths[0].lower().endswith(".json"):
+        return load_metrics(paths[0])
+    names = " and ".join(os.path.basename(p) for p in paths)
+    raise ValueError(f"{names}: account-read compares two periods. Give it two exports of the same report, one "
+                     "per period, or a two-period totals .json.")
+
+
+def period_of(report):
+    return Period(report.source, next((k for k in ROW_KEYS if report.has(k)), report.title or "report"),
+                  report.platform, report.currency, report.start, report.end, report.days,
+                  [c for c in NEEDS if not report.has(c)], list(report.notes), totals(report.rows))
+
+
+def pair_problem(a, b):
+    """Why two exports cannot be compared as two periods, or None when they can."""
+    na, nb = os.path.basename(a.source), os.path.basename(b.source)
+    for p, n in ((a, na), (b, nb)):
+        if p.missing:
+            return f"{n} has no {' or '.join(p.missing)} column, which a period-over-period read needs."
+        if not (p.start and p.end):
+            return (f"{n} has no date range above its header, so its period is unknown. Download it again "
+                    "without editing it.")
+    if (a.kind, a.platform) != (b.kind, b.platform):
+        return f"{na} and {nb} are different reports. Compare two exports of the same report."
+    if a.currency != b.currency:
+        return f"{na} is in {a.currency} and {nb} in {b.currency}. Compare two exports in the same currency."
+    first, second = sorted((a, b), key=lambda p: (p.end, p.start))
+    if second.start <= first.end:
+        return f"{na} and {nb} cover overlapping dates. Export one period per file."
+    return None
+
+
+def from_periods(periods):
+    problem = pair_problem(*periods)
+    if problem:
+        raise ValueError(problem)
+    prior, current = sorted(periods, key=lambda p: (p.end, p.start))
+    p, c = prior.totals, current.totals
+    m = {"cs": c.cost, "ps": p.cost, "ci": c.impressions, "pi": p.impressions,
+         "cc": c.clicks, "pc": p.clicks, "cv": c.conversions, "pv": p.conversions}
+    return {"metrics": {k: float(v) for k, v in m.items()}, "meta": {"currency": current.currency},
+            "source": current.source, "prior_source": prior.source, "platform": current.platform,
+            "notes": list(dict.fromkeys(n for x in (current, prior) for n in x.notes)),
+            "periods": [("current", current), ("prior", prior)]}
 
 
 def load_metrics(path):
@@ -104,12 +166,27 @@ def run(data, industry=None, **_):
     m, meta = data["metrics"], data.get("meta", {})
     book = FactBook((meta.get("currency") or "USD").upper())
     _register(book, m)
-    bits = [f"Source: `{os.path.basename(data.get('source', ''))}`"]
+    source = os.path.basename(data.get("source", ""))
+    pair = data.get("prior_source")
+    if pair:
+        bits = [f"Source: `{source}` (current) and `{os.path.basename(pair)}` (prior)"]
+        if data.get("platform", GOOGLE) != GOOGLE:
+            bits.append(f"{data['platform']} exports (experimental)")
+        bits.append(" vs ".join(f"{period(p, compact=True)} ({book.count(f'days in the {name} period', p.days, 'days')}"
+                                f" days)" for name, p in data["periods"]))
+    else:
+        bits = [f"Source: `{source}`"]
     if meta.get("window"):
         bits.append(meta["window"])
     bits.append(f"currency {book.currency}")
-    out = [f"# {TITLE}", "", " · ".join(bits), "",
-           "_Built by OpenPPC, read-only: computed from this file alone, with no network calls._", ""]
+    notes = data.get("notes") or []
+    read = [f"_How the files were read: {'; '.join(notes)}._", ""] if notes else []
+    if pair and len({p.days for _, p in data["periods"]}) > 1:
+        read += ["_Note: the two periods are different lengths, so their totals are compared as they are, not "
+                 "per day._", ""]
+    out = [f"# {TITLE}", "", " · ".join(bits), "", *read,
+           f"_Built by OpenPPC, read-only: computed from {'these files' if pair else 'this file'} alone, with no "
+           "network calls._", ""]
     out += _markdown(build_findings(m, meta))
     if industry:
         out += benchmarks.section(book, industry, cost=m["cs"], clicks=m["cc"],

@@ -11,11 +11,15 @@ TEMPLATES = {t.NAME: t for t in (search_term_waste, keyword_audit, account_struc
 
 
 def load_input(template, path):
+    """path: one file, or for account-read a list of two, one export per period."""
+    paths = [str(p) for p in path] if isinstance(path, (list, tuple)) else [str(path)]
     if template.INPUT_KIND == "metrics":
-        return account_read.load_metrics(path)
+        return account_read.load(paths)
+    if len(paths) != 1:
+        raise ValueError(f"{template.NAME} reads one file. To compare two periods, use account-read.")
     if template.INPUT_KIND == "account":
-        return account_structure.load(path)
-    return load_report(path)
+        return account_structure.load(paths[0])
+    return load_report(paths[0])
 
 
 def run_template(name, path, **params):

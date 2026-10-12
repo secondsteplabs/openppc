@@ -56,12 +56,13 @@ def list_templates() -> str:
 
 
 def audit_account(template: str, data_path: str, industry: str = "", min_cost: float | None = None,
-                  brand: str = "") -> str:
+                  brand: str = "", prior_path: str = "") -> str:
     """Run an audit template on a local Google Ads export and return the report as markdown.
     Every number in the report is computed from the file and traced back to it. Pass the
-    account's brand names (comma-separated) so brand terms are never flagged as waste."""
-    markdown, _, _ = run_template(template, data_path, industry=industry or None, min_cost=min_cost,
-                                  brand=brand or None)
+    account's brand names (comma-separated) so brand terms are never flagged as waste. For
+    account-read, pass the other period's export of the same report as prior_path."""
+    markdown, _, _ = run_template(template, [data_path, prior_path] if prior_path else data_path,
+                                  industry=industry or None, min_cost=min_cost, brand=brand or None)
     return markdown
 
 
@@ -88,13 +89,20 @@ def _export_file(folder, text, name):
 
 
 def audit_export(template: str, export_text: str, export_name: str = "export.csv", industry: str = "",
-                 min_cost: float | None = None, brand: str = "") -> str:
+                 min_cost: float | None = None, brand: str = "", prior_text: str = "",
+                 prior_name: str = "prior.csv") -> str:
     """Run an audit template on the contents of a Google Ads export and return the report as markdown.
     Pass the whole file's text: a Search terms or Keywords report as CSV, or the JSON for snapshot and
     two-period templates. Every number in the report is computed from it and traced back to it. Pass the
-    account's brand names (comma-separated) so brand terms are never flagged as waste."""
+    account's brand names (comma-separated) so brand terms are never flagged as waste. For account-read,
+    pass the other period's export of the same report as prior_text."""
     with tempfile.TemporaryDirectory(prefix="openppc-") as folder:
-        return audit_account(template, _export_file(folder, export_text, export_name), industry, min_cost, brand)
+        path = _export_file(folder, export_text, export_name)
+        prior = ""
+        if prior_text:  # in a folder of its own, so two exports with one name both stay
+            (Path(folder) / "prior").mkdir()
+            prior = _export_file(Path(folder) / "prior", prior_text, prior_name)
+        return audit_account(template, path, industry, min_cost, brand, prior)
 
 
 def check_audit(audit_text: str, export_text: str, export_name: str = "export.csv", industry: str = "") -> str:
