@@ -802,6 +802,33 @@ function reportNode(md) {
   node.innerHTML = renderMarkdown(md);  // sanitized by DOMPurify, any HTML in the export shown as text
   return node;
 }
+// The sample's audit was run in advance, so the engine has no copy to check a PDF against or export: run it there
+// once, shared by every caller, and again only if that run failed.
+function auditToken(a) {
+  if (a.token) return Promise.resolve(a.token);
+  a.tokenRun ??= (async () => {
+    await engineReady;
+    await engineWrite(SAMPLE_PATH(), b64bytes(window.OPENPPC_BUNDLE.samples['search_terms_acme.csv']));
+    const real = JSON.parse(await engineCall('audit', 'search-term-waste', SAMPLE_PATH(), 'home-services', SAMPLE().info.min_cost, ''));
+    if (!real.ok) throw new Error(real.error);
+    a.token = real.token;
+    return real.token;
+  })().catch((e) => { a.tokenRun = null; throw e; });
+  return a.tokenRun;
+}
+async function exportAudit(a, format) {
+  if (!a.token) toast(`Making the .${format} once the checker has loaded…`);
+  let res;
+  try {
+    res = JSON.parse(await engineCall('export', await auditToken(a), format));
+  } catch (e) {
+    console.error(e);
+    toast(`The checker could not make the .${format} in this browser. Download the .md instead.`);
+    return;
+  }
+  if (!res.ok) { toast(capital(res.error)); return; }
+  download(`openppc-${a.template.name}.${format}`, res.text, format === 'html' ? 'text/html' : 'application/json');
+}
 async function runAudit() {
   const files = auditFiles();
   const [file, prior] = files;
@@ -828,7 +855,12 @@ async function runAudit() {
       files.map((f) => h('span', { class: 'hint' }, `${f.name} · ${describe(f.info)}`)), badge),
     h('div', { class: 'actions' },
       h('button', { class: 'btn', type: 'button', onclick: () => copyText(res.markdown, 'Report copied as markdown') }, icon('copy'), 'Copy'),
-      h('button', { class: 'btn btn-dark', type: 'button', onclick: () => download(`openppc-${template.name}.md`, res.markdown) }, icon('download'), 'Download .md')));
+      h('button', { class: 'btn btn-dark', type: 'button', onclick: () => download(`openppc-${template.name}.md`, res.markdown) }, icon('download'), 'Download .md')),
+    h('p', { class: 'hint exports' }, 'Also as ',
+      h('button', { class: 'link-btn', type: 'button', onclick: () => exportAudit(state.lastAudit, 'html') }, '.html'),
+      ', a page to open or send, or ',
+      h('button', { class: 'link-btn', type: 'button', onclick: () => exportAudit(state.lastAudit, 'json') }, '.json'),
+      ' for your own tools.'));
   const blocks = cards
     ? [h('div', { class: 'card' }, head, kpiStrip(cards.kpis)), todoCard(cards.actions), cards.waste.length ? wasteCard(cards) : null,
       h('details', { class: 'card fold' },
@@ -1299,13 +1331,10 @@ async function relayout() {
   if (run !== pdf.run || state.view !== 'branded') return;
   const { sheets, clipped } = paginate(pdf.model, kit, measureHost());
   const names = [kit.agency, kit.client, kit.title].filter(Boolean);
-  if (!pdf.audit.token) {  // the sample's audit was run in advance: run it once in the engine, which keeps it to check against
+  if (!pdf.audit.token) {
     pdf.status.textContent = 'Checking the numbers once the checker has loaded…';
     try {
-      await engineReady;
-      await engineWrite(SAMPLE_PATH(), b64bytes(window.OPENPPC_BUNDLE.samples['search_terms_acme.csv']));
-      const real = JSON.parse(await engineCall('audit', 'search-term-waste', SAMPLE_PATH(), 'home-services', SAMPLE().info.min_cost, ''));
-      pdf.audit.token = real.token;
+      await auditToken(pdf.audit);
     } catch (e) {
       console.error(e);
       pdf.status.className = 'pdf-status bad';

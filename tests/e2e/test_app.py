@@ -3,6 +3,7 @@ example export, the branded PDF, Stop on a big export, accessibility, and the ph
 
 These pin the app as it is (0.1.11). When a change to the app breaks one, the test or the app is wrong; decide which.
 """
+import json
 import re
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
@@ -97,6 +98,16 @@ def test_the_sample_audit_exports_negatives_and_makes_the_branded_pdf(app, tmp_p
     with app.expect_download() as dl:
         app.get_by_role("button", name="Download .md").click()
     assert dl.value.suggested_filename == "openppc-search-term-waste.md"
+    # the sample was audited in advance: its .html and .json wait for the checker, which the branded PDF then reuses
+    with app.expect_download(timeout=RUN) as dl:
+        app.get_by_role("button", name=".html", exact=True).click()
+    assert dl.value.suggested_filename == "openppc-search-term-waste.html"
+    page = Path(dl.value.path()).read_text(encoding="utf-8")
+    assert page.startswith("<!doctype html>") and "$767.20" in page and "<script" not in page
+    with app.expect_download(timeout=RUN) as dl:
+        app.get_by_role("button", name=".json", exact=True).click()
+    report = json.loads(Path(dl.value.path()).read_text(encoding="utf-8"))
+    assert (report["format_version"], report["template"], report["passed"]) == (1, "search-term-waste", True)
 
     app.get_by_role("checkbox", name="Select every search term").check()
     expect(app.get_by_text("6 terms selected")).to_be_visible()
@@ -151,6 +162,12 @@ def test_two_exports_of_one_report_pick_account_read_and_make_the_branded_pdf(ap
     expect(app.locator(".badge-ok")).to_be_visible(timeout=RUN)
     expect(app.locator(".report")).to_contain_text(
         "search_terms_acme.csv (current) and search_terms_acme_june.csv (prior)")
+    with app.expect_download(timeout=RUN) as dl:
+        app.get_by_role("button", name=".json", exact=True).click()
+    assert dl.value.suggested_filename == "openppc-account-read.json"
+    report = json.loads(Path(dl.value.path()).read_text(encoding="utf-8"))
+    assert report["template"] == "account-read" and report["passed"]
+    assert "search_terms_acme_june.csv" in report["markdown"]
 
     app.get_by_role("link", name="Make the branded PDF").click()
     expect(app.locator(".pdf-status.ok")).to_contain_text(

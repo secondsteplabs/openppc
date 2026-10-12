@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 
 from openppc import webapi
+from openppc.formats import to_html
+from openppc.templates import TEMPLATES
 
 ROOT = Path(__file__).resolve().parent.parent
 EX = ROOT / "examples"
@@ -91,6 +93,18 @@ def test_audit_hands_the_app_structured_results():
     assert all(a["detail"] in res["markdown"] for a in cards["actions"])
     other = json.loads(webapi.audit("keyword-audit", str(ROOT / "examples" / "keywords_acme.csv")))
     assert other["cards"] == {}
+
+
+def test_an_audit_exports_as_the_command_line_writes_it():
+    res = json.loads(webapi.audit("search-term-waste", SAMPLE_CSV, "home-services"))
+    page = json.loads(webapi.export(res["token"], "html"))
+    assert page["ok"] and page["text"] == to_html(res["markdown"], TEMPLATES["search-term-waste"].TITLE)
+    data = json.loads(json.loads(webapi.export(res["token"], "json"))["text"])
+    assert (data["format_version"], data["template"], data["passed"]) == (1, "search-term-waste", True)
+    assert data["markdown"] == res["markdown"] and len(data["facts"]) == res["facts"]
+    assert not json.loads(webapi.export(res["token"], "pdf"))["ok"]
+    gone = json.loads(webapi.export("audit-0", "html"))
+    assert not gone["ok"] and "Run it again" in gone["error"]
 
 
 def test_the_count_before_a_check_is_the_checks_own():

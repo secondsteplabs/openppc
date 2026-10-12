@@ -16,12 +16,12 @@ from .ingest.account import is_snapshot, read_json, snapshot
 from .ingest.editor import is_editor_export, load_editor
 from .templates import TEMPLATES, account_read, load_input, run_template_book
 from .facts import SYMBOLS
-from .formats import check_result
+from .formats import audit_as, check_result
 from .templates._common import fingerprint, min_cost_for
 
 READ_ERRORS = (ValueError, KeyError, TypeError, UnicodeDecodeError, OSError)
-KEEP_AUDITS = 8  # recent audits whose facts the app can still check a branded PDF against
-_BOOKS = {}
+KEEP_AUDITS = 8  # recent audits the app can still check a branded PDF against or export
+_AUDITS = {}  # token: (template, markdown, book, passed)
 _TOKENS = itertools.count(1)
 _progress = None
 WRONG_FILE = ("Export a Search terms or Keywords report from Google Ads: Campaigns > Insights and "
@@ -205,9 +205,9 @@ def audit(name, path, industry="", min_cost=None, brand="", prior=""):
     except READ_ERRORS as e:
         return _json({"ok": False, "error": _clean(e, paths)})
     token = f"audit-{next(_TOKENS)}"
-    _BOOKS[token] = book
-    while len(_BOOKS) > KEEP_AUDITS:
-        _BOOKS.pop(next(iter(_BOOKS)))
+    _AUDITS[token] = (template, markdown, book, passed)
+    while len(_AUDITS) > KEEP_AUDITS:
+        _AUDITS.pop(next(iter(_AUDITS)))
     return _json({"ok": True, "title": template.TITLE, "markdown": markdown, "passed": passed,
                   "facts": len(book.facts), "cards": book.cards, "client": book.client or None, "token": token,
                   "fingerprint": fingerprint(path), "prior_fingerprint": fingerprint(prior) if prior else None})
@@ -218,9 +218,9 @@ def verify(token, text, names_json="[]"):
 
     The names the user typed (agency, client, report title) are set aside first: they are words
     on the page, not claims about the account, even when they hold digits."""
-    book = _BOOKS.get(token)
-    if book is None:
+    if token not in _AUDITS:
         return _json({"ok": False, "error": "This audit is no longer loaded. Run it again, then make the PDF."})
+    book = _AUDITS[token][2]
     names = {n.strip() for n in json.loads(names_json or "[]") if isinstance(n, str) and n.strip()}
     for name in sorted(names, key=len, reverse=True):
         text = text.replace(name, "Name")
@@ -229,3 +229,12 @@ def verify(token, text, names_json="[]"):
     problems = [{"written": c.written, "verdict": c.verdict, "detail": c.detail, "context": c.context} for c in bad]
     problems += [{"written": "", "verdict": "contradiction", "detail": p, "context": ctx} for _, p, ctx in contradictions]
     return _json({"ok": True, "total": len(claims), "traced": len(claims) - len(bad), "problems": problems})
+
+
+def export(token, fmt):
+    """A finished audit as a self-contained .html page or as .json, the same as audit --format on the command line."""
+    if token not in _AUDITS:
+        return _json({"ok": False, "error": "This audit is no longer loaded. Run it again, then download it."})
+    if fmt not in ("html", "json"):
+        return _json({"ok": False, "error": f"unknown format '{fmt}'"})
+    return _json({"ok": True, "text": audit_as(fmt, *_AUDITS[token])})
