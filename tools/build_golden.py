@@ -42,6 +42,7 @@ def golden():
     from openppc.checkfacts import facts_for_check
     from openppc.engine.trace import render_check, trace
     from openppc.ingest import load_report
+    from openppc.ingest.editor import is_editor_export
     from openppc.templates import TEMPLATES, run_template_book
 
     out = {}
@@ -58,6 +59,9 @@ def golden():
         out[f"check-sample{label}.md"] = render_check(*trace(audit, facts_for_check(audit, data, industry)))
     out["mcp-check_numbers.md"] = mcp_server.check_numbers(audit, data)
     for path in sorted(FIXTURES.glob("*.csv")):
+        if is_editor_export(path):
+            markdown, _, passed = run_template_book("account-structure", str(path))
+            out[f"fixture-{path.stem}-account-structure.md"] = f"<!-- passed: {passed} -->\n{markdown}"
         try:
             report = load_report(path)
         except ValueError as e:

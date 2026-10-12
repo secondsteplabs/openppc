@@ -1,4 +1,5 @@
-"""Build tests/fixtures/: one small export per real-world variant the readers must handle.
+"""Build tests/fixtures/: one small export per real-world variant the readers must handle, and
+examples/editor_acme.csv, the sample account snapshot as Google Ads Editor would export it.
 
 Run it after changing a recipe here:
 
@@ -11,11 +12,13 @@ number format, the encoding Google or Excel writes, and the Total rows at the bo
 """
 import csv
 import io
+import json
 import random
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "tests" / "fixtures"
+EXAMPLES = ROOT / "examples"
 
 HEADER = ["Search term", "Match type", "Added/Excluded", "Campaign", "Ad group", "Clicks", "Impr.", "Currency code",
           "Cost", "Conversions"]
@@ -191,6 +194,95 @@ def editor_export():
     return buf.getvalue()
 
 
+SNAPSHOT_HEADER = (["Campaign", "Campaign Type", "Networks", "Bid Strategy Type", "Enhanced CPC", "Targeting method",
+                    "Budget", "Budget type", "Campaign Status", "Ad Group", "Ad Group Status", "Keyword",
+                    "Criterion Type", "Status", "Approval Status", "Quality score", "Expected CTR", "Ad relevance",
+                    "Landing page experience", "Ad type"]
+                   + [f"Headline {i}{p}" for i in range(1, 16) for p in ("", " position")]
+                   + [f"Description {i}{p}" for i in range(1, 5) for p in ("", " position")]
+                   + ["Ad strength", "Link Text", "Callout text", "Header"])
+TARGETING = {"PRESENCE": "People in or regularly in your included locations",
+             "PRESENCE_OR_INTEREST": "People in, regularly in, or who've shown interest in your included locations"}
+WORDS = {"APPROVED_LIMITED": "Approved (limited)", "PERFORMANCE_MAX": "Performance Max",
+         "MANUAL_CPC": "Manual CPC"}
+ASSET_CELL = {"SITELINK": ("Link Text", "Sitelink"), "CALLOUT": ("Callout text", "Callout"),
+              "STRUCTURED_SNIPPET": ("Header", "Services")}
+
+
+def _word(value):
+    """'MAXIMIZE_CONVERSIONS' -> 'Maximize conversions', as Editor writes it."""
+    return WORDS.get(value, str(value).replace("_", " ").capitalize()) if value else ""
+
+
+def _pin(pin):
+    return pin.rsplit("_", 1)[-1] if pin else ""
+
+
+def editor_from_snapshot(snap):
+    """The Google Ads Editor export of an account snapshot: UTF-16, tab separated, names instead of ids. Shared
+    negative lists are left out, as Editor exports them on their own."""
+    camps = {c["id"]: c for c in snap["campaigns"]}
+    groups = {g["id"]: g for g in snap["ad_groups"]}
+    rows = []
+    for c in snap["campaigns"]:
+        display = c.get("display_network")
+        rows.append({"Campaign": c["name"], "Campaign Type": _word(c["channel"]),
+                     "Networks": "" if display is None else "Google search;Search Partners"
+                     + (";Display Network" if display else ""),
+                     "Bid Strategy Type": _word(c["bidding"]),
+                     "Enhanced CPC": "Enabled" if c.get("enhanced_cpc") else "Disabled",
+                     "Targeting method": TARGETING.get(c["geo_target_type"], c["geo_target_type"]),
+                     "Budget": f"{c['budget']:,.2f}" if c.get("budget") else "",
+                     "Budget type": "Daily" if c.get("budget") else "", "Campaign Status": _word(c["status"])})
+    for g in snap["ad_groups"]:
+        rows.append({"Campaign": camps[g["campaign_id"]]["name"], "Ad Group": g["name"],
+                     "Ad Group Status": _word(g["status"])})
+
+    def where(group_id):
+        g = groups[group_id]
+        return {"Campaign": camps[g["campaign_id"]]["name"], "Ad Group": g["name"]}
+
+    for k in snap["keywords"]:
+        rows.append({**where(k["ad_group_id"]), "Keyword": k["text"], "Criterion Type": _word(k["match_type"]),
+                     "Status": "Low search volume" if k.get("serving") == "RARELY_SERVED" else _word(k["status"]),
+                     "Approval Status": _word(k.get("approval")), "Quality score": k.get("quality_score") or "",
+                     "Expected CTR": _word(k.get("expected_ctr")), "Ad relevance": _word(k.get("ad_relevance")),
+                     "Landing page experience": _word(k.get("landing_page"))})
+    for n in snap["negatives"]:
+        match = _word(n["match_type"])
+        if n["level"] == "CAMPAIGN":
+            rows.append({"Campaign": camps[n["owner_id"]]["name"], "Keyword": n["text"],
+                         "Criterion Type": f"Campaign Negative {match}".strip(), "Status": "Enabled"})
+        elif n["level"] == "AD_GROUP":
+            rows.append({**where(n["owner_id"]), "Keyword": n["text"], "Criterion Type": f"Negative {match}".strip(),
+                         "Status": "Enabled"})
+    for a in snap["ads"]:
+        row = {**where(a["ad_group_id"]), "Ad type": _word(a["type"]), "Status": _word(a["status"]),
+               "Approval Status": _word(a.get("approval")), "Ad strength": _word(a.get("strength"))}
+        for kind, items in (("Headline", a["headlines"]), ("Description", a["descriptions"])):
+            for i, item in enumerate(items, 1):
+                row[f"{kind} {i}"], row[f"{kind} {i} position"] = item["text"], _pin(item["pin"])
+        rows.append(row)
+    seen = {}
+    for s in snap["assets"]:
+        column, text = ASSET_CELL[s["type"]]
+        seen[column] = seen.get(column, 0) + 1
+        owner = camps[s["owner_id"]]["name"] if s["level"] == "CAMPAIGN" else ""
+        rows.append({"Campaign": owner, column: f"{text} {seen[column]}", "Status": _word(s["status"])})
+    buf = io.StringIO()
+    out = csv.writer(buf, delimiter="\t", lineterminator="\r\n")
+    out.writerow(SNAPSHOT_HEADER)
+    for r in rows:
+        out.writerow([r.get(c, "") for c in SNAPSHOT_HEADER])
+    return buf.getvalue()
+
+
+def examples():
+    """{file name: bytes} for examples/: the samples made from another sample."""
+    snap = json.loads((EXAMPLES / "account_structure_acme.json").read_text(encoding="utf-8"))
+    return {"editor_acme.csv": editor_from_snapshot(snap).encode("utf-16")}
+
+
 def fixtures():
     """{file name: bytes}."""
     de = search_terms(BASE, "de-DE", ";", currency="EUR")
@@ -235,7 +327,10 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     for name, data in fixtures().items():
         (OUT / name).write_bytes(data)
-    print(f"wrote {len(fixtures())} files to {OUT.relative_to(ROOT)}")
+    for name, data in examples().items():
+        (EXAMPLES / name).write_bytes(data)
+    print(f"wrote {len(fixtures())} files to {OUT.relative_to(ROOT)} and {len(examples())} to "
+          f"{EXAMPLES.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":

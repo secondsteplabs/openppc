@@ -19,6 +19,7 @@ import itertools
 import os
 import re
 from array import array
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 
 # canonical column -> header names Google and Microsoft Advertising have used for it (lower-case)
@@ -252,8 +253,12 @@ def column_names(path):
     return []
 
 
-def load_report(path):
-    """Read the export a piece at a time: a 250,000-row file is never held as text, lines and cells at once."""
+LEGACY = "the file is not in Unicode, so it was read as Western European: check accented names"
+
+
+@contextmanager
+def lines_of(path):
+    """(lines, encoding): an export's lines, decoded as UTF-16, UTF-8 or Windows-1252, read a piece at a time."""
     not_a_folder(path)
     with open(path, "rb") as f:
         head = f.read(4096)
@@ -262,10 +267,44 @@ def load_report(path):
         raise ValueError(f"{path}: {problem}")
     encoding = _encoding(path, head)
     with open(path, encoding=encoding) as f:
-        report = _read(path, _lines(f))
+        yield _lines(f), encoding
+
+
+def records(first, idx, rest, delim):
+    """The rows under the header row first[idx], then the rest of the file's lines, as csv reads them."""
+    return csv.reader(_ended(itertools.chain(first[idx + 1:], rest)), delimiter=delim)
+
+
+def _style(cell):
+    """(decimal comma, decimal point, dotted thousands) for how one number cell is written."""
+    c = _compact(cell)
+    return (bool(EU_NUMBER.match(c)), bool(US_NUMBER.match(c)), bool(DOTTED.fullmatch(c))) if c else (0, 0, 0)
+
+
+def _european(eu, us, dotted, delim):
+    return eu > 0 or (delim == ";" and not us and dotted)
+
+
+def decimal_commas(cells, delim, name):
+    """Whether these number cells write decimals with a comma ("1.250,00"), decided for all of them at once, as a
+    report's numbers are. Cells in both styles are refused."""
+    eu = us = 0
+    dotted = False
+    for cell in cells:
+        e, u, d = _style(cell)
+        eu, us, dotted = eu + e, us + u, dotted or d
+    if eu and us:
+        raise ValueError(f"{name}: the numbers mix two styles (1,234.56 and 1.234,56), so they cannot be read "
+                         "safely. Export the file again.")
+    return _european(eu, us, dotted, delim)
+
+
+def load_report(path):
+    """Read the export a piece at a time: a 250,000-row file is never held as text, lines and cells at once."""
+    with lines_of(path) as (lines, encoding):
+        report = _read(path, lines)
     if encoding in ("cp1252", "latin-1"):
-        report.notes.insert(0, "the file is not in Unicode, so it was read as Western European: check accented "
-                               "names")
+        report.notes.insert(0, LEGACY)
     return report
 
 
@@ -301,8 +340,7 @@ def _read(path, lines):
     eu = us = 0  # how the numbers are written ("1.361,04" or "1,361.04"), which decides how all of them are read
     dotted = False
     pool, line_of = {}, array("q")  # one copy of each text value; each row's line, for a refusal after reading
-    records = csv.reader(_ended(itertools.chain(first[idx + 1:], lines)), delimiter=delim)
-    for n, cells in enumerate(records, idx + 2):
+    for n, cells in enumerate(records(first, idx, lines, delim), idx + 2):
         if not any(c.strip() for c in cells):
             continue
         lead = next(c for c in cells if c.strip())
@@ -329,11 +367,8 @@ def _read(path, lines):
             raise ValueError(f"{path}: line {n} has a money amount ({cells[money].strip()}) in the {names[money]} "
                              f"column, which only holds counts, so the columns look shifted. {again}")
         for i in numeric:
-            c = _compact(cells[i])
-            if c:
-                eu += bool(EU_NUMBER.match(c))
-                us += bool(US_NUMBER.match(c))
-                dotted = dotted or bool(DOTTED.fullmatch(c))
+            e, u, d = _style(cells[i])
+            eu, us, dotted = eu + e, us + u, dotted or d
         row = {}
         for key, cell in zip(keys, cells):
             if key:  # numbers stay as written until the file says how to read them
@@ -346,7 +381,7 @@ def _read(path, lines):
     if eu and us:
         raise ValueError(f"{path}: the numbers mix two styles (1,234.56 and 1.234,56), so they cannot be read "
                          "safely. Download the report again with Download > .csv.")
-    european = eu > 0 or (delim == ";" and not us and dotted)
+    european = _european(eu, us, dotted, delim)
     if european:
         report.notes.append("numbers read with decimal commas, as the file writes them")
     for n, row in zip(line_of, report.rows):

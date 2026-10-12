@@ -14,6 +14,7 @@ from .engine import benchmarks
 from .engine.trace import render_check, trace
 from .ingest import column_names, load_report
 from .ingest.account import is_snapshot, read_json, snapshot
+from .ingest.editor import is_editor_export, load_editor
 from .templates import TEMPLATES, account_read, load_input, run_template_book
 from .facts import SYMBOLS
 from .templates._common import fingerprint, min_cost_for
@@ -76,6 +77,11 @@ def inspect_file(path):
             fits = [t.NAME for t in TEMPLATES.values() if t.INPUT_KIND == "metrics" and t.accepts(data)]
             return _json({"ok": True, "name": name, "kind": "Two-period totals", "rows": None, "start": None,
                           "end": None, "days": None, "currency": None, "templates": fits})
+        if is_editor_export(path):
+            data = load_editor(path)
+            fits = [t.NAME for t in TEMPLATES.values() if t.INPUT_KIND == "account" and t.accepts(data)]
+            return _json({"ok": True, "name": name, "kind": "Google Ads Editor export", "rows": len(data["campaigns"]),
+                          "start": None, "end": None, "days": None, "currency": None, "templates": fits})
         report = _report(path)
     except READ_ERRORS as e:
         error = _clean(e, [path])

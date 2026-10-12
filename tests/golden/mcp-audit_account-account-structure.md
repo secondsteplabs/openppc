@@ -8,10 +8,11 @@ _Built by OpenPPC, read-only: computed from this file alone, with no network cal
 
 Live Search: 3 campaigns, 5 ad groups, 15 keywords and 7 responsive search ads.
 
-**12 of 12 checks found something.**
+**14 of 14 checks found something.**
 
 | Check | Result | Rule |
 |---|---|---|
+| Ads and keywords held back by policy | 1 disapproved, 1 limited | `policy-disapproved` |
 | Broad match without Smart Bidding | 3 keywords in 2 campaigns | `search-broad-match-needs-smart-bidding` |
 | Brand and non-brand in one campaign | Add --brand to check | `struct-brand-nonbrand` |
 | Duplicate keywords | 1 keyword | `kw-duplicates` |
@@ -25,7 +26,17 @@ Live Search: 3 campaigns, 5 ad groups, 15 keywords and 7 responsive search ads.
 | Bidding for clicks, not conversions | 2 campaigns | `bidding-ecpc-deprecated` |
 | Search campaigns on the Display Network | 1 campaign | `struct-settings-consistency` |
 | Sitelinks, callouts and snippets | 2 campaigns | `assets-coverage` |
+| Budget caps | 1 campaign limited by budget | `all-budget-spend-caps` |
 | Location option | Presence or interest 2, Presence 1 (see below) | `set-location-presence` |
+
+### Ads and keywords held back by policy
+
+Google reviews every ad and keyword against its ad policies. A disapproved ad or keyword doesn't run at all, though it shows as enabled; an ad approved with limits runs only where its policy allows. Fix what the reason names (the text, the landing page, a certification) and the edit goes back to review, or appeal if the decision is wrong.
+
+| Campaign | Ad group | Ad or keyword | Approval | Reasons |
+|---|---|---|---|---|
+| Acme \| Search \| Plumbing | Plumbing repair | Acme headline A (ad) | Disapproved | Destination not working |
+| Acme \| Brand | Brand | Acme headline A (ad) | Approved limited | Trademarks in ad text |
 
 ### Broad match without Smart Bidding
 
@@ -133,6 +144,14 @@ Google asks for at least 4 sitelinks (6 for busy campaigns); Optmyzr's audit als
 | Acme \| Search \| Plumbing | 2 | 1 | 0 |
 | Acme \| Water Heaters 2024 | 4 | 1 | 0 |
 
+### Budget caps
+
+Google: a campaign can spend up to 2x its average daily budget on a busy day, but is never charged more than 30.4x it in a month, so a single expensive day is not overspend. A campaign limited by budget stops showing before the day ends: raise the budget if it meets its cost per conversion target, otherwise tighten keywords or bids first.
+
+| Campaign | Daily budget | Most in one day | Monthly cap |
+|---|---|---|---|
+| Acme \| Search \| Plumbing | $120.00 | $240.00 | $3,648.00 |
+
 ## Where Google and practitioners disagree
 
 - **Ad Strength.** Google says moving an ad from Poor to Excellent brings more conversions. Optmyzr's study of thousands of accounts found Excellent ads had the worst cost per conversion and Average ones the best. Judge ads on cost per conversion and conversions per impression. Your live ads: Excellent 3, Good 2, Poor 1, Average 1.
@@ -142,7 +161,7 @@ Google asks for at least 4 sitelinks (6 for busy campaigns); Optmyzr's audit als
 
 ## How this was computed
 
-- Live means the keyword or ad, its ad group and its campaign are all enabled. Only Search campaigns are judged; Performance Max and other campaign types are left out.
+- Live means the keyword or ad, its ad group and its campaign are all enabled. Only Search campaigns are judged; Performance Max and other campaign types are left out, except by the policy check, which covers every campaign type.
 - Every check is a row in OpenPPC's rulebook (`rulebook/rules.csv`); the Rule column is its id, with the source and the exact threshold.
 - Negatives are compared with your keyword text: an exact negative must match the whole keyword, a phrase negative its words in order, a broad negative every word in any order.
 - A check marked "not in this file" was not run: the file lacks what it needs. It is not a pass.

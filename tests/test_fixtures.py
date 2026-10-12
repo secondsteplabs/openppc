@@ -31,6 +31,8 @@ def test_fixtures_match_their_recipes():
     assert on_disk == set(built), "run python tools/build_fixtures.py"
     stale = [name for name, data in built.items() if (FIXTURES / name).read_bytes() != data]
     assert not stale, f"stale fixtures {stale}: run python tools/build_fixtures.py"
+    stale = [name for name, data in _builder().examples().items() if (ROOT / "examples" / name).read_bytes() != data]
+    assert not stale, f"stale examples {stale}: run python tools/build_fixtures.py"
 
 
 @pytest.mark.parametrize("name, currency", [

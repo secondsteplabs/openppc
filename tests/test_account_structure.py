@@ -3,6 +3,7 @@ from pathlib import Path
 
 from openppc import webapi
 from openppc.ingest.account import enum, load_snapshot, snapshot
+from openppc.ingest.editor import load_editor
 from openppc.templates import run_template
 from openppc.templates.account_structure import blocks, evaluate
 
@@ -17,6 +18,7 @@ def results(data, **kw):
 def test_every_planted_problem_is_found():
     got = results(load_snapshot(SAMPLE), brand="Acme")
     assert got == {
+        "Ads and keywords held back by policy": ("found", "1 disapproved, 1 limited"),
         "Broad match without Smart Bidding": ("found", "3 keywords in 2 campaigns"),
         "Brand and non-brand in one campaign": ("found", "1 campaign"),
         "Duplicate keywords": ("found", "1 keyword"),
@@ -30,8 +32,41 @@ def test_every_planted_problem_is_found():
         "Bidding for clicks, not conversions": ("found", "2 campaigns"),
         "Search campaigns on the Display Network": ("found", "1 campaign"),
         "Sitelinks, callouts and snippets": ("found", "2 campaigns"),
+        "Budget caps": ("found", "1 campaign limited by budget"),
         "Location option": ("info", "Presence or interest 2, Presence 1 (see below)"),
     }
+
+
+def test_budget_caps_show_what_a_limited_campaign_can_spend():
+    markdown, _, passed = run_template("account-structure", SAMPLE, brand="Acme")
+    assert passed and "| Acme \\| Search \\| Plumbing | $120.00 | $240.00 | $3,648.00 |" in markdown
+
+
+def test_disapprovals_are_found_in_every_campaign_type():
+    raw = {"campaigns": [{"id": "1", "name": "Acme | PMax", "status": "ENABLED", "channel": "PERFORMANCE_MAX"},
+                         {"id": "2", "name": "Paused", "status": "PAUSED", "channel": "SEARCH"}],
+           "ad_groups": [{"id": "11", "campaign_id": "1", "name": "Asset group 1", "status": "ENABLED"},
+                         {"id": "21", "campaign_id": "2", "name": "Old", "status": "ENABLED"}],
+           "ads": [{"ad_group_id": "11", "name": "Spring offer", "status": "ENABLED", "approval": "DISAPPROVED",
+                    "policy": ["Unrealistic outcomes"]},
+                   {"ad_group_id": "11", "name": "Video 2", "status": "ENABLED", "approval": "AREA_OF_INTEREST_ONLY"},
+                   {"ad_group_id": "11", "name": "Fine", "status": "ENABLED", "approval": "APPROVED"},
+                   {"ad_group_id": "21", "name": "Paused campaign", "status": "ENABLED", "approval": "DISAPPROVED"}]}
+    got = results(snapshot(raw))
+    assert got["Ads and keywords held back by policy"] == ("found", "1 disapproved, 1 limited")
+    others = {v for t, v in got.items() if t != "Ads and keywords held back by policy"}
+    assert others == {("missing", "No live Search campaigns")}
+
+
+def test_a_disapproved_keyword_from_editor_is_enabled_but_held_back(tmp_path):
+    path = tmp_path / "editor.csv"
+    path.write_text("Campaign,Campaign Type,Campaign Status,Ad Group,Ad Group Status,Keyword,Criterion Type,Status,"
+                    "Approval Status\n"
+                    "Acme,Search,Enabled,Core,Enabled,plumber,Phrase,Disapproved,\n"
+                    "Acme,Search,Enabled,Core,Enabled,drains,Phrase,Enabled,Approved\n", encoding="utf-8")
+    kws = load_editor(path)["keywords"]
+    assert [(k["status"], k["approval"]) for k in kws] == [("ENABLED", "DISAPPROVED"), ("ENABLED", "APPROVED")]
+    assert results(load_editor(path))["Ads and keywords held back by policy"] == ("found", "1 disapproved, 0 limited")
 
 
 def test_only_live_search_is_judged():

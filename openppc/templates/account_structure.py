@@ -1,9 +1,10 @@
 """Account structure audit: how the account is built, not how it performed.
 
-Reads an account snapshot (openppc/ingest/account.py). Every check is a row in
-rulebook/rules.csv, and where Google and practitioners disagree the report shows both sides
-instead of picking one. Only live Search is judged: a keyword or ad counts when it, its ad
-group and its campaign are all enabled.
+Reads an account snapshot (openppc/ingest/account.py) or a Google Ads Editor export
+(openppc/ingest/editor.py). Every check is a row in rulebook/rules.csv, and where Google and
+practitioners disagree the report shows both sides instead of picking one. Only live Search is
+judged: a keyword or ad counts when it, its ad group and its campaign are all enabled. The policy
+check is the exception: disapproved ads are looked for in every campaign type.
 """
 import os
 from collections import Counter, defaultdict, namedtuple
@@ -11,16 +12,17 @@ from datetime import date
 
 from ..facts import FactBook
 from ..ingest.account import load_snapshot, words
+from ..ingest.editor import load_editor
 from ._common import brand_matcher, esc, plural
 
 NAME = "account-structure"
 TITLE = "Account structure audit"
 TIER = "free"
 INPUT_KIND = "account"
-INPUT = "Account snapshot (.json)"
-SUMMARY = ("How the account is built: broad match without Smart Bidding, brand mixed with non-brand, "
-           "duplicate keywords, negatives that block your own keywords, thin or pinned ads, missing "
-           "sitelinks, retired bidding and more.")
+INPUT = "Account snapshot (.json) or Google Ads Editor export (.csv)"
+SUMMARY = ("How the account is built: disapproved ads and keywords, broad match without Smart Bidding, "
+           "brand mixed with non-brand, duplicate keywords, negatives that block your own keywords, thin or "
+           "pinned ads, missing sitelinks, retired bidding and more.")
 
 SMART_BIDDING = frozenset({"TARGET_CPA", "TARGET_ROAS", "MAXIMIZE_CONVERSIONS", "MAXIMIZE_CONVERSION_VALUE"})
 CLICK_BIDDING = frozenset({"MANUAL_CPC", "TARGET_SPEND", "ENHANCED_CPC"})
@@ -31,6 +33,10 @@ MIN_RSAS_PER_AD_GROUP = 2   # Google: at least 2 responsive search ads in every 
 MIN_SITELINKS = 4           # Google and Optmyzr: at least 4 sitelinks
 MIN_CALLOUTS = 4            # Optmyzr: at least 4 callouts...
 MIN_SNIPPETS = 1            # ...and 1 structured snippet per Search campaign
+DAY_CAP = 2                 # Google: a day can spend up to 2x the average daily budget...
+MONTH_CAP = 30.4            # ...but a month is never charged more than 30.4x it
+# approved, but held back: limited by policy (Google), only near the area of interest (Google), with issues (Meta)
+LIMITED_APPROVAL = frozenset({"APPROVED_LIMITED", "AREA_OF_INTEREST_ONLY", "WITH_ISSUES"})
 NICE = {"TARGET_SPEND": "Maximize clicks", "MANUAL_CPC": "Manual CPC", "ENHANCED_CPC": "Enhanced CPC",
         "TARGET_CPA": "Target CPA", "TARGET_ROAS": "Target ROAS", "PRESENCE_OR_INTEREST": "Presence or interest"}
 
@@ -42,7 +48,7 @@ def accepts(data):
 
 
 def load(path):
-    return load_snapshot(path)
+    return load_snapshot(path) if str(path).lower().endswith(".json") else load_editor(path)
 
 
 def nice(value):
@@ -81,6 +87,38 @@ def _named(book, *names):
 
 def _missing(title, rule, what):
     return Check(title, rule, "missing", f"Not in this file ({what})", [])
+
+
+def _policy(book, data, top):
+    """Every campaign type, not only Search: a disapproved ad stops serving wherever it runs."""
+    title, rule = "Ads and keywords held back by policy", "policy-disapproved"
+    camps = {c["id"]: c for c in data["campaigns"] if c["status"] == "ENABLED"}
+    groups = {g["id"]: g for g in data["ad_groups"] or [] if g["status"] == "ENABLED" and g["campaign_id"] in camps}
+    items = [(a, "ad") for a in data["ads"] or []] + [(k, "keyword") for k in data["keywords"] or []]
+    if all(x["approval"] is None for x, _ in items):
+        return _missing(title, rule, "approval status")
+    held = [(x, kind) for x, kind in items if x["status"] == "ENABLED" and x["ad_group_id"] in groups
+            and (x["approval"] == "DISAPPROVED" or (kind == "ad" and x["approval"] in LIMITED_APPROVAL))]
+    if not held:
+        return Check(title, rule, "passed", "Passed", [])
+    off = sum(x["approval"] == "DISAPPROVED" for x, _ in held)
+    d = book.count("enabled ads and keywords disapproved", off, "")
+    lim = book.count("enabled ads approved with limits", len(held) - off, "")
+    lines = ["Google reviews every ad and keyword against its ad policies. A disapproved ad or keyword doesn't "
+             "run at all, though it shows as enabled; an ad approved with limits runs only where its policy "
+             "allows. Fix what the reason names (the text, the landing page, a certification) and the edit goes "
+             "back to review, or appeal if the decision is wrong.", "",
+             "| Campaign | Ad group | Ad or keyword | Approval | Reasons |", "|---|---|---|---|---|"]
+    for x, kind in sorted(held, key=lambda h: h[0]["approval"] != "DISAPPROVED")[:top]:
+        g = groups[x["ad_group_id"]]
+        c = camps[g["campaign_id"]]
+        label = x["text"] if kind == "keyword" else (
+            x["name"] or (x["headlines"][0]["text"] if x["headlines"] else nice(x["type"])))
+        reasons = ", ".join(nice(p) for p in x.get("policy", []))
+        _named(book, c["name"], g["name"], label, reasons)
+        lines.append(f"| {esc(c['name'])} | {esc(g['name'])} | {esc(label)} ({kind}) | {nice(x['approval'])} | "
+                     f"{esc(reasons)} |")
+    return Check(title, rule, "found", f"{d} disapproved, {lim} limited", lines)
 
 
 def _broad(book, camps, kws, top):
@@ -374,6 +412,31 @@ def _assets(book, camps, assets, top):
     return Check(title, rule, "found", f"{n} {plural(len(short), 'campaign')}", lines)
 
 
+def _budgets(book, camps, top):
+    title, rule = "Budget caps", "all-budget-spend-caps"
+    budgeted = [c for c in camps.values() if c["budget"]]
+    if not budgeted:
+        return _missing(title, rule, "daily budgets")
+    if all(c["budget_limited"] is None for c in budgeted):
+        return _missing(title, rule, "whether a campaign is limited by budget")
+    limited = [c for c in budgeted if c["budget_limited"]]
+    if not limited:
+        return Check(title, rule, "passed", "No campaign limited by budget", [])
+    n = book.count("live Search campaigns limited by budget", len(limited))
+    cap = book.count("days of budget a month can be charged (Google)", MONTH_CAP, "rule", dp=1)
+    lines = [f"Google: a campaign can spend up to {DAY_CAP}x its average daily budget on a busy day, but is never "
+             f"charged more than {cap}x it in a month, so a single expensive day is not overspend. A campaign "
+             "limited by budget stops showing before the day ends: raise the budget if it meets its cost per "
+             "conversion target, otherwise tighten keywords or bids first.", "",
+             "| Campaign | Daily budget | Most in one day | Monthly cap |", "|---|---|---|---|"]
+    for c in sorted(limited, key=lambda c: -c["budget"])[:top]:
+        cells = [book.money(f"{label} of {c['name']}", c["budget"] * x, "cost", c["name"])
+                 for label, x in (("daily budget", 1), ("most one day can spend", DAY_CAP),
+                                  ("monthly charge cap", MONTH_CAP))]
+        lines.append(f"| {esc(c['name'])} | " + " | ".join(cells) + " |")
+    return Check(title, rule, "found", f"{n} {plural(len(limited), 'campaign')} limited by budget", lines)
+
+
 def _location(book, camps):
     title, rule = "Location option", "set-location-presence"
     kinds = Counter(c["geo_target_type"] for c in camps.values() if c["geo_target_type"])
@@ -420,8 +483,11 @@ def _header(book, data):
         bits.append(f"captured {d:%B} {d.day}, {d.year}")
     except ValueError:
         pass
-    bits.append(f"currency {book.currency}")
-    return [f"# {TITLE}", "", " · ".join(bits), "",
+    if meta.get("currency"):
+        bits.append(f"currency {book.currency}")
+    notes = meta.get("notes") or []
+    read = [f"_How the file was read: {'; '.join(notes)}._", ""] if notes else []
+    return [f"# {TITLE}", "", " · ".join(bits), "", *read,
             "_Built by OpenPPC, read-only: computed from this file alone, with no network calls._", ""]
 
 
@@ -430,12 +496,15 @@ def evaluate(data, brand=None, top=25):
     book = FactBook((data.get("meta", {}).get("currency") or "USD").upper())
     camps, groups, kws, ads_ = _live(data)
     ads = None if data["ads"] is None else ads_
-    checks = [_broad(book, camps, kws, top), _brand_mix(book, camps, kws, brand, top), _duplicates(book, groups, kws, top),
+    checks = [_policy(book, data, top),
+              _broad(book, camps, kws, top), _brand_mix(book, camps, kws, brand, top), _duplicates(book, groups, kws, top),
               _conflicts(book, camps, groups, kws, data["negatives"], top), _rsa_assets(book, groups, ads, top),
               _rsa_per_group(book, groups, ads, top), _pinning(book, ads), _singles(book, groups, kws, top),
               _rarely_served(book, groups, kws, top), _quality_parts(book, groups, kws, top),
               _bidding(book, camps, kws), _display(book, camps, kws), _assets(book, camps, data["assets"], top),
-              _location(book, camps)]
+              _budgets(book, camps, top), _location(book, camps)]
+    if not camps:  # nothing live in Search to judge, so only the policy check, which covers every type, ran
+        checks = checks[:1] + [Check(c.title, c.rule, "missing", "No live Search campaigns", []) for c in checks[1:]]
     return checks, book, (camps, groups, kws, ads)
 
 
@@ -457,7 +526,8 @@ def run(data, brand=None, top=25, **_):
     out += _disagreements(book, ads, camps, kws)
     out += ["", "## How this was computed", "",
             "- Live means the keyword or ad, its ad group and its campaign are all enabled. Only Search campaigns "
-            "are judged; Performance Max and other campaign types are left out.",
+            "are judged; Performance Max and other campaign types are left out, except by the policy check, "
+            "which covers every campaign type.",
             "- Every check is a row in OpenPPC's rulebook (`rulebook/rules.csv`); the Rule column is its id, with "
             "the source and the exact threshold.",
             "- Negatives are compared with your keyword text: an exact negative must match the whole keyword, a "

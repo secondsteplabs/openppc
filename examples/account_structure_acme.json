@@ -14,10 +14,14 @@
    "bidding": "MANUAL_CPC",
    "enhanced_cpc": true,
    "display_network": true,
-   "geo_target_type": "PRESENCE_OR_INTEREST"
+   "geo_target_type": "PRESENCE_OR_INTEREST",
+   "budget": 120,
+   "budget_limited": true
   },
   {
    "id": "2",
+   "budget": 25,
+   "budget_limited": false,
    "name": "Acme | Brand",
    "status": "ENABLED",
    "channel": "SEARCH",
@@ -407,6 +411,10 @@
      "text": "Acme description D",
      "pin": null
     }
+   ],
+   "approval": "DISAPPROVED",
+   "policy": [
+    "DESTINATION_NOT_WORKING"
    ]
   },
   {
@@ -683,6 +691,10 @@
      "text": "Acme description D",
      "pin": null
     }
+   ],
+   "approval": "APPROVED_LIMITED",
+   "policy": [
+    "TRADEMARKS_IN_AD_TEXT"
    ]
   },
   {

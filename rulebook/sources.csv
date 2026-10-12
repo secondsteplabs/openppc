@@ -73,3 +73,5 @@ src-opteo-pause-kw,Pause Keyword improvement,Opteo,https://opteo.com/features/im
 src-optmyzr-audit-skill,"Google Ads Audit skill, signals.md (open source, about 42 of the 93 signals in the paid audit)",Optmyzr,https://raw.githubusercontent.com/optmyzr-skills/google-ads-audit/main/skills/google-ads-audit/signals.md,tool-docs,2026-09-29
 src-optmyzr-pause-kw-help,Pause Non-Converting Keywords: User Guide,Optmyzr Help Center,https://help.optmyzr.com/en/articles/3075906-pause-non-converting-keywords-user-guide,tool-docs,2026-09-29
 src-optmyzr-shopping-feed,Shopping Feed Audits: About and User Guide,Optmyzr Help Center,https://help.optmyzr.com/en/articles/6601281-shopping-feed-audits-about-user-guide,tool-docs,2026-09-29
+src-google-ads-api-ad-group-ad,"Google Ads API fields: ad_group_ad (policy_summary.approval_status, policy_topic_entries)",Google for Developers,https://developers.google.com/google-ads/api/fields/v25/ad_group_ad,tool-docs,2026-10-05
+src-meta-ad-reference,"Marketing API reference: Ad (effective_status, ad_review_feedback)",Meta for Developers,https://developers.facebook.com/docs/marketing-api/reference/adgroup/,tool-docs,2026-10-05

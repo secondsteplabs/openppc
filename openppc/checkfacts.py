@@ -20,6 +20,7 @@ from .engine.trace import CAMPAIGN_TYPES
 from .facts import Fact, FactBook, FactList
 from .ingest import load_report
 from .ingest.account import is_snapshot, read_json, snapshot
+from .ingest.editor import is_editor_export, load_editor
 from .templates import TEMPLATES, account_read, account_structure
 from .templates._common import Totals, figures, register_group, totals
 
@@ -275,9 +276,12 @@ def facts_for_paths(paths, industry=None, settings=None, load=load_report):
         if str(path).lower().endswith(".json"):
             raw = read_json(path)
             if is_snapshot(raw):
-                _, book, _ = account_structure.evaluate(snapshot(raw, source=str(path)))
+                _, book = account_structure.run(snapshot(raw, source=str(path)))
             else:
                 _, book = account_read.run(account_read.load_metrics(path))
+            facts += [f for f in book.facts if f.metric != "rule"]
+        elif is_editor_export(path):
+            _, book = account_structure.run(load_editor(path))
             facts += [f for f in book.facts if f.metric != "rule"]
         else:
             facts += facts_for_report(load(path), settings)
