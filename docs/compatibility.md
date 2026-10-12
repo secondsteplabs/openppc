@@ -15,7 +15,8 @@ Everything here stays as it is in a patch release. A minor release may change it
 ## CLI
 
 - `openppc templates`, `openppc industries`, `openppc --version`
-- `openppc audit <template> [data] [--sample] [--industry KEY] [--min-cost AMOUNT] [--brand NAMES] [--out FILE]`
+- `openppc audit <template> [data...] [--sample] [--industry KEY] [--min-cost AMOUNT] [--brand NAMES] [--out FILE]`:
+  one file, or for `account-read` two exports of one report, one per period (since 0.2.0)
 - `openppc check [--audit FILE] [--data FILE...]... [--sample] [--industry KEY] [--out FILE]`: `--data` takes one
   or more files, and can be repeated (since 0.1.12)
 - `--debug`, before or after the command, prints the traceback of a crash (since 0.1.12)
@@ -27,10 +28,11 @@ Everything here stays as it is in a patch release. A minor release may change it
 All are read-only and return markdown.
 
 - Local (`openppc-mcp`): `list_templates()`, `audit_account(template, data_path, industry="", min_cost=None,
-  brand="")`, `check_numbers(audit_text, data_paths, industry="")`
+  brand="", prior_path="")`, `check_numbers(audit_text, data_paths, industry="")`
 - Web connector (`openppc-mcp --http`): `list_templates()`, `audit_export(template, export_text,
-  export_name="export.csv", industry="", min_cost=None, brand="")`, `check_audit(audit_text, export_text,
-  export_name="export.csv", industry="")`
+  export_name="export.csv", industry="", min_cost=None, brand="", prior_text="", prior_name="prior.csv")`,
+  `check_audit(audit_text, export_text, export_name="export.csv", industry="")`
+- `prior_path`, `prior_text` and `prior_name` give `account-read` the other period's export (since 0.2.0)
 
 ## Browser app
 
@@ -38,12 +40,16 @@ All are read-only and return markdown.
 - The worker calls `openppc/webapi.py`; each function returns JSON with `ok`, and `error` when `ok` is false:
   - `meta()`: `version`, `templates` (`name`, `title`, `input`, `summary`, `kind`), `industries` (`key`, `name`)
   - `inspect_file(path)`: `name`, `kind`, `rows`, `start`, `end`, `days`, `currency`, `templates`, and for reports
-    `currency_sign` and `min_cost`; on failure `hint`
+    `currency_sign` and `min_cost`; on failure `hint`. `kind` is "Google Ads Editor export" for an Editor file,
+    `rows` its campaigns (since 0.2.0)
+  - `inspect_pair(paths_json)`: for two report files, `paths` with the current period first; on failure `error`
+    says why they can't be compared (since 0.2.0)
   - `count_numbers(text, paths_json)`: a number
   - `check(text, paths_json, industry)`: `counts` (`total`, `traced`, `mismatch`, `not_in_data`, `cant_check`,
     `contradictions`), `claims`, `contradictions`, `markdown`
-  - `audit(name, path, industry, min_cost, brand)`: `title`, `markdown`, `passed`, `facts`, `cards`, `client`,
-    `token`, `fingerprint`
+  - `audit(name, path, industry, min_cost, brand, prior)`: `title`, `markdown`, `passed`, `facts`, `cards`,
+    `client`, `token`, `fingerprint`, and `prior_fingerprint` when `prior` names the other period's export (since
+    0.2.0)
   - `verify(token, text, names_json)`: `total`, `traced`, `problems`
 
 ## Input handling
@@ -53,15 +59,21 @@ All are read-only and return markdown.
 - Rows in more than one currency, and an export with a header but no rows, are refused (since 0.1.12).
 - Column names must be Google's English ones.
 - Text is read as UTF-16 (with or without a byte order mark), UTF-8, Windows-1252, then Latin-1.
+- Microsoft Advertising reports and Google Ads Editor exports are read since 0.2.0 as **experimental**: built from
+  the published layouts, not yet from real files, so how they are read may change in a minor release without a
+  Breaking entry. Reports on Microsoft files name the platform with "(experimental)".
 
 ## Report wording
 
 Scripts and assistants read these lines, so they stay as they are:
 
 - A report that passes its own check says "Number check: every number in this report traces back to your data."
-- Every report says "read-only: computed from this file alone, with no network calls."
+- Every report says "read-only: computed from this file alone, with no network calls.", or "from these files
+  alone" for `account-read` on two exports (since 0.2.0).
 - The "Settings:" line, which `openppc check` reads to re-run the same audit.
 - "How the file was read:", a line that appears only when a file was read with decimal commas or as Western
-  European text. It holds no numbers.
+  European text. It holds no numbers. On two exports it says "How the files were read:" (since 0.2.0).
+- On two exports, the source line names each file with "(current)" or "(prior)", and periods of different lengths
+  add a line starting "_Note: the two periods are different lengths" (since 0.2.0).
 
 The reports themselves are frozen in `tests/golden/`; a change to one is reviewed like any other change here.

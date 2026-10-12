@@ -13,6 +13,40 @@ behaviour that [docs/compatibility.md](docs/compatibility.md) lists, except to f
   like any other bad input, and 2 means only that the check found problems (ADR-3). A script that treats 2 as "I
   typed the command wrong" should check for 1 instead.
 
+### Added
+
+- **Compare two periods from two exports.** `account-read` takes two exports of the same report, one per period
+  (`openppc audit account-read july.csv june.csv`), and adds up each one. The file with the later dates is the
+  current period. Two files that aren't two periods of one report (different reports, currencies or overlapping
+  dates, or no dates) are refused with the reason. MCP: `prior_path` on `audit_account`, `prior_text` and
+  `prior_name` on `audit_export`. In the app, add both files: account-read is picked, and if the two can't be
+  compared, the line under Run says why. `check` traces a period-over-period report against the same two files.
+  New sample: `examples/search_terms_acme_june.csv`.
+- **Google Ads Editor exports (experimental).** `account-structure` reads a whole-account export from Google Ads
+  Editor, in the app too. New sample: `examples/editor_acme.csv`.
+- **Microsoft Advertising reports (experimental).** Search terms and keyword reports from Microsoft Advertising read
+  like Google's; the report's header names the platform.
+- **Two new account-structure checks.** Ads and keywords held back by policy (disapproved, or approved with limits),
+  over every campaign type, and budget caps: campaigns limited by budget, with what Google may spend in a day (2x the
+  daily budget) and a month (30.4x). A file that doesn't say which campaigns are limited gets "not in this file"
+  instead of a pass.
+- A Google Ads Editor export given to a report template says to use `account-structure`.
+
+### Changed
+
+- Account-structure reports have the two new checks, so their "N of M checks" counts change. The header names the
+  currency only when the file has one.
+- The header row of a report is looked for in the first 50 lines, up from 15.
+
+### Fixed
+
+- **A Search check no longer passes when there is nothing to judge.** With no live Search campaigns, the Search
+  checks said "passed"; they now say "No live Search campaigns".
+- **`check` traces an account-structure report's summary counts.** The live campaign, ad group, keyword and ad
+  counts and "N of M checks" were reported as not in the data.
+- **"Search Network with Display Select" campaigns count as Search.** Google's older campaign type was grouped with
+  the automated campaigns, so the waste audit listed its terms with Performance Max instead of Search.
+
 ## Unreleased (0.1.13)
 
 ### Added
