@@ -91,6 +91,10 @@ All are read-only and return markdown.
 - Microsoft Advertising reports and Google Ads Editor exports are read since 0.2.0 as **experimental**: built from
   the published layouts, not yet from real files, so how they are read may change in a minor release without a
   Breaking entry. Reports on Microsoft files name the platform with "(experimental)".
+- Meta Ads Manager exports are read since 0.3.1, also **experimental** and on the same terms, for `account-read` on
+  two periods. A file is read as Meta's when its header has a Reporting starts column. Results count as
+  conversions only when a Result indicator column says every row counts the same kind; a file that mixes kinds is
+  refused, and so are two periods that count different kinds. The waste and keyword audits refuse a Meta file.
 
 ## Report wording
 
@@ -101,7 +105,8 @@ Scripts and assistants read these lines, so they stay as they are:
   alone" for `account-read` on two exports (since 0.2.0).
 - The "Settings:" line, which `openppc check` reads to re-run the same audit.
 - "How the file was read:", a line that appears only when a file was read with decimal commas or as Western
-  European text. It holds no numbers. On two exports it says "How the files were read:" (since 0.2.0).
+  European text. It holds no numbers. On two exports it says "How the files were read:" (since 0.2.0). On Meta
+  exports it also says how link clicks and Results were counted (since 0.3.1).
 - On two exports, the source line names each file with "(current)" or "(prior)", and periods of different lengths
   add a line starting "_Note: the two periods are different lengths" (since 0.2.0).
 

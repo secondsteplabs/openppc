@@ -4,6 +4,17 @@ OpenPPC follows [semantic versioning](https://semver.org) for 0.x releases: a pa
 behaviour that [docs/compatibility.md](docs/compatibility.md) lists, except to fix a wrong number. A minor release
 (0.x.0) may, and only with an entry under **Breaking** that says what changed and what to do.
 
+## Unreleased (0.3.1)
+
+### Added
+
+- **Meta Ads Manager exports (experimental).** `account-read` compares two Meta exports, one per period
+  (`openppc audit account-read july.csv june.csv`), in the app too. Link clicks count as clicks, Amount spent as
+  the cost in its currency, and Results as conversions when the Result indicator column says every row counts the
+  same kind of result; a file mixing kinds, or two periods counting different kinds, is refused with the reason.
+  The report names the platform, and leaves out the industry averages, which are Google search averages. The
+  waste and keyword audits say a Meta file has no search terms or keywords.
+
 ## Unreleased (0.3.0)
 
 ### Added
