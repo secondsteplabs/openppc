@@ -55,9 +55,14 @@ def _not_yet_added(row):
     return (row.get("added_excluded") or "none").strip().lower() in ("none", "")
 
 
+# Campaign types that take negatives the way Search does, as Google and Microsoft Advertising name them
+SEARCH_TYPES = frozenset({"", "search", "search network only", "search network with display select",
+                          "search & content", "search and content", "dynamic search ads"})
+
+
 def _automated(row):
     """Performance Max and other automated campaigns, where negatives work differently from Search."""
-    return (row.get("campaign_type") or "search").strip().lower() not in ("search", "")
+    return (row.get("campaign_type") or "").strip().lower() not in SEARCH_TYPES
 
 
 class _Term:

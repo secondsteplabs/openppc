@@ -6,6 +6,10 @@ separators, European number style ("1.361,04", usually with semicolons), currenc
 percent signs, "--" for empty cells, and the "Total:" rows Google appends. Those totals
 are ignored; every total is recomputed from the rows.
 
+Microsoft Advertising reports read the same way (experimental): their column names (Spend,
+Conv., Campaign name, Delivered match type) map to the same columns, the "Report Time:" line
+gives the dates, and the totals and copyright rows under the table are skipped.
+
 Read-only by construction: this module opens one local file and nothing else.
 """
 import codecs
@@ -17,22 +21,27 @@ import re
 from array import array
 from dataclasses import dataclass, field
 
-# canonical column -> header names Google has used for it (lower-case)
+# canonical column -> header names Google and Microsoft Advertising have used for it (lower-case)
 ALIASES = {
-    "search_term": ["search term"],
+    "search_term": ["search term", "search query"],
     "keyword": ["keyword", "search keyword"],
-    "match_type": ["match type", "search keyword match type", "search term match type"],
+    "match_type": ["match type", "search keyword match type", "search term match type", "delivered match type"],
     "added_excluded": ["added/excluded"],
-    "campaign": ["campaign"],
+    "campaign": ["campaign", "campaign name"],
     "campaign_type": ["campaign type"],
-    "ad_group": ["ad group"],
+    "ad_group": ["ad group", "ad group name"],
     "clicks": ["clicks"],
     "impressions": ["impr.", "impressions"],
-    "cost": ["cost"],
-    "conversions": ["conversions"],
+    "cost": ["cost", "spend"],
+    "conversions": ["conversions", "conv."],
     "quality_score": ["quality score", "qual. score"],
     "currency": ["currency code", "currency"],
 }
+HEADER_LINES = 50  # a report's title, date and filter lines above the header row
+GOOGLE, MICROSOFT = "Google Ads", "Microsoft Advertising"
+MS_DATES = re.compile(r"Report Time:\s*(\d{1,2}/\d{1,2}/\d{4})\s*,\s*(\d{1,2}/\d{1,2}/\d{4})")
+MS_PREAMBLE = re.compile(r'^"?(?:Report Name|Report Time):')
+EDITOR_COLUMNS = ("criteriontype", "campaignstatus", "adgroupstatus")
 NUMERIC = {"clicks", "impressions", "cost", "conversions", "quality_score"}
 COUNTS = ("clicks", "impressions", "conversions", "quality_score")  # never money
 MONEY_MARK = re.compile(r"[$€£₹¥]|\bRs\.?|\b(?:USD|INR|EUR|GBP|AUD|CAD|NZD|JPY)\b")
@@ -56,6 +65,7 @@ class Report:
     end: dt.date = None
     currency: str = "USD"
     notes: list = field(default_factory=list)  # how the file was read, when that is not the plain way
+    platform: str = GOOGLE
 
     @property
     def days(self):
@@ -90,7 +100,7 @@ def parse_number(cell, european=False):
 
 def _date(text):
     text = text.replace(".", "")
-    for fmt in ("%B %d, %Y", "%b %d, %Y", "%d %B %Y", "%d %b %Y"):
+    for fmt in ("%B %d, %Y", "%b %d, %Y", "%d %B %Y", "%d %b %Y", "%m/%d/%Y"):
         try:
             return dt.datetime.strptime(text, fmt).date()
         except ValueError:
@@ -165,11 +175,28 @@ def _canonical(header):
 
 
 def _find_header(lines):
-    for i, line in enumerate(lines[:15]):
+    for i, line in enumerate(lines[:HEADER_LINES]):
         for delim in (",", "\t", ";"):
             keys = [_canonical(c) for c in next(csv.reader([line], delimiter=delim), [])]
             if "clicks" in keys and "cost" in keys:
                 return i, delim, keys
+    return None
+
+
+def squash(header):
+    """'Campaign Status' and 'campaign_status' -> 'campaignstatus'."""
+    return re.sub(r"[\s_]+", "", (header or "").strip().lower())
+
+
+def editor_header(lines):
+    """(index, delimiter, cells) of a Google Ads Editor export's header row in these lines, or None. Editor writes
+    Criterion Type, or Campaign Status and Ad Group Status, which no report download has."""
+    for i, line in enumerate(lines[:HEADER_LINES]):
+        for delim in ("\t", ",", ";"):
+            cells = next(csv.reader([line], delimiter=delim), [])
+            names = {squash(c) for c in cells}
+            if EDITOR_COLUMNS[0] in names or set(EDITOR_COLUMNS[1:]) <= names:
+                return i, delim, cells
     return None
 
 
@@ -206,15 +233,15 @@ def read_text(path):
 
 def column_names(path):
     """For a report about a file that could not be read: its column names, and nothing else from it. The first of
-    the first 15 lines that splits into three or more short cells without a digit, as a header row does and a
-    title, a date range or a row of figures doesn't; else none."""
+    the first HEADER_LINES lines that splits into three or more short cells without a digit, as a header row does
+    and a title, a date range or a row of figures doesn't; else none."""
     try:
         with open(path, "rb") as f:
             head = f.read(4096)
         if _not_a_report(path, head):
             return []
         with open(path, encoding=_encoding(path, head)) as f:
-            first = list(itertools.islice(_lines(f), 15))
+            first = list(itertools.islice(_lines(f), HEADER_LINES))
     except (OSError, UnicodeDecodeError, ValueError):
         return []
     for line in first:
@@ -243,23 +270,30 @@ def load_report(path):
 
 
 def _read(path, lines):
-    first = list(itertools.islice(lines, 15))
+    first = list(itertools.islice(lines, HEADER_LINES))
     if not any(line.strip() for line in first) and not any(line.strip() for line in lines):
         raise ValueError(f"{path}: the file is empty.")
     found = _find_header(first)
     if not found:
+        if editor_header(first):
+            raise ValueError(f"{path} is a Google Ads Editor export. Use it with the account-structure template; "
+                             "the other templates read reports downloaded from the Google Ads website.")
         raise ValueError(
-            f"{path}: no header row with Clicks and Cost columns in the first 15 lines. "
+            f"{path}: no header row with Clicks and Cost columns in the first {HEADER_LINES} lines. "
             "Export the report from the Google Ads UI with Download > .csv. If Google Ads is set to another "
             "language, the column names will not match: switch it to English and download again.")
     idx, delim, keys = found
     report = Report(columns={k for k in keys if k}, source=str(path))
     for line in first[:idx]:
-        m = DATE_RANGE.search(line)
+        m = DATE_RANGE.search(line) or MS_DATES.search(line)
+        if MS_PREAMBLE.match(line.strip()):
+            report.platform = MICROSOFT
         if m:
             report.start, report.end = _date(m.group(1)), _date(m.group(2))
         elif line.strip() and not report.title:
-            report.title = line.strip().strip('"').strip()
+            report.title = line.strip().strip('"').strip().removeprefix("Report Name:").strip()
+    if "spend" in (c.strip().lower() for c in next(csv.reader([first[idx]], delimiter=delim))):
+        report.platform = MICROSOFT  # Google Ads calls it Cost
     name_at = next((keys.index(k) for k in ("search_term", "keyword") if k in keys), None)
     names = [c.strip() for c in next(csv.reader([first[idx]], delimiter=delim))]
     numeric = [i for i, k in enumerate(keys) if k in NUMERIC]
@@ -269,8 +303,13 @@ def _read(path, lines):
     pool, line_of = {}, array("q")  # one copy of each text value; each row's line, for a refusal after reading
     records = csv.reader(_ended(itertools.chain(first[idx + 1:], lines)), delimiter=delim)
     for n, cells in enumerate(records, idx + 2):
-        if (not any(c.strip() for c in cells) or TOTAL_ROW.match(next(c for c in cells if c.strip()))
-                or name_at is not None and name_at < len(cells) and TOTAL_ROW.match(cells[name_at])):
+        if not any(c.strip() for c in cells):
+            continue
+        lead = next(c for c in cells if c.strip())
+        name = cells[name_at] if name_at is not None and name_at < len(cells) else None
+        # Google's "Total: Account"; Microsoft's "Total" with no search term. A term like "total gym" is data.
+        if TOTAL_ROW.match(lead) or name and TOTAL_ROW.match(name) or (
+                name is not None and not name.strip() and lead.strip().lower().startswith("total")):
             continue
         if not any(i < len(cells) and cells[i].strip() for i in numeric):
             continue  # a note under the table, not a row

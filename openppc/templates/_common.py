@@ -7,6 +7,8 @@ import re
 from collections import namedtuple
 from operator import methodcaller
 
+from ..ingest.google_ads_csv import GOOGLE
+
 Totals = namedtuple("Totals", "cost clicks impressions conversions")
 
 BRAND_MIN_LETTERS = 3      # brand names shorter than this are ignored
@@ -92,6 +94,8 @@ def need(report, column, export_name, how_to_export):
 
 def header(book, report, title):
     bits = [f"Source: `{os.path.basename(report.source)}`"]
+    if report.platform != GOOGLE:
+        bits.append(f"{report.platform} export (experimental)")
     if report.start and report.end:
         s, e = report.start, report.end
         days = book.count("days in the date range", report.days, "days")

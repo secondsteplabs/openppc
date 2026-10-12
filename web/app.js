@@ -296,7 +296,7 @@ function fileReport(f) {
   const fields = (columns, cut) => ({
     error: capital(f.info.error.split(f.name).join('the file')),
     columns: columns.length ? columns.join('\n') + (cut ? '\n(more columns, cut to fit the link)' : '')
-      : '(no header row found in the first 15 lines)',
+      : '(no header row found in the first 50 lines)',
     version: `openppc ${state.meta ? state.meta.version : ''}, browser app`,
   });
   const link = (fill) => `${REPO}/issues/new?${new URLSearchParams({ template: 'file_not_read.yml',

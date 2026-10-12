@@ -106,6 +106,32 @@ def _fractional():
     return rows
 
 
+MS_HEADER = ["Account name", "Campaign name", "Campaign type", "Ad group", "Search term", "Delivered match type",
+             "Impr.", "Clicks", "Spend", "Conv.", "Currency code"]
+
+
+def microsoft_search_terms(rows):
+    """A Microsoft Advertising search terms report, laid out as its downloads are documented: report lines above the
+    header, a Total row and a copyright line under the table. Not copied from a real file."""
+    buf = io.StringIO()
+    out = csv.writer(buf, lineterminator="\r\n", quoting=csv.QUOTE_ALL)
+    for line in ("Report Name: Search terms report", "Report Time: 7/1/2026,7/31/2026",
+                 "Time Zone: (GMT-05:00) Eastern Time (US & Canada)", "Report Aggregation: Summary",
+                 "Report Filter: ", "Potential Incomplete Data: false", f"Rows: {len(rows)}"):
+        out.writerow([line])
+    buf.write("\r\n")
+    out.writerow(MS_HEADER)
+    for term, mt, _, camp, group, clicks, impr, cost, conv in rows:
+        kind = "Search & content" if camp == WATER else "Search"
+        out.writerow(["Birch Lane", camp, kind, group, term, mt.replace(" match", ""), impr, clicks, f"{cost:.2f}",
+                      conv, "USD"])
+    out.writerow(["Total", "", "", "", "", "", sum(r[6] for r in rows), sum(r[5] for r in rows),
+                  f"{sum(r[7] for r in rows):.2f}", sum(r[8] for r in rows), ""])
+    buf.write("\r\n")
+    out.writerow(["©2026 Microsoft Corporation. All rights reserved. "])
+    return buf.getvalue()
+
+
 EDITOR_HEADER = ["Campaign", "Campaign Type", "Networks", "Bid Strategy Type", "Enhanced CPC", "Targeting method",
                  "Campaign Status", "Ad Group", "Ad Group Status", "Keyword", "Criterion Type", "Status",
                  "Quality score", "Expected CTR", "Ad relevance", "Landing page experience", "Ad type",
@@ -201,6 +227,7 @@ def fixtures():
         "search_terms_german_headers.csv": german.encode("utf-8"),
         "search_terms_mixed_formats.csv": mixed.encode("utf-8"),
         "editor_export.csv": editor_export().encode("utf-16"),
+        "search_terms_microsoft.csv": microsoft_search_terms(BASE).encode("utf-8-sig"),
     }
 
 

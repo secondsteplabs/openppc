@@ -40,6 +40,7 @@ def test_fixtures_match_their_recipes():
     ("search_terms_renamed.csv", "USD"),     # "Impressions", "Search term match type", "Currency"
     ("search_terms_july.csv", "USD"),
     ("search_terms_pmax.csv", "USD"),
+    ("search_terms_microsoft.csv", "USD"),   # Spend, Conv., report lines above and a Total row under the table
 ])
 def test_every_format_reads_to_the_same_numbers(name, currency):
     report = load_report(FIXTURES / name)
@@ -62,11 +63,20 @@ def test_a_legacy_encoding_is_read():
 @pytest.mark.parametrize("name, message", [
     ("search_terms_german_headers.csv", "column names will not match"),
     ("search_terms_mixed_formats.csv", "mix two styles"),
-    ("editor_export.csv", "no header row with Clicks and Cost"),  # Google Ads Editor support comes later
+    ("editor_export.csv", "Google Ads Editor export. Use it with the account-structure template"),
 ])
 def test_a_file_that_cannot_be_read_right_is_refused_with_a_reason(name, message):
     with pytest.raises(ValueError, match=message):
         load_report(FIXTURES / name)
+
+
+def test_a_microsoft_advertising_report_says_so_and_keeps_its_search_campaigns_in_search():
+    report = load_report(FIXTURES / "search_terms_microsoft.csv")
+    assert (report.platform, report.title, report.days) == ("Microsoft Advertising", "Search terms report", 31)
+    markdown, _, passed = run_template("search-term-waste", FIXTURES / "search_terms_microsoft.csv")
+    assert passed and "Microsoft Advertising export (experimental)" in markdown.split("\n")[2]
+    assert "Performance Max and other automated campaigns" not in markdown  # "Search & content" is Search
+    assert "Microsoft" not in run_template("search-term-waste", FIXTURES / "search_terms_july.csv")[0]
 
 
 def test_fractional_conversions_keep_their_decimals():
