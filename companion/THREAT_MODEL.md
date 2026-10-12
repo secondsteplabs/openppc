@@ -1,8 +1,10 @@
-# Threat model: `openppc-online app`
+# Threat model: `openppc-online`
 
-What the local server protects, from whom, and how. Each defence has a test in `tests/test_app.py` or
-`tests/test_boundary.py`. Review this page, and run a security review of the diff, before each release that changes
-the server.
+What each command protects, from whom, and how: the local server (`app`) first, then the website check (`site`).
+Each defence has a test in `tests/`. Review this page, and run a security review of the diff, before each release
+that changes either.
+
+# `openppc-online app`
 
 ## What it has
 
@@ -10,8 +12,8 @@ the server.
   `X-OpenPPC-Token` header. In 0.1.0 the API only says which version is running; later versions start jobs with it,
   so it is guarded as if it already did.
 - **The files on this computer.** The server must never hand out anything but the app's own files.
-- **Nothing else yet.** No credentials, uploads or jobs: they come with `site` and `fetch`, and this page grows
-  with them.
+- **Nothing else yet.** No credentials, uploads or jobs: the app starts jobs when the Site view comes, and this
+  section grows with it.
 
 ## Who might attack it
 
@@ -36,7 +38,7 @@ the server.
 | Framing | `frame-ancestors 'none'` in the page's policy header | `test_the_page_is_the_hosted_app_plus_the_token_and_local_js` |
 | A weakened page policy | The page is openppc.si's with one change, `connect-src 'self'`; if the hosted policy changes, the server stops rather than serve a page that half works | `test_a_change_to_the_hosted_policy_stops_it` |
 | Exhaustion | Nothing reads a request body; an idle connection is dropped after 30 seconds; threads are daemons | — |
-| Contacting other hosts | The companion imports no HTTP client, and serving the app connects to nothing but 127.0.0.1 | `test_the_companion_has_no_http_client_yet`, `test_the_app_contacts_only_127_0_0_1` |
+| Contacting other hosts | Only `app.py` imports the HTTP server, and serving the app connects to nothing but 127.0.0.1 | `test_only_the_named_modules_touch_the_network`, `test_the_app_contacts_only_127_0_0_1` |
 
 ## Accepted
 
@@ -46,3 +48,53 @@ the server.
 - **The page loads its Python runtime, two libraries and its fonts from cdn.jsdelivr.net,** as openppc.si does,
   each pinned by version. The libraries, the fonts and the runtime's entry file are checked against hashes; the
   files the runtime loads after that are not.
+
+# `openppc-online site`
+
+The crawler fetches pages a stranger controls, from your computer, inside your network. The tests are in
+`tests/test_net.py`, `tests/test_crawl.py`, `tests/test_site.py`, `tests/test_checks.py` and `tests/test_packs.py`.
+
+## What it has
+
+- **Your network.** The crawler runs inside it, so a site could try to point it at your router, a staging server
+  or a cloud machine's metadata service, which hands out credentials.
+- **Your CrUX API key** (`--crux-key`) and **your webhook's URL** (`--post-to`), whose path is often its secret.
+- **Your computer's resources.** Memory, disk and time.
+- **Whoever reads the report.** It quotes URLs and some text from the site, and the HTML report opens in a
+  browser.
+
+## Who might attack it
+
+1. **The site being checked,** or any site it links to: its pages, headers, redirects, robots.txt and sitemaps.
+2. **Its DNS,** answering with a private address, or a public one first and a private one later (DNS rebinding).
+3. **A rule pack or baseline file** from someone else. They are files you choose, so they are trusted to say what
+   to check, but not to run code or slow the check down.
+
+## Defences
+
+| Threat | Defence | Test |
+| --- | --- | --- |
+| Reaching your network | Every address a name resolves to is checked; private, loopback and unique-local ones need `--allow-private`; link-local, cloud metadata, CGNAT, multicast, reserved and tunnelled ones (6to4 and IPv4-mapped are checked as the IPv4 inside) never open | `test_which_addresses_open_and_when`, `test_localhost_needs_allow_private`, `test_this_computer_needs_allow_private` |
+| A name with one private address among public ones | Refused as a whole | `test_a_name_with_one_private_address_among_public_ones_is_refused` |
+| DNS rebinding | Each connection resolves the name once and connects to the checked address, not the name | `test_a_name_is_resolved_once_per_connection_and_connected_by_the_checked_address` |
+| A redirect into your network | Redirects are followed by hand, at most 10, http and https only, each hop checked the same way | `test_a_redirect_to_the_metadata_address_is_refused`, `test_too_many_redirects_and_other_schemes_are_no_response` |
+| Contacting hosts it doesn't declare | Only `siteaudit/net.py` makes connections, and only `siteaudit/crux.py` uses `urllib`; a run looks up the site, the hosts it links to, CrUX's host only with `--crux-key` and the webhook's only with `--post-to` | `test_only_the_named_modules_touch_the_network`, `test_the_command_contacts_only_its_declared_hosts` |
+| A compressed bomb or an endless body | Bodies are cut off at 5 MB after decompression, 30 seconds per response, 15 seconds of silence; only HTML bodies are read when the crawler asks for pages | `test_a_compressed_bomb_is_cut_off`, `test_only_html_bodies_are_read_when_asked`, `test_a_body_that_fails_part_way_is_no_response` |
+| XML attacks in sitemaps | A sitemap with a document type declaration (entities) is not read; sitemaps are capped in size and number | `test_a_sitemap_with_a_document_type_declaration_is_not_read` |
+| An endless site | Pages per URL pattern and per query string are capped, and `--max-pages` and `--max-time` stop it; Ctrl-C keeps what was crawled | `test_the_page_limit_and_a_429_retried_once`, `test_ctrl_c_keeps_what_was_crawled` |
+| Being turned against the site | robots.txt is read first and obeyed, Crawl-delay included; two requests at a time, half a second apart, unless `--fast`; a 429 is retried once, then left | `test_robots_txt_is_read_as_rfc_9309_says`, `test_robots_txt_is_read_before_the_start_page`, `test_a_failing_robots_txt_stops_the_crawl` |
+| Sessions and tracking | No cookies are kept or sent; the user agent says who asks | `test_cookies_are_never_kept_and_the_user_agent_says_who_asks` |
+| The site's text as markup | URLs are percent-encoded; anything else from the site (a rule pack's quoted field, an error) goes in a code span with its backticks replaced, so it can't close the span; the HTML report escapes all text | `test_the_sites_own_text_never_becomes_markup_in_the_report` |
+| Leaking the CrUX key or the webhook's path | The key is read from the flag or `OPENPPC_CRUX_KEY` and only sent to CrUX; reports and messages name the webhook's host only; secret-looking query values (tokens, emails) are masked in every format | `test_secrets_never_show`, `test_field_data_is_read_and_the_key_stays_out_of_sight`, `test_fingerprints_ignore_the_origin_and_secrets_are_masked` |
+| A webhook that sends the result on | `https://`, or `http://` only to this computer (which also needs `--allow-private`); one POST through the guard, no redirect followed | `test_which_webhook_addresses_are_taken`, `test_the_webhook_follows_no_redirect_and_needs_allow_private_for_this_computer` |
+| A hostile rule pack | Plain JSON, every key and value checked as it loads; a rule compares a field with a literal (no regular expressions, no code), and page globs use `fnmatch`, so a pack can't run anything or hang the check | `test_a_pack_mistake_names_the_place`, `test_the_example_rule_packs_match_the_schema_and_load` |
+| A slow failure | Every input (packs, baseline, key, webhook, limits) is read before the crawl | `test_bad_input_fails_before_the_crawl` |
+
+## Accepted
+
+- **The site sees your IP address,** as with any visit, and so does each host it links to (once per link). Use
+  `--no-external` to skip those.
+- **`--allow-private` trusts the names you check.** With it, a public site's link or redirect may reach your own
+  network; use it only on hosts you trust.
+- **`--fast` ignores the polite pace,** not robots.txt. It is for your own site.
+- **The CrUX key goes to Google,** as the API needs. Use a key restricted to the Chrome UX Report API.

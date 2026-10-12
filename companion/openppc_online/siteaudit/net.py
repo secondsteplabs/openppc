@@ -162,6 +162,19 @@ def connection(url: str, guard: Guard) -> tuple[http.client.HTTPConnection, str]
     return conn, urlunsplit(("", "", encoded(parts.path or "/"), encoded(parts.query), ""))
 
 
+def post(url: str, guard: Guard, body: bytes, content_type: str) -> int:
+    """One POST through the guard, with no redirect followed: the status it answered. Raises OSError (Refused when
+    the safety rules stop it) when there is no answer."""
+    conn, target = connection(url, guard)
+    try:
+        conn.request("POST", target, body, {"Content-Type": content_type, "User-Agent": USER_AGENT})
+        return conn.getresponse().status
+    except http.client.HTTPException as e:
+        raise OSError(f"{type(e).__name__}: {e}") from e
+    finally:
+        conn.close()
+
+
 def fetch(url: str, guard: Guard, method: str = "GET", max_bytes: int = PAGE_BYTES,
           follow: bool = True, html_only: bool = False) -> Response:
     """One request, its redirects followed hop by hop. Never raises for a network problem: the Response says what

@@ -33,7 +33,7 @@ ISSUES = "https://github.com/secondsteplabs/openppc/issues"
 ELSEWHERE = {
     "app": "The app on this computer is `openppc-online app`, in the optional companion openppc-online",
     "fetch": "Downloads with your own API credentials are planned for the optional companion openppc-online",
-    "site": "Landing page and tracking checks are planned for the optional companion openppc-online",
+    "site": "The website check is `openppc-online site`, in the optional companion openppc-online",
 }
 
 

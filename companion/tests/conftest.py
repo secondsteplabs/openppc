@@ -20,8 +20,8 @@ def server():
 
 @pytest.fixture
 def serve():
-    """serve(routes) starts a website on 127.0.0.1; routes(base) maps a path, query included, to (status, headers,
-    body). serve.asked lists every path requested, across the sites."""
+    """serve(routes) starts a website on 127.0.0.1; routes(base) maps a path, with or without its query, to (status,
+    headers, body). serve.asked lists every path requested, across the sites."""
     servers = []
     asked = []
 
@@ -42,7 +42,7 @@ def serve():
 
             def answer(self, with_body):
                 asked.append(self.path)
-                status, headers, body = table.get(self.path, fallback)
+                status, headers, body = table.get(self.path) or table.get(self.path.split("?")[0], fallback)
                 data = body if isinstance(body, bytes) else body.encode()
                 self.send_response(status)
                 for k, v in {"Content-Type": "text/html; charset=utf-8", **headers}.items():
