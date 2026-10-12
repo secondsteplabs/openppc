@@ -26,7 +26,7 @@ Issues = "https://github.com/secondsteplabs/openppc/issues"
 
 [project.optional-dependencies]
 mcp = ["mcp>=1.2"]
-dev = ["pytest>=8", "ruff>=0.6"]
+dev = ["pytest>=8", "ruff>=0.6", "mypy>=1.11"]
 e2e = ["playwright>=1.45"]
 
 [project.scripts]
@@ -58,6 +58,13 @@ testpaths = ["tests"]
 # The browser tests download the Python runtime and take minutes; CI runs them in their own job.
 addopts = "-m 'not e2e'"
 markers = ["e2e: drives the web app in a real browser (pytest -m e2e tests/e2e)"]
+
+[tool.mypy]
+# The stable engine API (ADR-2). Other modules are read for their types but not reported on: trace's body predates
+# the typed API, so only its signature is checked, where callers use it.
+files = ["openppc/facts.py", "openppc/ingest/google_ads_csv.py", "openppc/templates/__init__.py"]
+follow_imports = "silent"
+python_version = "3.10"
 
 [tool.ruff]
 line-length = 120

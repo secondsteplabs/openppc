@@ -40,6 +40,7 @@ so every trace names the fact it matched. Read the "traced to" column, don't jus
 import heapq
 import re
 from bisect import bisect_left, bisect_right
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from ..facts import Fact, fmt_money
@@ -852,8 +853,9 @@ class _Lookup:
         return next((f for f in self.facts + here if f.label == label), None)
 
 
-def trace(text, facts):
-    """Return (claims, contradictions) for every checkable number in the text."""
+def trace(text: str, facts: Sequence[Fact]) -> tuple[list[Claim], list[tuple[int, str, str]]]:
+    """Return (claims, contradictions) for every checkable number in the text. A contradiction is (line, problem,
+    the line's text)."""
     look = _Lookup(facts, text)
     facts = look.facts
     entities = sorted({f.entity.lower() for f in facts if len(f.entity) >= 4}, key=lambda e: (-len(e), e))

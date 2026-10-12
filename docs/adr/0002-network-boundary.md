@@ -15,6 +15,10 @@ keys. Some fork features (API downloads, a website crawler) need the network by 
   `openppc-mcp --http` as a connector for ChatGPT and claude.ai. It listens; it never fetches.
 - The stable engine API the companion may use is `facts.FactBook`, `engine.trace.trace`, `ingest.load_report`,
   `templates.run_template` and the template protocol. `py.typed` ships when this API is declared stable, not before.
+- Declared in 0.3.0: the five names carry type hints, `templates.Template` is the protocol that every module in
+  `TEMPLATES` is checked against, and `py.typed` ships. mypy checks `facts.py`, `ingest/google_ads_csv.py` and
+  `templates/__init__.py` in dev and CI; `trace`'s signature is typed, and its older body is not yet checked. A
+  change that breaks one of these names is listed under Breaking in the changelog.
 
 ## Consequences
 
@@ -23,3 +27,5 @@ keys. Some fork features (API downloads, a website crawler) need the network by 
 - The same file runs every command and MCP tool with sockets patched to fail.
 - The browser bundle lists its modules by name (`tools/build_web.py`), so a new module reaches the app only by a
   reviewed change.
+- `tests/test_api.py` imports the five names from where this ADR puts them and checks that every template provides
+  what the protocol lists.

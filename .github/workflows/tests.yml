@@ -28,6 +28,7 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: pip install -e ".[dev,mcp]"
       - run: ruff check openppc tests tools
+      - run: mypy  # the stable engine API (ADR-2); the files are listed in pyproject.toml
       - run: pytest -q
 
   web-app:  # the app in Chromium, loading its Python runtime from the CDN like a visitor

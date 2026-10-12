@@ -6,6 +6,7 @@ gives `openppc check` the same list to judge anyone else's audit against.
 """
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from typing import Any
 
 SYMBOLS = {"USD": "$", "CAD": "CA$", "AUD": "A$", "NZD": "NZ$", "EUR": "€", "GBP": "£", "INR": "₹"}
 
@@ -21,7 +22,7 @@ class Fact:
     currency: str = ""  # money only: the currency code it is in, so it prints with its symbol
 
 
-def fmt_money(value, currency="USD"):
+def fmt_money(value: float, currency: str = "USD") -> str:
     symbol = SYMBOLS.get((currency or "").upper())
     return f"{symbol}{value:,.2f}" if symbol else f"{value:,.2f} {currency}"
 
@@ -29,25 +30,27 @@ def fmt_money(value, currency="USD"):
 @dataclass
 class FactBook:
     currency: str = "USD"
-    facts: list = field(default_factory=list)
-    cards: dict = field(default_factory=dict)  # a template's results as data, for the web app; numbers as printed
-    client: dict = field(default_factory=dict)  # the branded client report's pages as blocks; numbers as printed
+    facts: list[Fact] = field(default_factory=list)
+    # a template's results as data, for the web app; numbers as printed
+    cards: dict[str, Any] = field(default_factory=dict)
+    # the branded client report's pages as blocks; numbers as printed
+    client: dict[str, Any] = field(default_factory=dict)
 
-    def add(self, label, value, kind, metric="", entity=""):
+    def add(self, label: str, value: float | None, kind: str, metric: str = "", entity: str = "") -> float | None:
         if value is not None:
             self.facts.append(Fact(label, float(value), kind, metric, entity,
                                    currency=self.currency if kind == "money" else ""))
         return value
 
-    def money(self, label, value, metric="cost", entity=""):
+    def money(self, label: str, value: float, metric: str = "cost", entity: str = "") -> str:
         self.add(label, value, "money", metric, entity)
         return fmt_money(value, self.currency)
 
-    def pct(self, label, value, metric="", entity="", dp=1):
+    def pct(self, label: str, value: float, metric: str = "", entity: str = "", dp: int = 1) -> str:
         self.add(label, value, "pct", metric, entity)
         return f"{value:.{dp}f}%"
 
-    def count(self, label, value, metric="", entity="", dp=0):
+    def count(self, label: str, value: float, metric: str = "", entity: str = "", dp: int = 0) -> str:
         self.add(label, value, "count", metric, entity)
         return f"{value:,.{dp}f}"
 

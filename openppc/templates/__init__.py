@@ -1,16 +1,38 @@
 """Audit templates. Each one is a recipe: which export it reads, what it computes, how it reports.
 
-A template module defines NAME, TITLE, TIER, INPUT, SUMMARY, INPUT_KIND ("report" or
-"metrics" or "account"), accepts(data) and run(data, **params) -> (markdown lines, FactBook).
+A template is a module that provides what Template lists. run_template, Template, FactBook, trace and load_report
+are the stable engine API (ADR-2): typed, checked by mypy, and a change that breaks them is listed under Breaking
+in the changelog.
 """
+import os
+from collections.abc import Callable, Sequence
+from typing import Any, Protocol
+
 from ..engine.trace import trace
+from ..facts import Fact, FactBook
 from ..ingest import load_report
 from . import account_read, account_structure, keyword_audit, search_term_waste
 
-TEMPLATES = {t.NAME: t for t in (search_term_waste, keyword_audit, account_structure, account_read)}
+Paths = str | os.PathLike[str] | Sequence[str | os.PathLike[str]]
 
 
-def load_input(template, path):
+class Template(Protocol):
+    """What a template module provides. mypy checks each module in TEMPLATES against it."""
+    NAME: str        # the id on the command line: "search-term-waste"
+    TITLE: str       # the report's heading
+    TIER: str        # "free"
+    INPUT: str       # the file it reads, in words: "Search terms report (.csv)"
+    SUMMARY: str     # one sentence for the template lists
+    INPUT_KIND: str  # "report" (one export), "metrics" (two periods) or "account" (a snapshot or Editor file)
+    accepts: Callable[[Any], bool]  # whether the data it was given is something it can audit
+    run: Callable[..., tuple[list[str], FactBook]]  # run(data, **params) -> (markdown lines, FactBook)
+
+
+_ALL: tuple[Template, ...] = (search_term_waste, keyword_audit, account_structure, account_read)
+TEMPLATES: dict[str, Template] = {t.NAME: t for t in _ALL}
+
+
+def load_input(template: Template, path: Paths) -> Any:
     """path: one file, or for account-read a list of two, one export per period."""
     paths = [str(p) for p in path] if isinstance(path, (list, tuple)) else [str(path)]
     if template.INPUT_KIND == "metrics":
@@ -22,13 +44,14 @@ def load_input(template, path):
     return load_report(paths[0])
 
 
-def run_template(name, path, **params):
+def run_template(name: str, path: Paths, **params: Any) -> tuple[str, list[Fact], bool]:
     """Run a template on a file. Returns (markdown, facts, number_check_passed)."""
     markdown, book, passed = run_template_book(name, path, **params)
     return markdown, book.facts, passed
 
 
-def run_template_book(name, path, data=None, progress=None, **params):
+def run_template_book(name: str, path: Paths, data: Any = None, progress: Callable[[str], object] | None = None,
+                      **params: Any) -> tuple[str, FactBook, bool]:
     """Same as run_template, but hands back the whole FactBook, cards included. data: the file, already read.
     progress(step) is told as the run moves from one step to the next, for a long run's "working" line."""
     if name not in TEMPLATES:

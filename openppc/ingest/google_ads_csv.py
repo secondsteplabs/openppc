@@ -21,6 +21,7 @@ import re
 from array import array
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from typing import Any
 
 # canonical column -> header names Google and Microsoft Advertising have used for it (lower-case)
 ALIASES = {
@@ -58,18 +59,18 @@ DECORATION = re.compile(r"^(?:Rs\.|[^\d.\-])+|[^\d%]+$")  # a currency mark or c
 
 @dataclass
 class Report:
-    rows: list = field(default_factory=list)
-    columns: set = field(default_factory=set)
+    rows: list[dict[str, Any]] = field(default_factory=list)
+    columns: set[str] = field(default_factory=set)
     source: str = ""
     title: str = ""
-    start: dt.date = None
-    end: dt.date = None
+    start: dt.date | None = None
+    end: dt.date | None = None
     currency: str = "USD"
-    notes: list = field(default_factory=list)  # how the file was read, when that is not the plain way
+    notes: list[str] = field(default_factory=list)  # how the file was read, when that is not the plain way
     platform: str = GOOGLE
 
     @property
-    def days(self):
+    def days(self) -> int | None:
         return (self.end - self.start).days + 1 if (self.start and self.end) else None
 
     def has(self, *columns):
@@ -299,7 +300,7 @@ def decimal_commas(cells, delim, name):
     return _european(eu, us, dotted, delim)
 
 
-def load_report(path):
+def load_report(path: str | os.PathLike[str]) -> Report:
     """Read the export a piece at a time: a 250,000-row file is never held as text, lines and cells at once."""
     with lines_of(path) as (lines, encoding):
         report = _read(path, lines)
