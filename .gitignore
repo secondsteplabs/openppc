@@ -42,6 +42,9 @@ __pycache__/
 .mypy_cache/
 dist/
 build/
+# copied into the companion before its wheel is built (tools/stage_companion_web.py)
+companion/openppc_online/web/
+companion/LICENSE
 
 # Real account exports never enter this repo. Put them in exports/ (ignored).
 exports/

@@ -2,7 +2,8 @@ name: release
 
 # Publishes the package to PyPI when a GitHub release is published. PyPI trusts this workflow through trusted
 # publishing (OIDC), so no token is stored anywhere. Only the publish job can ask for that identity, and only in
-# the `pypi` environment, which accepts tags named v*. Actions are pinned to exact commits.
+# the `pypi` environment, which accepts tags named v*. Actions are pinned to exact commits. Releases of the
+# companion (tags named openppc-online-v*) are release-online.yml's.
 on:
   release:
     types: [published]
@@ -11,6 +12,7 @@ permissions: {}
 
 jobs:
   build:
+    if: startsWith(github.ref_name, 'v')
     runs-on: ubuntu-latest
     permissions:
       contents: read

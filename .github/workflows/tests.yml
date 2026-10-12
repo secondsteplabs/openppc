@@ -31,6 +31,38 @@ jobs:
       - run: mypy  # the stable engine API (ADR-2); the files are listed in pyproject.toml
       - run: pytest -q
 
+  companion:  # openppc-online, against the openppc in this commit (its pin waits for the core's next release)
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      - run: pip install --no-deps -e companion
+      - run: ruff check companion
+      - run: pytest -q companion
+      - run: python tools/stage_companion_web.py
+      - run: pip install build==1.6.1
+      - run: python -m build companion
+      - name: The wheel carries the app, local.js and the license
+        shell: python
+        run: |
+          import glob, zipfile
+          names = set(zipfile.ZipFile(glob.glob("companion/dist/*.whl")[0]).namelist())
+          need = {f"openppc_online/web/{f}" for f in ("index.html", "app.js", "engine.js", "engine-worker.js", "style.css")}
+          need.add("openppc_online/local/local.js")
+          missing = need - names
+          assert not missing, missing
+          assert any(n.endswith("/licenses/LICENSE") for n in names), "no LICENSE"
+
   action:  # action.yml from this commit, the way a user's workflow runs it
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -88,5 +120,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e ".[dev,e2e]"
+      - run: pip install --no-deps -e companion
       - run: playwright install --with-deps chromium
       - run: pytest -m e2e tests/e2e -q
+      - run: pytest -m e2e companion/tests -q  # the same app served by openppc-online app

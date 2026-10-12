@@ -1,0 +1,50 @@
+[project]
+name = "openppc-online"
+version = "0.1.0"
+description = "The optional OpenPPC companion: the commands that go online, each only when you run it."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Shivendra Rawat" }]
+requires-python = ">=3.10"
+# The engine API it uses (ADR-2) is stable within a minor version of openppc.
+dependencies = ["openppc>=0.4,<0.5"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Office/Business",
+]
+
+[project.urls]
+Homepage = "https://openppc.si"
+Repository = "https://github.com/secondsteplabs/openppc/tree/main/companion"
+Issues = "https://github.com/secondsteplabs/openppc/issues"
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6"]
+e2e = ["playwright>=1.45"]
+
+[project.scripts]
+openppc-online = "openppc_online.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+# The web app and the license are copied in by tools/stage_companion_web.py before a build, and are gitignored.
+artifacts = ["openppc_online/web/", "LICENSE"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["openppc_online"]
+
+[tool.hatch.build.targets.sdist]
+include = ["/openppc_online", "/README.md", "/THREAT_MODEL.md", "/LICENSE", "/pyproject.toml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-m 'not e2e'"
+markers = ["e2e: drives the app in a real browser (pytest -m e2e companion/tests)"]
