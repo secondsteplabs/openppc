@@ -1,0 +1,35 @@
+{
+  "openppc_site": 1,
+  "name": "E-commerce product pages",
+  "about": "Product pages that Shopping ads and rich results depend on. Change the pages globs to your shop's product URLs.",
+  "rules": [
+    {
+      "id": "shop-product-markup",
+      "category": "structured-data",
+      "severity": "medium",
+      "effort": "medium",
+      "title": "Product pages with no Product structured data",
+      "fix": "Add Product markup in JSON-LD with name, image and offers (price and availability), so the page can show price and stock in search.",
+      "pages": ["/product/*", "/products/*", "/p/*"],
+      "require": {"field": "jsonld", "contains": "Product"}
+    },
+    {
+      "id": "shop-og-type-product",
+      "category": "structured-data",
+      "severity": "low",
+      "title": "Product pages not shared as products",
+      "fix": "Set <meta property=\"og:type\" content=\"product\">, so social shares show the product card.",
+      "pages": ["/product/*", "/products/*", "/p/*"],
+      "require": {"field": "meta:og:type", "equals": "product"}
+    },
+    {
+      "id": "shop-product-indexable",
+      "category": "indexing",
+      "severity": "high",
+      "title": "Product pages that ask not to be indexed",
+      "fix": "Remove the noindex: a product page that can't be indexed gets no organic traffic and weakens Shopping ads' landing page checks.",
+      "pages": ["/product/*", "/products/*", "/p/*"],
+      "require": {"field": "robots", "not_contains": "noindex"}
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "openppc_site": 1,
+  "name": "Example project config",
+  "about": "One site's own settings, kept in its repository next to the CI job: what to hide, and why, and the site's own tracking endpoint. Each suppression needs a reason, and the report lists them all.",
+  "signatures": [
+    {
+      "id": "first-party-collector",
+      "name": "First-party GA4 collector (server-side GTM)",
+      "kind": "analytics",
+      "hit": [{"host": "metrics.example.com", "path": "/g/collect"}],
+      "load": [{"host": "metrics.example.com", "path": "/gtm.js"}],
+      "events": ["en"]
+    }
+  ],
+  "rules": [
+    {
+      "id": "project-collector-installed",
+      "category": "tracking",
+      "severity": "high",
+      "title": "The first-party collector isn't on the site",
+      "fix": "Check the server-side GTM container is published and its loader is in the page template.",
+      "require": {"tag": "first-party-collector"}
+    },
+    {
+      "id": "project-lead-event",
+      "category": "tracking",
+      "severity": "high",
+      "title": "The thank-you page doesn't send the generate_lead event",
+      "fix": "Check the GTM trigger for generate_lead fires on the thank-you page.",
+      "require": {"tag": "first-party-collector", "event": "generate_lead"}
+    }
+  ],
+  "suppress": [
+    {"rule": "site-noindex", "match": "/thank-you*", "reason": "Thank-you pages stay out of search on purpose."},
+    {"rule": "site-a11y:color-contrast", "match": "/legacy/*", "reason": "The legacy section is being retired; tracked in the redesign project."},
+    {"rule": "site-external-unverified", "reason": "LinkedIn and Instagram refuse bots; we check those links by hand each quarter."}
+  ]
+}

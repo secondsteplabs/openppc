@@ -1,0 +1,30 @@
+source_id,title,publisher,url,type,accessed
+src-openppc,"OpenPPC rules, reasoned in code: read them and argue",labs.secondstep,https://github.com/secondsteplabs/openppc,openppc,2026-09-29
+src-google-title-links,Influencing your title links in Google Search,Google Search Central,https://developers.google.com/search/docs/appearance/title-link,google-help-center,2026-10-05
+src-google-snippets,Control your snippets in search results,Google Search Central,https://developers.google.com/search/docs/appearance/snippet,google-help-center,2026-10-05
+src-google-robots,How Google interprets the robots.txt specification,Google Search Central,https://developers.google.com/search/docs/crawling-indexing/robots/robots_txt,google-help-center,2026-10-05
+src-google-sitemaps,Build and submit a sitemap,Google Search Central,https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap,google-help-center,2026-10-05
+src-google-canonical,"How to specify a canonical URL with rel=""canonical"" and other methods",Google Search Central,https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls,google-help-center,2026-10-05
+src-google-noindex,Block search indexing with noindex,Google Search Central,https://developers.google.com/search/docs/crawling-indexing/block-indexing,google-help-center,2026-10-05
+src-google-redirects,Redirects and Google Search,Google Search Central,https://developers.google.com/search/docs/crawling-indexing/301-redirects,google-help-center,2026-10-05
+src-google-http-errors,"How HTTP status codes, and network and DNS errors affect Google Search",Google Search Central,https://developers.google.com/search/docs/crawling-indexing/http-network-errors,google-help-center,2026-10-05
+src-google-structured-data,General structured data guidelines,Google Search Central,https://developers.google.com/search/docs/appearance/structured-data/sd-policies,google-help-center,2026-10-05
+src-google-js-seo,Understand JavaScript SEO basics,Google Search Central,https://developers.google.com/search/docs/crawling-indexing/javascript/javascript-seo-basics,google-help-center,2026-10-05
+src-google-consent-mode,Set up consent mode on websites,Google for Developers,https://developers.google.com/tag-platform/security/guides/consent,google-help-center,2026-10-05
+src-google-ga4-setup,Set up Analytics for a website and/or app,Google Analytics Help,https://support.google.com/analytics/answer/9304153,google-help-center,2026-10-05
+src-webdev-https,Why HTTPS matters,web.dev (Google),https://web.dev/articles/why-https-matters,google-help-center,2026-10-05
+src-webdev-vitals,Web Vitals,web.dev (Google),https://web.dev/articles/vitals,google-help-center,2026-10-05
+src-webdev-viewport,Responsive web design basics,web.dev (Google),https://web.dev/articles/responsive-web-design-basics,google-help-center,2026-10-05
+src-lighthouse-tbt,Total Blocking Time,Chrome for Developers (Lighthouse),https://developer.chrome.com/docs/lighthouse/performance/lighthouse-total-blocking-time,tool-docs,2026-10-05
+src-crux-api,Chrome UX Report API,Chrome for Developers,https://developer.chrome.com/docs/crux/api,tool-docs,2026-10-05
+src-mdn-mixed-content,Mixed content,MDN Web Docs,https://developer.mozilla.org/en-US/docs/Web/Security/Mixed_content,tool-docs,2026-10-05
+src-mdn-lang,lang (HTML global attribute),MDN Web Docs,https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/lang,tool-docs,2026-10-05
+src-owasp-headers,OWASP Secure Headers Project,OWASP,https://owasp.org/www-project-secure-headers/,standard,2026-10-05
+src-w3c-wcag21,Web Content Accessibility Guidelines (WCAG) 2.1,W3C,https://www.w3.org/TR/WCAG21/,standard,2026-10-05
+src-deque-axe,axe-core rule descriptions,Deque Systems,https://github.com/dequelabs/axe-core/blob/develop/doc/rule-descriptions.md,tool-docs,2026-10-05
+src-ogp,The Open Graph protocol,ogp.me,https://ogp.me/,standard,2026-10-05
+src-sitemaps-org,Sitemaps XML format,sitemaps.org,https://www.sitemaps.org/protocol.html,standard,2026-10-05
+src-iab-tcf,Transparency & Consent Framework,IAB Europe,https://iabeurope.eu/transparency-consent-framework/,standard,2026-10-05
+src-edpb-eprivacy,Guidelines 2/2023 on the technical scope of Art. 5(3) of the ePrivacy Directive,EDPB,https://www.edpb.europa.eu/our-work-tools/documents/public-consultations/2023/guidelines-22023-technical-scope-art-53-eprivacy_en,standard,2026-10-05
+src-openai-bots,Overview of OpenAI crawlers,OpenAI,https://platform.openai.com/docs/bots,tool-docs,2026-10-05
+src-llmstxt,The /llms.txt file,llmstxt.org,https://llmstxt.org/,industry-publication,2026-10-05

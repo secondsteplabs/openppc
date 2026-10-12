@@ -13,7 +13,8 @@ CLIENTS = {"urllib.request", "http.client", "ssl", "socket", "urllib3", "request
 ALLOWED = {"http.server": {"app.py"},  # the app's server, bound to 127.0.0.1
            "webbrowser": {"app.py"},   # opens the app's own address
            # the site check's guard: every connection is checked before it is made
-           "http.client": {"siteaudit/net.py"}, "ssl": {"siteaudit/net.py"}, "socket": {"siteaudit/net.py"}}
+           "http.client": {"siteaudit/net.py"}, "ssl": {"siteaudit/net.py"}, "socket": {"siteaudit/net.py"},
+           "urllib.request": {"siteaudit/crux.py"}}  # Chrome's UX Report API, never the audited site
 # the core's stable API (ADR-2): what the companion may import from openppc, by module
 STABLE = {"openppc": {"__version__"}, "openppc.facts": {"FactBook"}, "openppc.engine.trace": {"trace"},
           "openppc.ingest": {"load_report"}, "openppc.templates": {"run_template", "Template"},

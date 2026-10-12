@@ -47,6 +47,7 @@ jobs:
           python-version: "3.12"
       - run: pip install -e ".[dev]"
       - run: pip install --no-deps -e companion
+      - run: pip install jsonschema==4.26.0  # the companion's dev extra; --no-deps above leaves it out
       - run: ruff check companion
       - run: pytest -q companion
       - run: python tools/stage_companion_web.py

@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/secondsteplabs/openppc/main/companion/openppc_online/schemas/site-config.schema.json",
+  "title": "OpenPPC site audit rule pack or config (openppc-online site --config FILE)",
+  "description": "Version 1 of the rule spec. A rule compares one field of a page with a literal, so a pack can't run code or hang a scan. OpenPPC checks the same things itself and names the exact place of a mistake.",
+  "type": "object",
+  "required": ["openppc_site"],
+  "additionalProperties": false,
+  "properties": {
+    "openppc_site": {"const": 1, "description": "The version of this format."},
+    "name": {"type": "string"},
+    "about": {"type": "string"},
+    "rules": {"type": "array", "items": {"$ref": "#/$defs/rule"}},
+    "suppress": {"type": "array", "items": {"$ref": "#/$defs/suppression"}},
+    "signatures": {"type": "array", "items": {"$ref": "#/$defs/signature"}}
+  },
+  "$defs": {
+    "text": {"type": "string", "minLength": 1},
+    "rule": {
+      "type": "object",
+      "required": ["id", "category", "severity", "title", "fix", "require"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string", "pattern": "^(?!site-)[a-z0-9][a-z0-9-]{0,62}$",
+               "description": "Unique; site- is kept for the built-in rules."},
+        "category": {"enum": ["seo", "links", "indexing", "structured-data", "security", "ai", "tracking",
+                              "accessibility", "performance"]},
+        "severity": {"enum": ["high", "medium", "low", "info"]},
+        "effort": {"enum": ["low", "medium", "high"], "default": "low"},
+        "title": {"type": "string", "minLength": 1, "maxLength": 200},
+        "fix": {"type": "string", "minLength": 1, "maxLength": 1000},
+        "pages": {"description": "Path globs (fnmatch, case-sensitive) of the pages the rule applies to; every page when left out. Not for tag rules.",
+                  "oneOf": [{"$ref": "#/$defs/text"}, {"type": "array", "items": {"$ref": "#/$defs/text"}}]},
+        "require": {"oneOf": [{"$ref": "#/$defs/tagRequirement"}, {"$ref": "#/$defs/textRequirement"},
+                              {"$ref": "#/$defs/numberRequirement"}]}
+      }
+    },
+    "tagRequirement": {
+      "description": "The site must have this tag (a built-in signature id such as ga4, or one of this file's signatures), and with event, its hits must send that event (such as purchase) on a page a browser pass loads.",
+      "type": "object", "required": ["tag"], "additionalProperties": false,
+      "properties": {"tag": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+                     "event": {"type": "string", "minLength": 1, "maxLength": 100}}
+    },
+    "literal": {"type": "string", "minLength": 1, "maxLength": 1000},
+    "textRequirement": {
+      "description": "Every page (in pages) must meet each condition; text is compared ignoring case.",
+      "type": "object", "required": ["field"], "minProperties": 2, "additionalProperties": false,
+      "properties": {
+        "field": {"anyOf": [{"enum": ["title", "description", "lang", "canonical", "robots", "source", "url", "jsonld"]},
+                            {"type": "string", "pattern": "^(meta|header):.+$"}]},
+        "present": {"const": true}, "absent": {"const": true},
+        "equals": {"$ref": "#/$defs/literal"}, "contains": {"$ref": "#/$defs/literal"},
+        "not_contains": {"$ref": "#/$defs/literal"}, "starts_with": {"$ref": "#/$defs/literal"},
+        "min_length": {"type": "integer"}, "max_length": {"type": "integer"}
+      }
+    },
+    "numberRequirement": {
+      "type": "object", "required": ["field"], "minProperties": 2, "additionalProperties": false,
+      "properties": {
+        "field": {"enum": ["h1", "text_chars", "images_without_alt", "status"]},
+        "min": {"type": "number"}, "max": {"type": "number"}, "equals": {"type": "number"}
+      }
+    },
+    "suppression": {
+      "type": "object", "required": ["rule", "reason"], "additionalProperties": false,
+      "properties": {
+        "rule": {"type": "string", "minLength": 1, "maxLength": 200,
+                 "description": "A finding id (site-a11y:color-contrast) or rule id (site-a11y); * is a wildcard."},
+        "match": {"type": "string", "description": "A glob on the item: a URL's path and query, or the item's text. Every item when left out."},
+        "reason": {"type": "string", "minLength": 1, "maxLength": 500}
+      }
+    },
+    "pattern": {
+      "type": "object", "minProperties": 1, "additionalProperties": false,
+      "properties": {"host": {"$ref": "#/$defs/text"}, "path": {"$ref": "#/$defs/text"},
+                     "contains": {"$ref": "#/$defs/text"}}
+    },
+    "signature": {
+      "type": "object", "required": ["id", "name", "kind"], "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"},
+        "name": {"type": "string", "minLength": 1, "maxLength": 80},
+        "kind": {"enum": ["analytics", "ads", "tag manager"]},
+        "load": {"type": "array", "items": {"$ref": "#/$defs/pattern"},
+                 "description": "Requests that load the tag's script."},
+        "hit": {"type": "array", "items": {"$ref": "#/$defs/pattern"},
+                "description": "Requests that send data: a first-party tracking endpoint goes here."},
+        "source": {"type": "array", "items": {"$ref": "#/$defs/text"},
+                   "description": "Literal text that shows the tag is in a page's scripts."},
+        "events": {"type": "array", "items": {"type": "string", "minLength": 1, "maxLength": 40},
+                   "description": "Query keys whose value names the event a hit sends, first found wins, e.g. [\"en\"] for a GA4 collector."}
+      }
+    }
+  }
+}

@@ -15,6 +15,10 @@ def page(title, body="", head=""):
             f"<body><h1>{title}</h1>{body}<p>{'Plenty of words here. ' * 20}</p></body></html>")
 
 
+def by_id(findings):
+    return {f.id: f for f in findings}
+
+
 def acme(base):
     """A small site with a problem of each kind planted in it."""
     port = base.rsplit(":", 1)[1]

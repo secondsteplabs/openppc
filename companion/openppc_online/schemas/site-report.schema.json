@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/secondsteplabs/openppc/main/companion/openppc_online/schemas/site-report.schema.json",
+  "title": "openppc-online site --format json",
+  "description": "format_version changes only when a change would break a reader; new keys can appear without it.",
+  "type": "object",
+  "required": ["format_version", "openppc_online", "openppc", "passed", "markdown", "site", "start", "inconclusive",
+               "findings", "scores", "overall", "suppressed", "baseline", "field_data", "pages", "home", "sitemap",
+               "tags", "rendered", "facts", "fingerprint_recipe"],
+  "properties": {
+    "format_version": {"const": 1},
+    "openppc_online": {"type": "string", "description": "The openppc-online version that wrote this."},
+    "openppc": {"type": "string", "description": "The version of the engine it ran on."},
+    "passed": {"type": "boolean", "description": "The report passed its own number check."},
+    "markdown": {"type": "string"},
+    "site": {"type": "string"},
+    "start": {"type": "string"},
+    "allow_private": {"type": "boolean"},
+    "incomplete": {"type": "string"},
+    "inconclusive": {"type": "string", "description": "Why the scan can't be trusted to judge the site; empty when it can."},
+    "seconds": {"type": "number"},
+    "signatures": {"type": "string"},
+    "fingerprint_recipe": {"type": "string"},
+    "config": {"type": "array", "items": {"type": "string"}},
+    "findings": {"type": "array", "items": {"$ref": "#/$defs/finding"}},
+    "scores": {"type": "object", "additionalProperties": {"$ref": "#/$defs/score"}},
+    "overall": {"oneOf": [{"type": "null"},
+                          {"type": "object", "required": ["score", "grade"],
+                           "properties": {"score": {"type": "integer"}, "grade": {"$ref": "#/$defs/grade"}}}]},
+    "suppressed": {"type": "array", "items": {
+      "type": "object", "required": ["rule", "match", "reason", "source", "hidden"],
+      "properties": {"rule": {"type": "string"}, "match": {"type": "string"}, "reason": {"type": "string"},
+                     "source": {"type": "string"},
+                     "hidden": {"type": "array", "items": {"type": "object", "required": ["finding", "item"]}}}}},
+    "baseline": {"oneOf": [{"type": "null"}, {
+      "type": "object", "required": ["file", "new", "fixed", "unchanged"],
+      "properties": {"file": {"type": "string"},
+                     "new": {"type": "object", "additionalProperties": {"type": "array", "items": {"type": "string"}}},
+                     "fixed": {"type": "array", "items": {"type": "object", "required": ["title", "item"]}},
+                     "unchanged": {"type": "integer"}}}]},
+    "field_data": {"type": "array", "items": {
+      "type": "object", "required": ["target", "origin", "p75", "period", "error"],
+      "properties": {"target": {"type": "string"}, "origin": {"type": "boolean"},
+                     "p75": {"type": "object", "additionalProperties": {"type": "number"}},
+                     "period": {"type": "string"}, "error": {"type": "string"}}}},
+    "pages": {"type": "array", "items": {
+      "type": "object", "required": ["url", "status", "final_url", "depth", "linked_from"],
+      "properties": {"url": {"type": "string"}, "status": {"type": "integer"}, "final_url": {"type": "string"},
+                     "depth": {"type": "integer"}, "linked_from": {"type": "string"}}}},
+    "home": {"type": "string"},
+    "sitemap": {"type": "object", "required": ["files", "urls", "errors"]},
+    "robots_blocked": {"type": "array", "items": {"type": "string"}},
+    "skipped": {"type": "object", "additionalProperties": {"type": "integer"}},
+    "llms_txt": {"type": "boolean"},
+    "tags": {"type": "object", "additionalProperties": {
+      "type": "object", "required": ["source", "loaded", "before", "ping", "after"],
+      "additionalProperties": {"type": "boolean"}}},
+    "events": {"description": "Per tag, the events its hits sent on the rendered pages.",
+               "type": "object", "additionalProperties": {"type": "array", "items": {"type": "string"}}},
+    "rendered": {"oneOf": [{"type": "null"}, {
+      "type": "object", "required": ["pages", "vitals", "refused"],
+      "properties": {
+        "pages": {"type": "array", "items": {"type": "object", "required": ["url", "error", "consent", "accepted"],
+          "properties": {
+            "events": {"type": "object", "additionalProperties": {"type": "array", "items": {"type": "string"}}},
+            "datalayer": {"type": "array", "items": {"type": "string"}}}}},
+        "vitals": {"type": "array", "items": {
+          "type": "object", "required": ["url", "profile", "runs", "median", "error", "details"],
+          "properties": {"median": {"type": "object", "additionalProperties": {"type": ["number", "null"]}}}}},
+        "refused": {"type": "array", "items": {"type": "string"}}}}]},
+    "facts": {"type": "array", "items": {"$ref": "#/$defs/fact"}}
+  },
+  "$defs": {
+    "fact": {
+      "type": "object", "required": ["label", "value", "kind", "metric", "entity"],
+      "properties": {"label": {"type": "string"}, "value": {"type": "number"},
+                     "kind": {"enum": ["money", "pct", "count"]}, "metric": {"type": "string"},
+                     "entity": {"type": "string"}}
+    },
+    "grade": {"enum": ["A", "B", "C", "D", "F"]},
+    "finding": {
+      "type": "object",
+      "required": ["id", "rule", "category", "severity", "effort", "title", "unit", "fix", "custom", "fingerprint",
+                   "items", "notes"],
+      "properties": {
+        "id": {"type": "string", "description": "Stable from run to run: the rule id, or rule:key when one rule makes several findings."},
+        "rule": {"type": "string"},
+        "category": {"enum": ["crawl", "seo", "links", "indexing", "structured-data", "security", "ai", "tracking",
+                              "accessibility", "performance"]},
+        "severity": {"enum": ["high", "medium", "low", "info"]},
+        "effort": {"enum": ["low", "medium", "high"]},
+        "title": {"type": "string"},
+        "unit": {"type": "string"},
+        "fix": {"type": "string"},
+        "custom": {"type": "boolean", "description": "From a rule pack, not a built-in rule."},
+        "fingerprint": {"type": "string", "pattern": "^[0-9a-f]{16}$"},
+        "items": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+        "notes": {"type": "object", "additionalProperties": {"type": "string"}}
+      }
+    },
+    "score": {
+      "type": "object", "required": ["score", "grade", "not_scored", "lost"],
+      "properties": {
+        "score": {"type": ["integer", "null"], "minimum": 0, "maximum": 100},
+        "grade": {"oneOf": [{"$ref": "#/$defs/grade"}, {"const": ""}]},
+        "not_scored": {"type": ["string", "null"]},
+        "lost": {"type": "array", "items": {"type": "object", "required": ["finding", "points"],
+                                            "properties": {"finding": {"type": "string"},
+                                                           "points": {"type": "integer"}}}}
+      }
+    }
+  }
+}

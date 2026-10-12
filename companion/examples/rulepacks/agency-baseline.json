@@ -1,0 +1,49 @@
+{
+  "openppc_site": 1,
+  "name": "Agency baseline",
+  "about": "What an agency checks on every client site before ads go live. Use it as is, or copy it and change it: openppc-online site example.com --config examples/rulepacks/agency-baseline.json",
+  "rules": [
+    {
+      "id": "agency-ga4-installed",
+      "category": "tracking",
+      "severity": "high",
+      "title": "Google Analytics 4 isn't installed",
+      "fix": "Install GA4, directly or through Google Tag Manager, before any campaign sends traffic: without it, no conversion can be measured.",
+      "require": {"tag": "ga4"}
+    },
+    {
+      "id": "agency-gtm-installed",
+      "category": "tracking",
+      "severity": "medium",
+      "effort": "medium",
+      "title": "Google Tag Manager isn't installed",
+      "fix": "Install a GTM container, so tags can be added and fixed without a developer.",
+      "require": {"tag": "gtm"}
+    },
+    {
+      "id": "agency-description-thin",
+      "category": "seo",
+      "severity": "low",
+      "effort": "medium",
+      "title": "Meta descriptions shorter than a sentence",
+      "fix": "Write a sentence that says what the page offers and why to click; very short ones are usually replaced by Google.",
+      "require": {"field": "description", "min_length": 50}
+    },
+    {
+      "id": "agency-canonical-missing",
+      "category": "indexing",
+      "severity": "low",
+      "title": "Pages with no canonical",
+      "fix": "Add <link rel=\"canonical\"> pointing at the page's own clean URL, so ad and tracking parameters don't make duplicates.",
+      "require": {"field": "canonical", "present": true}
+    },
+    {
+      "id": "agency-one-h1",
+      "category": "seo",
+      "severity": "low",
+      "title": "Pages with more than one main heading",
+      "fix": "Keep one <h1> per page, matching what the ad promised.",
+      "require": {"field": "h1", "max": 1}
+    }
+  ]
+}
