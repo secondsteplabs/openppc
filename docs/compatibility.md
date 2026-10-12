@@ -8,8 +8,8 @@ Everything here stays as it is in a patch release. A minor release may change it
 | Code | Meaning |
 | --- | --- |
 | 0 | Clean: the audit ran, or the check found nothing wrong |
-| 1 | Bad input: a missing file, the wrong export, an unreadable file or setting |
-| 2 | The check found wrong numbers, wrong labels or contradictions. Today argparse usage errors also exit 2; that changes to 1 in 0.2.0 (ADR-3) |
+| 1 | Bad input: a missing file, the wrong export, an unreadable file or setting, or a usage mistake such as an unknown template or flag (a usage mistake exited 2 before 0.2.0) |
+| 2 | The check found wrong numbers, wrong labels or contradictions, and nothing else (since 0.2.0, ADR-3) |
 | 3 | A bug in OpenPPC: its own report failed its number check, or the command crashed (since 0.1.12; a crash used to exit 1 with a traceback) |
 
 ## CLI

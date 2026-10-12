@@ -4,6 +4,15 @@ OpenPPC follows [semantic versioning](https://semver.org) for 0.x releases: a pa
 behaviour that [docs/compatibility.md](docs/compatibility.md) lists, except to fix a wrong number. A minor release
 (0.x.0) may, and only with an entry under **Breaking** that says what changed and what to do.
 
+## Unreleased (0.2.0)
+
+### Breaking
+
+- **A usage mistake exits 1, not 2.** A typo in a command, an unknown template or a flag that needs a value used to
+  exit 2, the same code as "the check found wrong numbers", so a script could not tell them apart. It now exits 1,
+  like any other bad input, and 2 means only that the check found problems (ADR-3). A script that treats 2 as "I
+  typed the command wrong" should check for 1 instead.
+
 ## Unreleased (0.1.13)
 
 ### Added

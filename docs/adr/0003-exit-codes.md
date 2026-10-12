@@ -1,6 +1,6 @@
 # ADR-3: Exit codes
 
-Status: accepted, October 2026
+Status: accepted, October 2026; step 1 done in 0.1.12, step 2 in 0.2.0
 
 ## Context
 

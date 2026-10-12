@@ -62,6 +62,15 @@ def test_a_threshold_that_is_not_an_amount_is_refused(capsys):
     assert refused == {"ok": False, "error": "The waste threshold must be an amount such as 20, not 'twenty'."}
 
 
+@pytest.mark.parametrize("argv", [[], ["audit"], ["audit", "no-such-template"], ["frobnicate"],
+                                  ["audit", "search-term-waste", "--min-cost", "twenty"], ["check", "--nope"]])
+def test_a_usage_mistake_exits_1_like_any_bad_input(argv, capsys):
+    """2 means only that the check found problems (ADR-3, since 0.2.0)."""
+    with pytest.raises(SystemExit) as stop:
+        main(argv)
+    assert stop.value.code == 1 and "openppc" in capsys.readouterr().err
+
+
 def test_a_report_in_rupees_prints_on_a_legacy_code_page():
     run = subprocess.run([sys.executable, "-c", "from openppc.cli import main; raise SystemExit(main())",
                           "audit", "search-term-waste", str(FIXTURES / "search_terms_en_in.csv")],

@@ -40,13 +40,21 @@ def _emit(text, out):
         print(text)
 
 
+class _Parser(argparse.ArgumentParser):
+    """A usage mistake is bad input, so it exits 1 like any other: 2 means only "the check found problems"."""
+
+    def error(self, message):
+        self.print_usage(sys.stderr)
+        self.exit(1, f"{self.prog}: error: {message}\n")
+
+
 def _parser():
-    ap = argparse.ArgumentParser(
+    ap = _Parser(
         prog="openppc", description="Read-only Google Ads audits where every number traces back to your data.")
     ap.add_argument("--version", action="version", version=f"openppc {__version__}")
     ap.add_argument("--debug", action="store_true", help="on a crash, print Python's traceback")
     # --debug also works after the command; SUPPRESS keeps the subcommand from resetting one given before it
-    debug = argparse.ArgumentParser(add_help=False)
+    debug = _Parser(add_help=False)
     debug.add_argument("--debug", action="store_true", default=argparse.SUPPRESS, help=argparse.SUPPRESS)
     sub = ap.add_subparsers(dest="command", required=True)
     sub.add_parser("templates", help="list the audit templates", parents=[debug])
