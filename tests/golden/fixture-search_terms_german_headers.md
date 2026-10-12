@@ -1,0 +1,1 @@
+refused: search_terms_german_headers.csv: no header row with Clicks and Cost columns in the first 15 lines. Export the report from the Google Ads UI with Download > .csv. If Google Ads is set to another language, the column names will not match: switch it to English and download again.

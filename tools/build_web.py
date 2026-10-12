@@ -17,6 +17,20 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "web" / "engine.js"
 SAMPLES = ("search_terms_acme.csv", "keywords_acme.csv", "account_acme.json", "account_structure_acme.json",
            "ai_audit_sample.md")
+# The modules the browser gets, by name: a new module ships only once it is listed here, so nothing that reaches the
+# network can land in the app by accident. tests/test_fitness.py fails until every module is listed here or in
+# NOT_BUNDLED.
+BUNDLE = (
+    "openppc/__init__.py", "openppc/__main__.py", "openppc/checkfacts.py", "openppc/cli.py", "openppc/facts.py",
+    "openppc/mcp_server.py", "openppc/samples.py", "openppc/webapi.py",
+    "openppc/engine/__init__.py", "openppc/engine/benchmarks.py", "openppc/engine/findings.py",
+    "openppc/engine/trace.py", "openppc/engine/waste_model.py",
+    "openppc/ingest/__init__.py", "openppc/ingest/account.py", "openppc/ingest/google_ads_csv.py",
+    "openppc/templates/__init__.py", "openppc/templates/_common.py", "openppc/templates/account_read.py",
+    "openppc/templates/account_structure.py", "openppc/templates/keyword_audit.py",
+    "openppc/templates/search_term_waste.py",
+)
+NOT_BUNDLED = ()
 
 
 def templates():
@@ -53,8 +67,7 @@ def sample():
 
 
 def bundle():
-    files = {p.relative_to(ROOT).as_posix(): p.read_text(encoding="utf-8")
-             for p in sorted((ROOT / "openppc").rglob("*.py"))}
+    files = {name: (ROOT / name).read_text(encoding="utf-8") for name in BUNDLE}
     samples = {name: base64.b64encode((ROOT / "examples" / name).read_bytes()).decode("ascii")
                for name in SAMPLES}
     payload = json.dumps({"files": files, "samples": samples, "templates": templates(), "sample": sample(),
@@ -64,7 +77,7 @@ def bundle():
 
 
 def main():
-    OUT.write_text(bundle(), encoding="utf-8")
+    OUT.write_text(bundle(), encoding="utf-8", newline="\n")
     print(f"wrote {OUT.relative_to(ROOT)} ({OUT.stat().st_size // 1024} KB)")
 
 

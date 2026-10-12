@@ -1,0 +1,423 @@
+{
+ "cards": {
+  "actions": [
+   {
+    "detail": "None is proven bad yet. The closest, “free plumbing estimate”, is 79% likely bad after 41 clicks. The waste model needs about 59 clicks with no conversion to be 90% sure.",
+    "kind": "watch",
+    "title": "Give 6 terms more clicks before adding negatives"
+   },
+   {
+    "detail": "It converts, but at $201.40 each, more than 3 times the $58.51 average.",
+    "kind": "review",
+    "title": "Review “water heater replacement cost”"
+   },
+   {
+    "detail": "“leak detection service” leads with 6 conversions at $47.25 each.",
+    "kind": "add",
+    "title": "Add 5 converting terms as keywords"
+   }
+  ],
+  "kpis": [
+   {
+    "label": "Wasted spend",
+    "note": "6 terms of $20.00+, zero conversions",
+    "value": "$767.20"
+   },
+   {
+    "label": "Share of total cost",
+    "note": "of $4,973.64",
+    "value": "15.4%"
+   },
+   {
+    "label": "A year at this rate",
+    "note": "$24.75 a day",
+    "value": "$9,033.16"
+   },
+   {
+    "label": "Cost per conversion",
+    "note": "vs $90.92 industry",
+    "value": "$58.51"
+   },
+   {
+    "label": "CTR",
+    "note": "vs 6.47% industry",
+    "value": "7.43%"
+   }
+  ],
+  "template": "search-term-waste",
+  "waste": [
+   {
+    "automated": false,
+    "campaign": "Search - Plumbing",
+    "campaign_type": "",
+    "chance": "79%",
+    "clicks": "41",
+    "cost": "$312.00",
+    "match_type": "Broad match",
+    "p": 0.7901,
+    "share": "6.3%",
+    "sure": false,
+    "term": "free plumbing estimate"
+   },
+   {
+    "automated": false,
+    "campaign": "Search - Plumbing",
+    "campaign_type": "",
+    "chance": "57%",
+    "clicks": "22",
+    "cost": "$188.00",
+    "match_type": "Broad match",
+    "p": 0.5727,
+    "share": "3.8%",
+    "sure": false,
+    "term": "plumber jobs hiring"
+   },
+   {
+    "automated": false,
+    "campaign": "Search - Plumbing",
+    "campaign_type": "",
+    "chance": "53%",
+    "clicks": "19",
+    "cost": "$121.00",
+    "match_type": "Broad match",
+    "p": 0.5273,
+    "share": "2.4%",
+    "sure": false,
+    "term": "how to unclog a drain yourself"
+   },
+   {
+    "automated": false,
+    "campaign": "Search - Plumbing",
+    "campaign_type": "",
+    "chance": "36%",
+    "clicks": "9",
+    "cost": "$64.80",
+    "match_type": "Broad match",
+    "p": 0.3585,
+    "share": "1.3%",
+    "sure": false,
+    "term": "plumbing franchise cost"
+   },
+   {
+    "automated": false,
+    "campaign": "Search - Plumbing",
+    "campaign_type": "",
+    "chance": "39%",
+    "clicks": "11",
+    "cost": "$48.40",
+    "match_type": "Broad match",
+    "p": 0.3939,
+    "share": "1.0%",
+    "sure": false,
+    "term": "plumbing supply store"
+   },
+   {
+    "automated": false,
+    "campaign": "Search - Plumbing",
+    "campaign_type": "",
+    "chance": "30%",
+    "clicks": "6",
+    "cost": "$33.00",
+    "match_type": "Broad match",
+    "p": 0.3045,
+    "share": "0.7%",
+    "sure": false,
+    "term": "plumber reviews"
+   }
+  ],
+  "waste_total": 6
+ },
+ "client": {
+  "file": "search_terms_acme.csv",
+  "headline": {
+   "stats": [
+    {
+     "label": "of total cost",
+     "value": "15.4%"
+    },
+    {
+     "label": "a year at this rate",
+     "value": "$9,033.16"
+    },
+    {
+     "label": "per conversion",
+     "value": "$58.51"
+    }
+   ],
+   "text": "went to 6 search terms that never converted.",
+   "value": "$767.20"
+  },
+  "month": "July 2026",
+  "period": "July 1 to July 31, 2026",
+  "sections": [
+   {
+    "blocks": [
+     {
+      "strong": "6 search terms spent $767.20 and never converted.",
+      "text": "That is 15.4% of the $4,973.64 total cost in this export, and each one cost at least $20.00. All 7 search terms with no conversions, whatever they cost, spent $784.70. At the same rate that is $24.75 a day, or $9,033.16 a year.",
+      "type": "lead"
+     },
+     {
+      "text": "None of them has had enough clicks yet to prove it is bad rather than unlucky, so these are terms to watch, not to block yet.",
+      "type": "p"
+     },
+     {
+      "caption": "Bar length is cost. Likely bad is the chance a term converts at under half the account's rate, given its clicks so far. We add a negative once a term reaches 90%.",
+      "cols": [
+       "Cost",
+       "Likely bad"
+      ],
+      "rows": [
+       {
+        "label": "free plumbing estimate",
+        "strong": false,
+        "tag": "79% likely bad",
+        "value": "$312.00",
+        "width": 100.0
+       },
+       {
+        "label": "plumber jobs hiring",
+        "strong": false,
+        "tag": "57% likely bad",
+        "value": "$188.00",
+        "width": 60.3
+       },
+       {
+        "label": "how to unclog a drain yourself",
+        "strong": false,
+        "tag": "53% likely bad",
+        "value": "$121.00",
+        "width": 38.8
+       },
+       {
+        "label": "plumbing franchise cost",
+        "strong": false,
+        "tag": "36% likely bad",
+        "value": "$64.80",
+        "width": 20.8
+       },
+       {
+        "label": "plumbing supply store",
+        "strong": false,
+        "tag": "39% likely bad",
+        "value": "$48.40",
+        "width": 15.5
+       },
+       {
+        "label": "plumber reviews",
+        "strong": false,
+        "tag": "30% likely bad",
+        "value": "$33.00",
+        "width": 10.6
+       }
+      ],
+      "title": "Wasted spend, ranked",
+      "type": "bars"
+     },
+     {
+      "text": "Below the $20.00 threshold, 1 more zero-conversion term spent $17.50 in total.",
+      "type": "note"
+     },
+     {
+      "items": [
+       {
+        "label": "cost",
+        "value": "$4,973.64"
+       },
+       {
+        "label": "clicks",
+        "value": "732"
+       },
+       {
+        "label": "conversions",
+        "value": "85"
+       },
+       {
+        "label": "per conversion",
+        "value": "$58.51"
+       }
+      ],
+      "title": "Account totals in this export",
+      "type": "stats"
+     }
+    ],
+    "id": "found",
+    "title": "What we found"
+   },
+   {
+    "blocks": [
+     {
+      "text": "Three steps, most useful first.",
+      "type": "p"
+     },
+     {
+      "kind": "watch",
+      "n": 1,
+      "tag": "Watch",
+      "text": "They spent $767.20 with no conversions, but none is 90% likely bad yet. The closest, “free plumbing estimate”, is 79% likely bad after 41 clicks. A term needs about 59 clicks (about $400.88) with no conversion before we can be 90% sure.",
+      "title": "Watch the 6 terms before adding negatives",
+      "type": "step"
+     },
+     {
+      "kind": "review",
+      "n": 2,
+      "tag": "Review",
+      "text": "“water heater replacement cost” converts, but at $201.40 each, more than 3 times the account's $58.51 per conversion. It spent $402.80 for 2 conversions.",
+      "title": "Review “water heater replacement cost”",
+      "type": "step"
+     },
+     {
+      "kind": "add",
+      "n": 3,
+      "table": {
+       "align": [
+        "left",
+        "right",
+        "right",
+        "left"
+       ],
+       "cols": [
+        "Search term",
+        "Conversions",
+        "Cost per conversion",
+        "Match type"
+       ],
+       "rows": [
+        [
+         "leak detection service",
+         "6",
+         "$47.25",
+         "Phrase match"
+        ],
+        [
+         "same day water heater install",
+         "5",
+         "$41.20",
+         "Broad match"
+        ],
+        [
+         "toilet repair near me",
+         "4",
+         "$42.62",
+         "Broad match"
+        ],
+        [
+         "sump pump installation",
+         "3",
+         "$34.67",
+         "Phrase match"
+        ],
+        [
+         "drain cleaning near me",
+         "3",
+         "$58.00",
+         "Broad match"
+        ]
+       ]
+      },
+      "tag": "Grow",
+      "text": "They converted at or below the account's $58.51 per conversion and are not keywords yet.",
+      "title": "Add 5 converting search terms as keywords",
+      "type": "step"
+     }
+    ],
+    "id": "recommend",
+    "title": "What we recommend"
+   },
+   {
+    "blocks": [
+     {
+      "strong": "",
+      "text": "Against the Home & Home Improvement average, the account pays less per click, gets clicked more often, converts more often and pays less per conversion.",
+      "type": "lead"
+     },
+     {
+      "average": "$8.33",
+      "average_width": 100.0,
+      "better": true,
+      "name": "Cost per click",
+      "read": "Lower, better",
+      "type": "compare",
+      "yours": "$6.79",
+      "yours_width": 81.6
+     },
+     {
+      "average": "6.47%",
+      "average_width": 87.1,
+      "better": true,
+      "name": "Click-through rate",
+      "read": "Higher, better",
+      "type": "compare",
+      "yours": "7.43%",
+      "yours_width": 100.0
+     },
+     {
+      "average": "8.05%",
+      "average_width": 69.3,
+      "better": true,
+      "name": "Conversion rate",
+      "read": "Higher, better",
+      "type": "compare",
+      "yours": "11.61%",
+      "yours_width": 100.0
+     },
+     {
+      "average": "$90.92",
+      "average_width": 100.0,
+      "better": true,
+      "name": "Cost per conversion",
+      "read": "Lower, better",
+      "type": "compare",
+      "yours": "$58.51",
+      "yours_width": 64.4
+     },
+     {
+      "text": "Industry averages: WordStream / LocaliQ Google Ads Benchmarks 2026, US search, Apr 2025 to Mar 2026. A ballpark, not a target: US-only, averaged over a year, and every advertiser counts conversions differently. The industry figure for cost per conversion is cost per lead.",
+      "type": "note"
+     }
+    ],
+    "id": "benchmarks",
+    "title": "How the account compares"
+   },
+   {
+    "blocks": [
+     {
+      "text": "The data",
+      "type": "h2"
+     },
+     {
+      "text": "One export from Google Ads: `search_terms_acme.csv`, the search terms report for July 1, 2026 to July 31, 2026 (31 days), in USD. Nothing in the Google Ads account was changed: this report only reads the export.",
+      "type": "p"
+     },
+     {
+      "type": "fingerprint",
+      "value": "ea54494e4275ddd0a028098b1a29543b3ad76dea5ee0c41559877947069b3f83"
+     },
+     {
+      "text": "How the numbers were computed",
+      "type": "h2"
+     },
+     {
+      "items": [
+       "Waste: search terms with zero conversions and at least $20.00 in cost. Each term's rows are added up first, so a term that converts anywhere in the account is never waste.",
+       "Likely bad: the chance a term truly converts at less than half the account's rate, learned from how much this account's own search terms differ. 90% is the bar for adding a negative.",
+       "Converting, but expensive: cost per conversion above 3 times the account average.",
+       "Worth adding: 2 or more conversions, cost per conversion at or below the account average, and not a keyword yet.",
+       "Totals are recomputed from the rows of the export.",
+       "A conversion is whatever this account counts as one."
+      ],
+      "type": "list"
+     },
+     {
+      "file": "search_terms_acme.csv",
+      "type": "check"
+     }
+    ],
+    "id": "method",
+    "title": "How this report was made"
+   }
+  ],
+  "template": "search-term-waste",
+  "title": "Search-term review"
+ }
+}

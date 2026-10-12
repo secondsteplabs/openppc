@@ -1,0 +1,40 @@
+site/pages/404.html
+  title: Page not found: OpenPPC
+  description: This page does not exist.
+  h1: This page doesn't exist.
+site/pages/articles/ai-google-ads-audit-accuracy.html
+  title: How accurate are AI Google Ads audits? 682 numbers checked
+  description: We had AI write 13 Google Ads audits and checked every number against the export. 94% were right. Almost every wrong one was a number the AI worked out itself.
+  h1: How accurate are AI-written Google Ads audits? We checked 682 numbers
+site/pages/articles/future-of-google-ads-audits.html
+  title: AI will write every Google Ads audit. Who checks the numbers?
+  description: Google Ads audits are becoming free and instant. What stays valuable: verified numbers, judgment and accountability. How audits will change, and what to do now.
+  h1: AI will write every Google Ads audit. Who checks the numbers?
+site/pages/articles/google-ads-wasted-spend.html
+  title: Wasted spend in Google Ads: bad search term or bad luck?
+  description: 41 clicks and no conversions looks like waste, but often it isn't proven yet. How to judge wasted spend in your search terms report without blocking good terms.
+  h1: Is that search term really wasting money? The math most Google Ads audits skip
+site/pages/articles/gpt-vs-gemini-google-ads-audits.html
+  title: GPT vs Gemini for Google Ads audits: 1,371 numbers checked
+  description: GPT-6 Luna and two Gemini models wrote 36 Google Ads audits, with and without code. We checked all 1,371 numbers: where each model slipped, and what code fixed.
+  h1: GPT vs Gemini for Google Ads audits: we checked 1,371 numbers
+site/pages/articles/how-to-check-a-google-ads-audit.html
+  title: How to check a Google Ads audit: a 10-minute method
+  description: Before you act on a Google Ads audit, from an agency or an AI, check its numbers against the export it came from. A step-by-step method, and how to automate it.
+  h1: How do you check a Google Ads audit? A 10-minute method
+site/pages/articles/index.html
+  title: Articles: Google Ads audits, checked · OpenPPC
+  description: Research and guides on Google Ads audits: how accurate AI-written audits are, how to check an audit's numbers, and how to tell wasted spend from bad luck.
+  h1: Google Ads audits, checked
+site/pages/docs/index.html
+  title: OpenPPC docs: install and use the free Google Ads auditor
+  description: How to install and use OpenPPC, the free Google Ads auditor: in your browser with nothing to install, from the command line, or in Claude, Cursor and ChatGPT.
+  h1: OpenPPC docs
+site/pages/docs/install.html
+  title: Install OpenPPC: browser, command line, Claude and ChatGPT
+  description: Use OpenPPC in your browser with nothing to install, run it on your computer from the command line, or add it to Claude. Step by step, with screenshots.
+  h1: Install and quick start
+site/pages/index.html
+  title: OpenPPC: Google Ads audits, made simple
+  description: Paste any AI-written Google Ads audit next to the export it came from, and see which numbers hold up. Free, open source, and it runs in your browser.
+  h1: Google Ads audits, made simple.

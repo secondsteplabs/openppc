@@ -17,7 +17,21 @@ uv venv && uv pip install -e ".[dev,mcp]"
 pytest -q
 ```
 
-After you change the engine, run `python tools/build_web.py` to rebuild the browser app's `web/engine.js`; a test fails if you forget. `python tools/build_site.py` builds the website into `dist/`.
+After you change the engine, run `python tools/build_web.py` to rebuild the browser app's `web/engine.js`; a test fails if you forget. A new module in `openppc/` must be listed in `BUNDLE` or `NOT_BUNDLED` in that file. `python tools/build_site.py` builds the website into `dist/`.
+
+`tests/golden/` holds what users see today: every report, card, check result, MCP answer and page title. When you mean to change any of it, run `python tools/build_golden.py` and review the diff in your pull request. `tests/fixtures/` holds one invented export per real-world format, built by `python tools/build_fixtures.py`.
+
+CI also runs `ruff check openppc tests tools`, on Linux, Windows and macOS.
+
+`tests/test_accuracy.py` scores the checker on a labelled set of claims and fails if recall or precision drops below its floor. `tests/test_performance.py` times an audit and a check on a 20,000-row export.
+
+The browser tests drive the app in Chromium: every page, the sample check and audit, each template, the branded PDF, Stop, accessibility, and the phone layout. They need the network, because the app downloads its Python runtime, so a plain `pytest` leaves them out:
+
+```bash
+uv pip install -e ".[dev,e2e]"
+playwright install chromium
+pytest -m e2e tests/e2e
+```
 
 ## What makes a good change
 

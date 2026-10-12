@@ -26,7 +26,8 @@ Issues = "https://github.com/secondsteplabs/openppc/issues"
 
 [project.optional-dependencies]
 mcp = ["mcp>=1.2"]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "ruff>=0.6"]
+e2e = ["playwright>=1.45"]
 
 [project.scripts]
 openppc = "openppc.cli:main"
@@ -54,3 +55,14 @@ include = ["/openppc", "/examples", "/rulebook", "/README.md", "/LICENSE", "/pyp
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# The browser tests download the Python runtime and take minutes; CI runs them in their own job.
+addopts = "-m 'not e2e'"
+markers = ["e2e: drives the web app in a real browser (pytest -m e2e tests/e2e)"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+# Correctness only (syntax errors, undefined names, unused imports): the code is laid out by hand.
+select = ["E9", "F"]
