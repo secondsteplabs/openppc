@@ -13,6 +13,10 @@ CLIENTS = {"urllib.request", "http.client", "ssl", "urllib3", "requests", "httpx
 # what each module may import from the network stack, and why
 ALLOWED = {"http.server": {"app.py"},  # the app's server, bound to 127.0.0.1
            "webbrowser": {"app.py"}}   # opens the app's own address
+# the core's stable API (ADR-2): what the companion may import from openppc, by module
+STABLE = {"openppc": {"__version__"}, "openppc.facts": {"FactBook"}, "openppc.engine.trace": {"trace"},
+          "openppc.ingest": {"load_report"}, "openppc.templates": {"run_template", "Template"},
+          "openppc.formats": {"to_html"}}
 
 
 def _imports(path):
@@ -21,6 +25,22 @@ def _imports(path):
             yield from (a.name for a in node.names)
         elif isinstance(node, ast.ImportFrom) and not node.level:
             yield node.module
+
+
+def test_the_companion_uses_only_the_cores_stable_api():
+    found = []
+    for path in sorted(PACKAGE.rglob("*.py")):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.ImportFrom) and not node.level and (node.module or "").split(".")[0] == "openppc":
+                found += [f"{path.name}: from {node.module} import {a.name}" for a in node.names
+                          if a.name not in STABLE.get(node.module or "", ())]
+            elif isinstance(node, ast.Import):
+                found += [f"{path.name}: import {a.name}" for a in node.names
+                          if a.name.split(".")[0] == "openppc" and a.name != "openppc"]
+            elif (isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) and node.value.id == "openppc"
+                  and node.attr not in STABLE["openppc"]):
+                found.append(f"{path.name}: openppc.{node.attr}")
+    assert found == []
 
 
 def test_the_companion_has_no_http_client_yet():

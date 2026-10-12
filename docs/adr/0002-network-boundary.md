@@ -19,6 +19,9 @@ keys. Some fork features (API downloads, a website crawler) need the network by 
   `TEMPLATES` is checked against, and `py.typed` ships. mypy checks `facts.py`, `ingest/google_ads_csv.py` and
   `templates/__init__.py` in dev and CI; `trace`'s signature is typed, and its older body is not yet checked. A
   change that breaks one of these names is listed under Breaking in the changelog.
+- Added in 0.4.0: `formats.to_html(markdown, title)`, the one HTML renderer (ADR-5), so the companion's reports
+  render as the core's do. `openppc.__version__` may be read too. The companion's tests fail on any other import
+  from `openppc`.
 
 ## Consequences
 
@@ -27,5 +30,5 @@ keys. Some fork features (API downloads, a website crawler) need the network by 
 - The same file runs every command and MCP tool with sockets patched to fail.
 - The browser bundle lists its modules by name (`tools/build_web.py`), so a new module reaches the app only by a
   reviewed change.
-- `tests/test_api.py` imports the five names from where this ADR puts them and checks that every template provides
+- `tests/test_api.py` imports the stable names from where this ADR puts them and checks that every template provides
   what the protocol lists.

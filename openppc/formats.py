@@ -99,7 +99,7 @@ def _blocks(lines):
     return out
 
 
-def to_html(markdown, title):
+def to_html(markdown: str, title: str) -> str:
     """A report or check, as one HTML page that opens anywhere."""
     body = "\n".join(_blocks(markdown.splitlines()))
     return ('<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'

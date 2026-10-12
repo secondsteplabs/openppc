@@ -19,6 +19,14 @@ def server():
 
 def ask(server, path, method="GET", host=None, headers=None):
     """(status, headers, body) of one request, sent as written: no path is cleaned up on the way."""
+    try:
+        return _ask(server, path, method, host, headers)
+    except OSError:
+        # some Windows machines drop a few loopback connections carrying more than 64 KB, with any server
+        return _ask(server, path, method, host, headers)
+
+
+def _ask(server, path, method, host, headers):
     conn = http.client.HTTPConnection("127.0.0.1", server.port, timeout=10)
     conn.putrequest(method, path, skip_host=True, skip_accept_encoding=True)
     conn.putheader("Host", f"127.0.0.1:{server.port}" if host is None else host)

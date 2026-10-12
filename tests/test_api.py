@@ -1,9 +1,10 @@
-"""The stable engine API (ADR-2): FactBook, trace, load_report, run_template and the Template protocol import from
-where the ADR names them, every template provides what the protocol lists, and py.typed ships with them."""
+"""The stable engine API (ADR-2): FactBook, trace, load_report, run_template, the Template protocol and to_html import
+from where the ADR names them, every template provides what the protocol lists, and py.typed ships with them."""
 from pathlib import Path
 
 from openppc.engine.trace import trace
 from openppc.facts import FactBook
+from openppc.formats import to_html
 from openppc.ingest import load_report
 from openppc.templates import TEMPLATES, Template, run_template
 
@@ -27,6 +28,8 @@ def test_the_api_runs_from_an_export_to_traced_numbers():
     assert passed and claims and not contradictions and all(c.verdict == "traced" for c in claims)
     book = FactBook(currency="EUR")
     assert book.money("cost of the account", 1234.5) == "€1,234.50" and book.facts[0].currency == "EUR"
+    page = to_html(markdown, "Search-term waste")
+    assert page.startswith("<!doctype html>") and "<title>Search-term waste</title>" in page
 
 
 def test_the_package_ships_its_types_and_mypy_checks_the_api():
