@@ -8,6 +8,7 @@
     openppc audit account-read exports/search_terms_june.csv exports/search_terms_july.csv
     openppc check --audit their_audit.md --data exports/search_terms.csv
     openppc audit search-term-waste exports/search_terms.csv --format html --out report.html
+    openppc check --audit their_audit.md --data exports/search_terms.csv --format sarif --out openppc.sarif
 
 Exit codes: 0 clean, 1 bad input, 2 the check found problems, 3 a bug in OpenPPC: our own report failed
 its number check, or the command crashed (--debug prints the traceback). --format changes what is written,
@@ -84,8 +85,9 @@ def _parser():
                    help="check the sample AI audit against the made-up Acme Plumbing export")
     c.add_argument("--industry", help="also accept this industry's published averages")
     c.add_argument("--out", help="write the result here instead of printing it")
-    c.add_argument("--format", choices=("md", "html", "json"), default="md",
-                   help="md (default); html, one page that opens in any browser; or json, for scripts")
+    c.add_argument("--format", choices=("md", "html", "json", "sarif"), default="md",
+                   help="md (default); html, one page that opens in any browser; json, for scripts; or sarif, for "
+                        "GitHub code scanning")
     return ap
 
 
@@ -139,7 +141,7 @@ def main(argv=None):
             text = read_text(args.audit)
             claims, contradictions = trace(text, facts_for_check(text, args.data, args.industry))
             result = check_result(claims, contradictions, render_check(claims, contradictions))
-            _emit(check_as(args.format, result), args.out)
+            _emit(check_as(args.format, result, str(args.audit)), args.out)
             return 0 if result["passed"] else 2
     except (ValueError, OSError, KeyError) as e:
         print(f"openppc: {explain(e)}", file=sys.stderr)

@@ -1,4 +1,5 @@
-"""--format html and json: one HTML renderer (ADR-5) whose numbers are the report's, and JSON that matches its schema."""
+"""--format html, json and sarif: one HTML renderer (ADR-5) whose numbers are the report's, JSON that matches its
+schema, and SARIF with each problem at its line in the audit."""
 import json
 import re
 from html.parser import HTMLParser
@@ -103,6 +104,43 @@ def test_html_from_the_command_line_and_the_same_exit_codes(capsys, tmp_path):
     with pytest.raises(SystemExit) as usage:
         main(["audit", "search-term-waste", "--sample", "--format", "pdf"])
     assert usage.value.code == 1
+
+
+def test_sarif_puts_each_problem_at_its_line_in_the_audit(tmp_path, monkeypatch, capsys):
+    audit = tmp_path / "audits" / "their_audit.md"
+    audit.parent.mkdir()
+    audit.write_text((ROOT / "examples" / "ai_audit_sample.md").read_text(encoding="utf-8"), encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    assert main(["check", "--audit", str(audit), "--data", str(ROOT / "examples" / "search_terms_acme.csv"),
+                 "--industry", "home-services", "--format", "sarif"]) == 2
+    sarif = json.loads(capsys.readouterr().out)
+    assert sarif["version"] == "2.1.0"
+    run = sarif["runs"][0]
+    rules = {r["id"] for r in run["tool"]["driver"]["rules"]}
+    assert {r["ruleId"] for r in run["results"]} <= rules
+    assert main(["check", "--audit", str(audit), "--data", str(ROOT / "examples" / "search_terms_acme.csv"),
+                 "--industry", "home-services", "--format", "json"]) == 2
+    check = json.loads(capsys.readouterr().out)
+    problems = sorted([(c["line"], c["written"]) for c in check["claims"] if c["verdict"] != "traced"]
+                      + [(c["line"], "") for c in check["contradictions"]])
+    found = sorted((r["locations"][0]["physicalLocation"]["region"]["startLine"], r["message"]["text"].split(":")[0]
+                    if r["ruleId"] != "contradiction" else "") for r in run["results"])
+    assert found == problems
+    assert {r["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] for r in run["results"]} == {
+        "audits/their_audit.md"}
+    assert {r["level"] for r in run["results"] if r["ruleId"] == "cant-check"} == {"note"}
+    assert {r["level"] for r in run["results"] if r["ruleId"] != "cant-check"} == {"error"}
+
+
+def test_sarif_is_for_a_check_only_and_an_audit_outside_the_folder_is_a_file_uri(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(SystemExit) as usage:
+        main(["audit", "search-term-waste", "--sample", "--format", "sarif"])
+    assert usage.value.code == 1
+    assert main(["check", "--sample", "--format", "sarif"]) == 2
+    uri = json.loads(capsys.readouterr().out)["runs"][0]["results"][0]["locations"][0]["physicalLocation"][
+        "artifactLocation"]["uri"]
+    assert uri.startswith("file:///") and uri.endswith("/ai_audit_sample.md")
 
 
 def test_the_schemas_ship_inside_the_package():

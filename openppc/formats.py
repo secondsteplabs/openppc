@@ -1,4 +1,4 @@
-"""Report formats beyond markdown: one self-contained HTML page, and JSON for scripts.
+"""Report formats beyond markdown: one self-contained HTML page, JSON for scripts, and SARIF for a check in CI.
 
 The one HTML renderer (ADR-5): `--format html` and the app's .html download both run the traced markdown
 through to_html, so the two can never disagree. The page loads nothing (no script, link, image or url()), so it
@@ -7,8 +7,10 @@ It holds no version or date, so the same report always gives the same page.
 """
 import html
 import json
+import os
 import re
 from dataclasses import asdict
+from pathlib import Path
 
 from . import __version__
 
@@ -133,6 +135,48 @@ def check_result(claims, contradictions, markdown):
             "markdown": markdown}
 
 
+SARIF_RULES = {  # verdict: (rule id, level, what it means)
+    "not in data": ("wrong-number", "error", "A number that doesn't match the data the audit was written from."),
+    "mismatch": ("wrong-label", "error", "A real figure from the data, on the wrong metric or row."),
+    "contradiction": ("contradiction", "error", "A sentence that contradicts its own numbers."),
+    "can't check": ("cant-check", "note", "A target, forecast or the audit's own working, which an export can't "
+                                          "confirm. Never held against the audit."),
+}
+
+
+def _uri(path):
+    """The audit's path as code scanning wants it: relative to the working folder, else an absolute file URI."""
+    try:
+        rel = os.path.relpath(path)
+    except ValueError:  # another drive on Windows
+        rel = ".."
+    return Path(path).resolve().as_uri() if rel.startswith("..") else Path(rel).as_posix()
+
+
+def to_sarif(result, audit_path):
+    """A check as SARIF 2.1.0, for GitHub code scanning and other CI tools: one result per wrong number, wrong label,
+    contradiction or figure that can't be checked, at its line in the audit."""
+    uri = _uri(audit_path)
+    found = [(c["verdict"], c["line"], f"{c['written']}: {c['detail']}") for c in result["claims"]
+             if c["verdict"] != "traced"]
+    found += [("contradiction", c["line"], c["problem"]) for c in result["contradictions"]]
+    rules = [{"id": rid, "shortDescription": {"text": text}, "defaultConfiguration": {"level": level}}
+             for rid, level, text in SARIF_RULES.values()]
+    return json.dumps({
+        "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+        "version": "2.1.0",
+        "runs": [{
+            "tool": {"driver": {"name": "OpenPPC", "version": __version__,
+                                "informationUri": "https://github.com/secondsteplabs/openppc", "rules": rules}},
+            "results": [{"ruleId": SARIF_RULES[verdict][0], "level": SARIF_RULES[verdict][1],
+                         "message": {"text": text},
+                         "locations": [{"physicalLocation": {"artifactLocation": {"uri": uri},
+                                                             "region": {"startLine": line}}}]}
+                        for verdict, line, text in sorted(found, key=lambda f: f[1])],
+        }],
+    }, indent=2, ensure_ascii=False)
+
+
 def audit_as(fmt, template, markdown, book, passed):
     if fmt == "md":
         return markdown
@@ -143,11 +187,13 @@ def audit_as(fmt, template, markdown, book, passed):
     raise ValueError(f"unknown format '{fmt}'")
 
 
-def check_as(fmt, result):
+def check_as(fmt, result, audit_path=""):
     if fmt == "md":
         return result["markdown"]
     if fmt == "html":
         return to_html(result["markdown"], CHECK_TITLE)
     if fmt == "json":
         return _json(result)
+    if fmt == "sarif":
+        return to_sarif(result, audit_path)
     raise ValueError(f"unknown format '{fmt}'")
