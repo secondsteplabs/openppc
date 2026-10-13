@@ -67,6 +67,10 @@ number in it is traced, as in an `openppc` audit.
 It reads robots.txt first and obeys it, Crawl-delay included, and asks two pages at a time, half a second apart
 (`--fast` asks eight at a time with no pause, for your own site). It keeps no cookies and fills in no forms.
 
+Check only sites you own or have permission to check. It names itself in every request, as
+`OpenPPC-SiteAudit/<version> (+https://openppc.si)` in its user agent. robots.txt rules for `OpenPPC`, or for every
+crawler, apply to it, so a site's owner can see it in their logs and turn it away.
+
 - **Hosts:** the site you name (and the host its start page moves to), the hosts it links to (one `HEAD` or `GET`
   per link, which `--no-external` skips), with `--render` the hosts the rendered pages load from (tags, fonts,
   CDNs), chromeuxreport.googleapis.com only with `--crux-key`, and the webhook's host only with `--post-to`.
