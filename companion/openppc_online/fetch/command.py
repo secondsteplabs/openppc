@@ -12,6 +12,9 @@ from .versions import VERSIONS, WARN_DAYS
 
 PLATFORMS = ("google", "microsoft", "meta")
 NAMES = {"google": google.NAMES, "microsoft": microsoft.NAMES, "meta": meta.NAMES}
+TITLES = {"google": "Google Ads", "microsoft": "Microsoft Advertising", "meta": "Meta"}
+CREDENTIALS = {"google": (*google.CREDENTIALS, google.LOGIN_ENV),
+               "microsoft": (*microsoft.CREDENTIALS, microsoft.SECRET_ENV), "meta": (meta.TOKEN_ENV,)}
 TEMPLATE = {"search_terms.csv": "search-term-waste", "keywords.csv": "keyword-audit", "account.json": "account-read",
             "account_structure.json": "account-structure"}
 MAX_DAYS = 365

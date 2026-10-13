@@ -1,4 +1,5 @@
-/* The Site view (site.js), only in the copy of the app that `openppc-online app` serves. */
+/* The Site view (site.js) and the Download view (fetch.js), only in the copy of the app that `openppc-online app`
+   serves. */
 .site-wide { width: 100%; }
 .site-checks { display: flex; flex-direction: column; gap: 10px; }
 .site-check { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; line-height: 1.45; cursor: pointer; }
@@ -8,6 +9,10 @@
 .site-more > summary { font-size: 14px; font-weight: 600; color: var(--ink3); cursor: pointer; }
 .site-more > .controls { margin-top: 12px; }
 .status.loading { color: var(--muted); }
+.fetch-keys { margin-top: 12px; }
+#fetch .rep-head { padding: 0 0 8px; }
+.fetch-file { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.fetch-notes { margin: 4px 0 0; padding-left: 18px; font-size: 13px; color: var(--ink3); }
 @media (max-width: 720px) {
-  .rail .ri { width: 58px; }  /* a sixth item still fits a 360 px phone */
+  .rail .ri { width: auto; flex: 0 1 auto; min-width: 0; padding: 0 2px; }  /* seven items fit a 360 px phone by their labels */
 }

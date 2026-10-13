@@ -2,7 +2,8 @@
 
 It is the app at openppc.si, and audits and checks still run in the browser tab. What a tab can't do on its own
 runs here as a job the page starts and polls: a site audit (`openppc-online site`), shown in the Site view that
-local/site.js adds.
+local/site.js adds, and a download through an ad platform's API (`openppc-online fetch`), in the Download view that
+local/fetch.js adds. A download's credentials come in its request and are dropped when it ends.
 
 The server answers only on 127.0.0.1, and only to its own Host name, which shuts out DNS rebinding. Its API needs
 the token written into the page it serves, sent in a header: another website open in the browser can't read the
@@ -15,6 +16,7 @@ import re
 import secrets
 import sys
 import threading
+import time
 import traceback
 import webbrowser
 from collections.abc import Callable
@@ -26,6 +28,8 @@ from urllib.parse import urlsplit
 import openppc
 
 from . import __version__, site
+from .fetch import command as fetch_command
+from .fetch.files import DAYS
 from .siteaudit.crawl import MAX_PER_PATTERN
 from .siteaudit.render import INSTALL, installed
 
@@ -46,10 +50,12 @@ TOKEN_HEADER = "X-OpenPPC-Token"
 MAX_BODY = 20 * 1024 * 1024  # bytes of JSON a POST may carry: rule packs and a baseline from a large crawl
 KEEP_JOBS = 4                # finished jobs kept, in memory only, for the page to fetch
 STOPPED = "stopped with the Stop button"
+STOP_CHECK = 0.25  # seconds between looks at the Stop button while a platform builds a report
 JOB = re.compile(r"/api/jobs/([\w-]{1,32})")
 STOP = re.compile(r"/api/jobs/([\w-]{1,32})/stop")
 SITE_FIELDS = {"kind", "url", "max_pages", "max_time", "fast", "external", "allow_private", "render", "render_urls",
                "consent_selector", "crux_key", "configs", "baseline"}
+FETCH_FIELDS = {"kind", "platform", "account", "days", "conversion", "credentials"}
 MAX_FILES = 20
 MAX_NAME = 100
 
@@ -76,9 +82,9 @@ def page(web: Path, token: str) -> tuple[bytes, str]:
     html = _once(html, '<meta charset="utf-8">', f'<meta charset="utf-8">\n<meta name="openppc-local" content="{token}">')
     html = _once(html, '<link rel="stylesheet" href="style.css">',
                  '<link rel="stylesheet" href="style.css">\n<link rel="stylesheet" href="site.css">')
-    html = _once(html, '<script defer src="app.js"></script>',  # after app.js: site.js uses its helpers
+    html = _once(html, '<script defer src="app.js"></script>',  # after app.js: site.js and fetch.js use its helpers
                  '<script defer src="app.js"></script>\n<script defer src="local.js"></script>\n'
-                 '<script defer src="site.js"></script>')
+                 '<script defer src="site.js"></script>\n<script defer src="fetch.js"></script>')
     policy = POLICY.search(html)
     if policy is None:
         raise RuntimeError("web/index.html has no Content-Security-Policy. Update openppc_online/app.py to match.")
@@ -88,16 +94,16 @@ def page(web: Path, token: str) -> tuple[bytes, str]:
 def files(web: Path) -> dict[str, tuple[bytes, str]]:
     """Every file the page may load, by address, read once: nothing else on disk can be asked for."""
     found = [p for p in web.iterdir() if p.is_file() and p.suffix in TYPES and p.name != "index.html"]
-    found += [LOCAL / "local.js", LOCAL / "site.js", LOCAL / "site.css"]
+    found += [LOCAL / "local.js", LOCAL / "site.js", LOCAL / "fetch.js", LOCAL / "site.css"]
     return {f"/{p.name}": (p.read_bytes(), TYPES[p.suffix]) for p in found}
 
 
 class Job:
-    """One run in its own thread. Stop takes effect at the run's next progress line, and the crawl so far still makes
-    a report, as Ctrl-C does on the command line."""
+    """One run in its own thread. Stop takes effect at the run's next progress line: a site audit's crawl so far still
+    makes a report, as Ctrl-C does on the command line; a download keeps nothing."""
 
-    def __init__(self, work: Callable[["Job"], dict[str, Any]]):
-        self.id = secrets.token_urlsafe(9)
+    def __init__(self, work: Callable[["Job"], dict[str, Any]], kind: str = "site"):
+        self.id, self.kind = secrets.token_urlsafe(9), kind
         self.state = "running"  # then "done" or "failed"
         self.progress = "Starting…"
         self.stopping = False
@@ -125,8 +131,8 @@ class Job:
         self.state = "failed"
 
     def view(self) -> dict[str, Any]:
-        out: dict[str, Any] = {"ok": True, "id": self.id, "state": self.state, "progress": self.progress,
-                               "stopping": self.stopping}
+        out: dict[str, Any] = {"ok": True, "id": self.id, "kind": self.kind, "state": self.state,
+                               "progress": self.progress, "stopping": self.stopping}
         if self.state == "failed":
             out["error"] = self.error
         if self.result is not None:
@@ -199,6 +205,54 @@ def site_job(p: dict[str, Any]) -> Callable[[Job], dict[str, Any]]:
     return work
 
 
+def fetch_job(p: dict[str, Any]) -> Callable[[Job], dict[str, Any]]:
+    """The page's Download form as `fetch` arguments, every field checked before the job starts. The credentials live
+    in this job's memory only, and are cleared when it ends."""
+    unknown = sorted(set(p) - FETCH_FIELDS)
+    if unknown:
+        raise ValueError(f"unknown field {unknown[0]!r}")
+    platform = _text(p, "platform", 20)
+    if platform not in fetch_command.PLATFORMS:
+        raise ValueError(f"platform must be one of {', '.join(fetch_command.PLATFORMS)}")
+    account = _text(p, "account", 100)
+    if not account:
+        raise ValueError("give the account's ID")
+    days = p.get("days", DAYS)
+    if isinstance(days, bool) or not isinstance(days, int) or not 1 <= days <= fetch_command.MAX_DAYS:
+        raise ValueError(f"days must be a whole number from 1 to {fetch_command.MAX_DAYS}")
+    conversion = _text(p, "conversion", 200) or None
+    given = p.get("credentials", {})
+    if not isinstance(given, dict) or not all(isinstance(v, str) and len(v) <= 4000 for v in given.values()):
+        raise ValueError("credentials must be names and values of at most 4000 characters")
+    extra = sorted(set(given) - set(fetch_command.CREDENTIALS[platform]))
+    if extra:
+        raise ValueError(f"{extra[0]!r} isn't a {fetch_command.TITLES[platform]} credential")
+    creds = {name: value.strip() for name, value in given.items() if value.strip()}
+
+    def work(job: Job) -> dict[str, Any]:
+        def wait(seconds: float) -> None:
+            end = time.monotonic() + seconds
+            while (left := end - time.monotonic()) > 0:
+                job.tick(f"Waiting for {fetch_command.TITLES[platform]} to build the report…")
+                time.sleep(min(left, STOP_CHECK))
+
+        job.tick(f"Downloading from {fetch_command.TITLES[platform]}…")
+        try:
+            found, notes = fetch_command.contents(platform, account, creds, days=days, conversion=conversion,
+                                                  sleep=wait)
+        except KeyboardInterrupt:
+            raise ValueError("Stopped with the Stop button; nothing was downloaded.") from None
+        finally:
+            creds.clear()
+        return {"platform": platform, "files": found, "notes": notes,
+                "templates": {name: fetch_command.TEMPLATE[name] for name in found}}
+    return work
+
+
+JOBS = {"site": site_job, "fetch": fetch_job}
+RUNNING = {"site": "A site audit", "fetch": "A download"}
+
+
 class Server(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = sys.platform != "win32"  # on Windows it would let a second server share a taken port
@@ -214,7 +268,7 @@ class Server(ThreadingHTTPServer):
         self.jobs: dict[str, Job] = {}  # oldest first
         self.jobs_lock = threading.Lock()
 
-    def start(self, work: Callable[[Job], dict[str, Any]]) -> tuple[Job, bool]:
+    def start(self, work: Callable[[Job], dict[str, Any]], kind: str = "site") -> tuple[Job, bool]:
         """(the new job, True), or (the one already running, False): one at a time, since a crawl with a browser is
         a heavy thing to run twice. The oldest finished jobs go past KEEP_JOBS."""
         with self.jobs_lock:
@@ -224,7 +278,7 @@ class Server(ThreadingHTTPServer):
             finished = list(self.jobs)
             for old in finished[:max(len(finished) - KEEP_JOBS + 1, 0)]:
                 del self.jobs[old]
-            job = Job(work)
+            job = Job(work, kind)
             self.jobs[job.id] = job
         job.thread.start()
         return job, True
@@ -343,19 +397,22 @@ class Handler(BaseHTTPRequestHandler):
         return body
 
     def _start(self, body: dict[str, Any]) -> None:
-        if body.get("kind") != "site":
-            self._json(400, {"ok": False, "error": "openppc-online runs site audits only. Reload the page."})
+        kind = body.get("kind")
+        if kind not in JOBS:
+            self._json(400, {"ok": False, "error": "openppc-online runs site audits and downloads only. Reload the "
+                                                   "page."})
             return
         try:
-            work = site_job(body)
+            work = JOBS[kind](body)
         except ValueError as e:
             self._json(400, {"ok": False, "error": str(e)})
             return
-        job, started = self.server.start(work)
+        job, started = self.server.start(work, kind)
         if started:
             self._json(202, job.view())
         else:
-            self._json(409, {"ok": False, "error": "A site audit is already running; this shows it.", "id": job.id})
+            self._json(409, {"ok": False, "error": f"{RUNNING[job.kind]} is already running; one at a time.",
+                             "id": job.id, "kind": job.kind})
 
     def _get_api(self, path: str) -> None:
         job = JOB.fullmatch(path)

@@ -65,7 +65,8 @@ def test_a_site_audit_runs_as_a_job_and_comes_back_in_every_format(server, serve
     ({"baseline": "last.json"}, "without its name and contents"),
     ({"post_to": "https://hook.example"}, "unknown field 'post_to'"),
     ({"screenshots": "C:\\"}, "unknown field 'screenshots'"),
-    ({"kind": "fetch"}, "site audits only"),
+    ({"kind": "deploy"}, "site audits and downloads only"),
+    ({"kind": "fetch"}, "unknown field 'allow_private'"),
 ])
 def test_every_field_is_checked_before_anything_runs(server, change, message):
     status, _, view = _post(server, "/api/jobs", {**_site("https://example.com"), **change})
@@ -87,7 +88,8 @@ def test_one_run_at_a_time_and_stop_keeps_what_was_crawled(server, serve):
     assert status == 202
     _job(server, view["id"], until=lambda v: "pages" in v["progress"])
     status, _, busy = _post(server, "/api/jobs", _site(base))
-    assert status == 409 and busy["id"] == view["id"]
+    assert status == 409 and busy["id"] == view["id"] and busy["kind"] == "site"
+    assert busy["error"] == "A site audit is already running; one at a time."
     status, _, stopping = _post(server, f"/api/jobs/{view['id']}/stop", {})
     assert status == 200 and stopping["stopping"]
     done = _job(server, view["id"])

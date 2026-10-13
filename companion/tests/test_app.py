@@ -9,7 +9,7 @@ from conftest import ask
 from openppc_online import __version__, app, cli
 
 FILES = ["/app.js", "/engine.js", "/engine-worker.js", "/style.css", "/favicon.svg", "/local.js", "/site.js",
-         "/site.css"]
+         "/fetch.js", "/site.css"]
 OUTSIDE = ["/../pyproject.toml", "/..%2fpyproject.toml", "/%2e%2e/LICENSE", "/local/local.js", "/web/index.html",
            "//etc/passwd", "/app.js/", "/.git/config", "/app.py", "/openppc_online/app.py", "/C:/Windows/win.ini",
            "/..\\pyproject.toml", "/index.html/..", "/api"]
@@ -30,7 +30,8 @@ def test_the_page_is_the_hosted_app_plus_the_token_and_local_js(server):
     assert status == 200 and headers["Cache-Control"] == "no-store"
     assert (local.replace(f'\n<meta name="openppc-local" content="{server.token}">', "")
             .replace('\n<link rel="stylesheet" href="site.css">', "")
-            .replace('\n<script defer src="local.js"></script>\n<script defer src="site.js"></script>', "")
+            .replace('\n<script defer src="local.js"></script>\n<script defer src="site.js"></script>'
+                     '\n<script defer src="fetch.js"></script>', "")
             .replace(app.LOCAL_CONNECT, app.HOSTED_CONNECT)) == hosted
     policy = headers["Content-Security-Policy"]
     assert app.LOCAL_CONNECT + ";" in policy and policy.endswith("; frame-ancestors 'none'")

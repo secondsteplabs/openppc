@@ -94,9 +94,9 @@
   railBtn.addEventListener('click', open);
   document.querySelector('.rail').addEventListener('click', (e) => {
     const item = e.target.closest('a, button');
-    if (item && item !== railBtn) close();
+    if (item && item !== railBtn) close(!item.dataset.localView);
   });
-  window.addEventListener('hashchange', close);
+  window.addEventListener('hashchange', () => close());
 
   function open() {
     for (const node of document.querySelectorAll('.main > .view')) node.hidden = true;
@@ -109,11 +109,12 @@
     document.title = 'Site audit · OpenPPC';
     window.scrollTo({ top: 0 });
   }
-  function close() {
+  function close(back = true) {
     if (view.hidden) return;
     view.hidden = true;
     railBtn.removeAttribute('aria-current');
-    setTimeout(route, 0);  // after the click's own navigation; a link to the hash showing fires no hashchange
+    // after the click's own navigation, as a link to the hash showing fires no hashchange; another local view shows itself
+    if (back) setTimeout(route, 0);
   }
   function show(result) {
     form.hidden = result;
@@ -150,7 +151,7 @@
       if (f.crux.value.trim()) body.crux_key = f.crux.value.trim();
       if (f.baseline.files[0]) body.baseline = await read(f.baseline.files[0]);
       const start = await api('/api/jobs', body);
-      if (start.status === 409) toast(start.error);
+      if (start.status === 409 && start.kind === 'site') toast(`${start.error} This shows it.`);
       else if (!start.ok) { say(start.error, 'error'); return; }
       await follow(start.id);
     } catch (e) {
