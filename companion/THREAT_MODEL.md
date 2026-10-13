@@ -159,3 +159,41 @@ Chromium, `tests/test_extension_e2e.py`.
 - **Not everything shows:** the first 250 addresses unless the page asks the browser to keep more, nothing from
   other sites' frames, and no events that only a POST body names.
 - **It isn't in a store yet.** Load it from this folder, so the code you run is the code you can read here.
+
+# The WordPress plugin
+
+OpenPPC Site Check runs inside a WordPress site, as PHP with the site's own rights, and adds five checks to Site
+Health. The tests are in `tests/php/site_check_test.php` (WordPress stubbed out; `tests/test_wordpress.py` runs
+it), `tests/test_tag_cases.py`, and the CI job that runs WordPress's coding standards.
+
+## What it has
+
+- **The site's rights.** Any plugin's code runs with them, so a flaw in it is a flaw in the site.
+- **The home page and robots.txt,** as the site serves them.
+- **Whoever reads Site Health,** usually an administrator.
+
+## Who might attack it
+
+1. **Whoever controls the site's pages:** an author, another plugin or a compromised theme can put any text in the
+   HTML the plugin reads, including markup meant for the admin screen.
+2. **Someone without admin rights** asking for the checks through REST, to make the site fetch pages for them.
+3. **A redirect** that sends the plugin's request somewhere else.
+
+## Defences
+
+| Threat | Defence | Test |
+| --- | --- | --- |
+| Fetching anything but its own site | Two addresses only, the home page and `/robots.txt` from `home_url()`, each once per request, at most 10 seconds and 2 MB, and no redirect followed (a redirect is reported, not taken) | `each page is fetched once, only from this site, following no redirect, at most 2 MB`, the `redirect` case |
+| Others running the checks | The four checks that read a page answer over REST only to users who can `view_site_health_checks`; the other runs inside Site Health | `answers whoever may see Site Health`, `refuses whoever may not see Site Health` |
+| The page's text as markup | Every description and action is escaped with `esc_html` before Site Health shows it, and the address a redirect names too | `descriptions are escaped`, the `redirect` case |
+| A page made to stall a pattern | PCRE's backtracking limit applies; a pattern that gives up counts as no match | `a pattern that gives up counts as no match` |
+| Rules drifting from the crawler's | The same `signatures.json`, read the way PHP's PCRE reads it (ASCII), and the `in_text` cases both must pass | `test_the_plugin_knows_the_crawlers_tags`, `test_in_text`, `in_text(...)` (PHP) |
+| A change that slips past WordPress's rules | WordPress-Extra and PHPCompatibility for PHP 7.4 and later in CI, with every package pinned; Plugin Check 2.1.0 found no errors | the `wordpress` CI job |
+
+## Accepted
+
+- **Certificates on its own address** are checked only as Site Health checks them: `sslverify` follows core's
+  `https_local_ssl_verify` filter, off by default. The plugin talks only to the site it runs on.
+- **It reads HTML, not a browser.** Tags a page adds with JavaScript, and whether any tag waits for consent, show
+  only in `openppc-online site --render`, which each check names.
+- **It reads one page.** Other pages may differ.

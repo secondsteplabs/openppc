@@ -12,6 +12,15 @@ Semantic versioning, as in OpenPPC. Each release names the `openppc` versions it
   for `activeTab` and `scripting` only and sends nothing. Not in a store yet: load it from the folder.
 - The extension and the crawler use the same `signatures.json`, and `tests/tag_cases.json` holds the answers both
   must give.
+- **OpenPPC Site Check, a WordPress plugin** (`wordpress/openppc-site-check/`, its own version 0.1.0, WordPress
+  5.8+, PHP 7.4+): five checks in Tools > Site Health (indexing, the home page's search basics, ad and analytics
+  tags, a consent banner when there are tags, a sitemap in robots.txt), each naming the `openppc-online site`
+  command for the full check. It reads only its own site and follows no redirect. Not in the plugin directory yet.
+
+### Changed
+
+- The crawler reads the tag patterns ASCII-only (`\d` and `\b` as PHP's PCRE reads them), so it, the extension and
+  the plugin give the same answers: a tag ID written with non-ASCII digits is no longer a tag.
 
 ## Unreleased (0.3.0)
 

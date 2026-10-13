@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<ruleset name="OpenPPC Site Check">
+	<file>openppc-site-check</file>
+	<arg name="extensions" value="php"/>
+	<arg value="s"/>
+
+	<config name="minimum_wp_version" value="5.8"/>
+	<config name="testVersion" value="7.4-"/>
+
+	<rule ref="WordPress-Extra"/>
+	<rule ref="PHPCompatibilityWP"/>
+
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="openppc-site-check"/>
+			</property>
+		</properties>
+	</rule>
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<properties>
+			<property name="prefixes" type="array">
+				<element value="openppc_site_check"/>
+				<element value="OPENPPC_SITE_CHECK"/>
+			</property>
+		</properties>
+	</rule>
+</ruleset>

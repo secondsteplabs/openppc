@@ -45,11 +45,15 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
           python-version: "3.12"
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962  # 2.40.0
+        with:
+          php-version: "8.3"
+          coverage: none
       - run: pip install -e ".[dev]"
       - run: pip install --no-deps -e companion
       - run: pip install jsonschema==4.26.0  # the companion's dev extra; --no-deps above leaves it out
       - run: ruff check companion
-      - run: pytest -q companion  # with the Tag Inspector's Node tests: the runners have Node
+      - run: pytest -q companion  # with the Tag Inspector's Node tests (the runners have Node) and the plugin's PHP tests
       - run: python tools/stage_companion_web.py
       - run: pip install build==1.6.1
       - run: python -m build companion
@@ -66,6 +70,29 @@ jobs:
           missing = need - names
           assert not missing, missing
           assert any(n.endswith("/licenses/LICENSE") for n in names), "no LICENSE"
+
+  wordpress:  # the Site Check plugin on the oldest PHP it supports and on newer ones, and WordPress's coding standards
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ["7.4", "8.3", "8.5"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962  # 2.40.0
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+      - run: php -l companion/wordpress/openppc-site-check/openppc-site-check.php
+      - run: php companion/tests/php/site_check_test.php
+      - if: matrix.php == '8.3'
+        working-directory: companion/wordpress
+        run: |
+          composer install --no-interaction --no-progress
+          vendor/bin/phpcs
 
   action:  # action.yml from this commit, the way a user's workflow runs it
     runs-on: ubuntu-latest

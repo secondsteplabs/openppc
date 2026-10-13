@@ -12,3 +12,7 @@ updates:
     directory: /
     schedule:
       interval: weekly
+  - package-ecosystem: composer  # the WordPress plugin's coding standards, pinned exactly
+    directory: /companion/wordpress
+    schedule:
+      interval: weekly

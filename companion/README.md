@@ -129,6 +129,17 @@ It reads the page only when you click, asks for no host permissions, stores noth
 in a store yet: [extension/README.md](extension/README.md) says how to load it from the folder, and what it can't
 see.
 
+## The WordPress plugin
+
+OpenPPC Site Check, in [`wordpress/openppc-site-check/`](wordpress/openppc-site-check/), adds five checks to
+Tools > Site Health: search engines may index the site, the home page has the search basics, its HTML loads ad or
+analytics tags, a page with tags has a consent banner, and robots.txt names a sitemap. It uses the same tag rules as
+`openppc-online site`, and each check names the command that checks the same thing in a real browser.
+
+It reads only its own home page and robots.txt, follows no redirect, stores nothing and adds no settings. It needs
+WordPress 5.8 and PHP 7.4 or later. It is not in the WordPress plugin directory yet: zip the `openppc-site-check`
+folder and upload it in Plugins > Add New > Upload Plugin.
+
 ## Install
 
 Once it is released:
@@ -151,8 +162,11 @@ before `python -m build companion`.
 ## Tests
 
 ```
-pytest companion          # with Node.js 22 or later installed, this runs the extension's tests too
+pytest companion          # with Node.js 22 and PHP 7.4 or later installed, the extension's and plugin's tests too
 pytest -m e2e companion   # in Chromium: pip install -e "companion[e2e]", then playwright install chromium
 ```
+
+WordPress's coding standards for the plugin, with Composer: `composer install` and `vendor/bin/phpcs` in
+`companion/wordpress/`.
 
 MIT license, like OpenPPC.

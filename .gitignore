@@ -12,6 +12,7 @@ service-account*.json
 
 # Installed packages
 node_modules/
+companion/wordpress/vendor/
 .venv/
 venv/
 __pycache__/

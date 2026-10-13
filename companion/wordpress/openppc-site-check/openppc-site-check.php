@@ -64,8 +64,8 @@ function openppc_site_check_seo( string $html, string $robots_header = '' ): arr
 	$doc->loadHTML( '<?xml encoding="utf-8"?>' . $html );
 	libxml_clear_errors();
 	libxml_use_internal_errors( $previous );
-	$xpath = new DOMXPath( $doc );
-	$meta  = function ( string $name ) use ( $xpath ): string {
+	$xpath    = new DOMXPath( $doc );
+	$meta     = function ( string $name ) use ( $xpath ): string {
 		$lower = "translate(@name, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')";
 		$node  = $xpath->query( "//meta[$lower='$name']/@content" )->item( 0 );
 		// phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase -- DOM's name.
@@ -171,7 +171,7 @@ function openppc_site_check_fetch( string $path ) {
 				'sslverify'           => apply_filters( 'https_local_ssl_verify', false ), // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound
 			)
 		);
-		$code = is_wp_error( $response ) ? 0 : (int) wp_remote_retrieve_response_code( $response );
+		$code     = is_wp_error( $response ) ? 0 : (int) wp_remote_retrieve_response_code( $response );
 		if ( is_wp_error( $response ) ) {
 			$pages[ $path ] = $response->get_error_message();
 		} elseif ( $code >= 300 && $code < 400 ) {
@@ -330,6 +330,7 @@ add_filter(
 			'consent'  => __( 'Tags have a consent banner', 'openppc-site-check' ),
 			'sitemap'  => __( 'robots.txt names a sitemap', 'openppc-site-check' ),
 		);
+
 		$tests['direct']['openppc_indexing'] = array(
 			'label' => $labels['indexing'],
 			'test'  => 'openppc_site_check_test_indexing',
