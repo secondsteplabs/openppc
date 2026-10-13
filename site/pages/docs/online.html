@@ -1,0 +1,56 @@
+<!--
+title: OpenPPC online companion: site check, downloads, extension
+description: openppc-online, OpenPPC's optional companion: a landing page and tracking check, downloads with your own API access, a tag extension and a WordPress plugin.
+crumb: Optional companion
+-->
+<div class="wrap doc">
+  <nav class="doc-nav" aria-label="On this page">
+    <a href="#promises">What it promises</a>
+    <a href="#app">The app on your computer</a>
+    <a href="#site">Check a landing page</a>
+    <a href="#fetch">Download an account</a>
+    <a href="#extension">Tag Inspector extension</a>
+    <a href="#wordpress">WordPress plugin</a>
+    <a href="#install">Install</a>
+  </nav>
+  <article class="doc-body">
+    <span class="label">Docs</span>
+    <h1>The optional companion, openppc-online</h1>
+    <p class="doc-lead">OpenPPC never goes online. Some jobs need the network, like checking a landing page or downloading an account's reports, so they live in a separate install with its own command: <code>openppc-online</code>. It is not released yet.</p>
+
+    <h2 id="promises">What it promises</h2>
+    <ul>
+      <li><b>Off unless you install it and run it.</b> Installing <code>openppc</code> never installs it, and OpenPPC never calls it.</li>
+      <li><b>Read-only.</b> It reads reports and pages. It never creates, changes or deletes anything in an ad account or on a site.</li>
+      <li><b>Your own credentials.</b> It uses API keys and tokens you create, kept on your computer. OpenPPC never ships, proxies or stores one.</li>
+      <li><b>Only the hosts it declares.</b> Each command lists every host it connects to, and its tests hold it to that list.</li>
+    </ul>
+
+    <h2 id="app">The app on your computer</h2>
+    <pre class="code" tabindex="0"><span class="p">$ </span>openppc-online app</pre>
+    <p>Opens the same app as <a href="/app/">openppc.si/app</a>, served from your computer on 127.0.0.1. Audits and checks still run in the browser tab. It adds two views the website doesn't have: <b>Site</b>, which checks a landing page from a form, and <b>Download</b>, which downloads an account and opens the audit with its files.</p>
+
+    <h2 id="site">Check a landing page before ads point at it</h2>
+    <pre class="code" tabindex="0"><span class="p">$ </span>openppc-online site https://example.com
+<span class="p">$ </span>openppc-online site https://example.com --render --format html --out site.html</pre>
+    <p>Crawls the site and checks what a landing page needs: search basics, broken links and redirects, indexing, structured data, HTTPS and security headers, which AI crawlers may read it, and the tracking tags in its pages. With <code>--render</code>, a real browser shows which tags fire before and after the consent banner, the events they send, accessibility problems and lab Web Vitals. The report is scored, and every number in it is traced, as in an audit.</p>
+    <p>It reads robots.txt first and obeys it, names itself in every request, and refuses private and cloud metadata addresses. Check only sites you own or may check.</p>
+
+    <h2 id="fetch">Download an account with your own API access</h2>
+    <pre class="code" tabindex="0"><span class="p">$ </span>openppc-online fetch google 123-456-7890 --out exports
+<span class="p">$ </span>openppc audit search-term-waste exports/search_terms.csv</pre>
+    <p>Downloads a Google Ads, Microsoft Advertising or Meta account's reports through the platform's API and writes them as the files OpenPPC audits, then prints the audit command for each. The audit itself stays offline, the same as for an export you downloaded yourself.</p>
+    <p>The credentials come from environment variables, never the command line, and never reach a file, the output or an error. Each platform's calls are checked against a fixed list before connecting, and none of them can change the account.</p>
+
+    <h2 id="extension">Tag Inspector extension</h2>
+    <p>A Chrome and Edge extension: click it on a page to see the tags it loaded and fired, the events they sent, its consent banner and Consent Mode states, and its search basics. It reads the page only when you click, stores nothing and contacts no host. It is not in a store yet.</p>
+
+    <h2 id="wordpress">WordPress plugin</h2>
+    <p>OpenPPC Site Check adds five checks to Tools, Site Health: search engines may index the site, the home page has the search basics, its tags, a consent banner when there are tags, and a sitemap in robots.txt. It reads only its own site and adds no settings. It is not in the plugin directory yet.</p>
+
+    <h2 id="install">Install</h2>
+    <p>The companion is not released yet. Once it is:</p>
+    <pre class="code" tabindex="0"><span class="p">$ </span>pip install openppc-online</pre>
+    <p>Until then, it runs from a clone of the <a href="https://github.com/secondsteplabs/openppc">repository</a>, where its README has every command, flag and host, and its threat model what each part guards against.</p>
+  </article>
+</div>

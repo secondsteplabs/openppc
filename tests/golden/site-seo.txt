@@ -38,6 +38,10 @@ site/pages/docs/install.html
   title: Install OpenPPC: browser, command line, Claude and ChatGPT
   description: Use OpenPPC in your browser with nothing to install, run it on your computer from the command line, or add it to Claude. Step by step, with screenshots.
   h1: Install and quick start
+site/pages/docs/online.html
+  title: OpenPPC online companion: site check, downloads, extension
+  description: openppc-online, OpenPPC's optional companion: a landing page and tracking check, downloads with your own API access, a tag extension and a WordPress plugin.
+  h1: The optional companion, openppc-online
 site/pages/index.html
   title: OpenPPC: Google Ads audits, made simple
   description: Paste any AI-written Google Ads audit next to the export it came from, and see which numbers hold up. Free, open source, and it runs in your browser.
