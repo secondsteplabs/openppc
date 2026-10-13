@@ -54,7 +54,9 @@ def test_the_api_needs_this_runs_token(server):
     assert ask(server, "/api/info", headers={app.TOKEN_HEADER: "é€".encode("utf-8")})[0] == 403
     status, _, body = ask(server, "/api/info", headers=_token(server))
     assert status == 200
-    assert json.loads(body) == {"ok": True, "version": __version__, "openppc": openppc.__version__}
+    info = json.loads(body)
+    assert {k: info[k] for k in ("ok", "version", "openppc")} == {"ok": True, "version": __version__,
+                                                                  "openppc": openppc.__version__}
     assert ask(server, "/api/nothing", headers=_token(server))[0] == 404
 
 
@@ -75,11 +77,13 @@ def test_no_path_reaches_anything_else(server, path):
     assert status == 404 and body == b"Not found."
 
 
-@pytest.mark.parametrize("method", ["POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
-def test_it_answers_get_and_head_only_and_never_allows_another_origin(server, method):
+@pytest.mark.parametrize("method, code", [("POST", 403), ("PUT", 501), ("DELETE", 501), ("PATCH", 501),
+                                          ("OPTIONS", 501)])
+def test_it_never_allows_another_origin(server, method, code):
+    # POST is the job API's (test_app_jobs.py), refused here for the origin; nothing else but GET and HEAD exists
     status, headers, _ = ask(server, "/api/info", method=method,
                              headers={**_token(server), "Origin": "https://evil.example"})
-    assert status == 501
+    assert status == code
     assert not any(name.lower().startswith("access-control-") for name in headers)
 
 

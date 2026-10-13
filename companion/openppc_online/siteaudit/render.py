@@ -273,6 +273,11 @@ def _vitals_run(browser: Any, url: str) -> dict[str, Any]:
         context.close()
 
 
+def installed() -> bool:
+    """Whether the `render` extra is here (Chromium itself is checked by preflight)."""
+    return sync_playwright is not None
+
+
 def preflight() -> None:
     """Fails before a long crawl, not after it, when the browser can't start."""
     if sync_playwright is None:

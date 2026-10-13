@@ -71,24 +71,28 @@ def serve():
         s.server_close()
 
 
-def ask(server, path, method="GET", host=None, headers=None):
-    """(status, headers, body) of one request, sent as written: no path is cleaned up on the way."""
+def ask(server, path, method="GET", host=None, headers=None, body=None):
+    """(status, headers, body) of one request, sent as written: no path is cleaned up on the way. A body gets a
+    Content-Length unless headers name one, or a Transfer-Encoding."""
     # some Windows machines drop about one loopback connection in twenty carrying more than 64 KB, with any server
     for _ in range(2):
         try:
-            return _ask(server, path, method, host, headers)
+            return _ask(server, path, method, host, headers, body)
         except OSError:
             pass
-    return _ask(server, path, method, host, headers)
+    return _ask(server, path, method, host, headers, body)
 
 
-def _ask(server, path, method, host, headers):
+def _ask(server, path, method, host, headers, body):
     conn = http.client.HTTPConnection("127.0.0.1", server.port, timeout=10)
     conn.putrequest(method, path, skip_host=True, skip_accept_encoding=True)
     conn.putheader("Host", f"127.0.0.1:{server.port}" if host is None else host)
-    for name, value in (headers or {}).items():
+    headers = dict(headers or {})
+    if body is not None and not {"content-length", "transfer-encoding"} & {k.lower() for k in headers}:
+        headers["Content-Length"] = str(len(body))
+    for name, value in headers.items():
         conn.putheader(name, value)
-    conn.endheaders()
+    conn.endheaders(body)
     res = conn.getresponse()
     body = res.read()
     conn.close()
