@@ -49,7 +49,7 @@ jobs:
       - run: pip install --no-deps -e companion
       - run: pip install jsonschema==4.26.0  # the companion's dev extra; --no-deps above leaves it out
       - run: ruff check companion
-      - run: pytest -q companion
+      - run: pytest -q companion  # with the Tag Inspector's Node tests: the runners have Node
       - run: python tools/stage_companion_web.py
       - run: pip install build==1.6.1
       - run: python -m build companion
@@ -127,4 +127,4 @@ jobs:
       - run: pip install --no-deps -e companion
       - run: playwright install --with-deps chromium
       - run: pytest -m e2e tests/e2e -q
-      - run: pytest -m e2e companion/tests -q  # the same app served by openppc-online app
+      - run: pytest -m e2e companion/tests -q  # the same app served by openppc-online app, and the Tag Inspector

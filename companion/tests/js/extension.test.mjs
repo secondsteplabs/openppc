@@ -6,6 +6,9 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 import {
+  clean, EVENT_CHARS, MAX_CONSENT, MAX_EVENTS, MAX_STATES, MAX_URLS, STATE_CHARS, TEXT_CHARS, URL_CHARS,
+} from '../../extension/inspect.js';
+import {
   consentModeOn, consentModePing, consentPlatformOf, eventsOf, knownHost, siteOf, summarize, vendorOf,
 } from '../../extension/match.js';
 
@@ -54,4 +57,47 @@ test('a page summary lists tags, banners and unknown third parties', () => {
   assert.equal(s.deniedPings, 1);
   assert.deepEqual(s.unknownHosts, ['cdn.taboola.com']);
   assert.equal(siteOf('www.example.com'), 'example.com');
+});
+
+test('a reading keeps what a page sends back in shape and in size', () => {
+  const long = 'x'.repeat(5000);
+  const r = clean({
+    url: 'https://shop.test/', resources: [...Array(MAX_URLS + 10).fill(long), 7], title: long, h1: -1,
+    types: ['Product', { '@type': 'x' }], description: { toString: () => 'no' },
+  }, {
+    events: ['add_to_cart', 'add_to_cart', long, null, ...Array(MAX_EVENTS + 5).fill(0).map((_, i) => `e${i}`)],
+    consent: [
+      { command: 'default', states: { ad_storage: 'denied', analytics_storage: 3, [long]: long } },
+      { command: 'set', states: {} }, null, 'consent',
+      ...Array(MAX_CONSENT).fill({ command: 'update', states: Object.fromEntries(
+        Array(MAX_STATES + 5).fill(0).map((_, i) => [`k${i}`, 'granted'])) }),
+    ],
+    tcf: 'yes',
+  });
+  assert.equal(r.resources.length, MAX_URLS);
+  assert.equal(r.loaded, MAX_URLS + 11);
+  assert.ok(r.resources.every((u) => u.length === URL_CHARS));
+  assert.equal(r.title.length, TEXT_CHARS);
+  assert.equal(r.description, '');
+  assert.equal(r.h1, 0);
+  assert.deepEqual(r.types, ['Product']);
+  assert.equal(r.layer.events[0], 'add_to_cart');
+  assert.equal(r.layer.events[1].length, EVENT_CHARS);
+  assert.equal(r.layer.events.length, MAX_EVENTS - 1);  // the repeated add_to_cart counted once
+  assert.deepEqual(r.layer.consent[0], {
+    command: 'default', states: [['ad_storage', 'denied'], ['x'.repeat(STATE_CHARS), 'x'.repeat(STATE_CHARS)]],
+  });
+  assert.equal(r.layer.consent.length, MAX_CONSENT - 3);
+  assert.ok(r.layer.consent.slice(1).every((c) => c.command === 'update' && c.states.length === MAX_STATES));
+  assert.equal(r.layer.tcf, false);
+});
+
+test('a page whose world can\'t be read, or that answers nonsense, still gives a reading', () => {
+  for (const [page, layer] of [[null, null], ['page', []], [[1, 2], 'layer'], [{ resources: 'x' }, { events: 'x' }]]) {
+    const r = clean(page, layer);
+    assert.deepEqual(r.resources, []);
+    assert.equal(r.url, '');
+    assert.ok(r.layer === null || (r.layer.events.length === 0 && r.layer.consent.length === 0));
+  }
+  assert.equal(clean({}, null).layer, null);
 });

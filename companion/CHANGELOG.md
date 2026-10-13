@@ -2,6 +2,17 @@
 
 Semantic versioning, as in OpenPPC. Each release names the `openppc` versions it works with.
 
+## Unreleased (0.4.0)
+
+### Added
+
+- **The Tag Inspector browser extension** (`extension/`, its own version 0.1.0), for Chrome and Edge. Click it on
+  a page to see the tags the page loaded and fired, their events, the dataLayer's events, the consent banner,
+  Consent Mode's default and update states, cookieless pings, unknown third parties and the SEO basics. It asks
+  for `activeTab` and `scripting` only and sends nothing. Not in a store yet: load it from the folder.
+- The extension and the crawler use the same `signatures.json`, and `tests/tag_cases.json` holds the answers both
+  must give.
+
 ## Unreleased (0.3.0)
 
 Needs `openppc` 0.4.

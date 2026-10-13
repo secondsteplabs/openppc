@@ -7,8 +7,8 @@ OpenPPC itself never goes online. `pip install openppc` never installs this, and
 it. This is a separate install with its own command, so that stays true without exceptions.
 
 It is not released yet. Version 0.1.0 is its foundation, the app on your computer; 0.2.0 adds the website check,
-`openppc-online site`, and 0.3.0 its browser pass, `--render`. Downloads with your own API credentials
-(`openppc-online fetch`) are planned.
+`openppc-online site`, 0.3.0 its browser pass, `--render`, and 0.4.0 the Tag Inspector browser extension.
+Downloads with your own API credentials (`openppc-online fetch`) are planned.
 
 ## What it promises
 
@@ -119,6 +119,16 @@ Exit codes: 0 clean, 1 bad input, 2 a finding at `--fail-on` (with `--baseline`,
 own number check (a bug: please report it), 4 with `--fail-on`, a scan too broken to judge (bot protection,
 robots.txt failing, the start page not loading).
 
+## The Tag Inspector extension
+
+A browser extension for Chrome and Edge, in [`extension/`](extension/). Click it on a page to see the tags the page
+loaded and fired, the events they sent, its consent banner and Consent Mode states, and its SEO basics. It uses
+the same tag rules as `openppc-online site --render`, for one page you already have open.
+
+It reads the page only when you click, asks for no host permissions, stores nothing and contacts no host. It is not
+in a store yet: [extension/README.md](extension/README.md) says how to load it from the folder, and what it can't
+see.
+
 ## Install
 
 Once it is released:
@@ -141,7 +151,7 @@ before `python -m build companion`.
 ## Tests
 
 ```
-pytest companion
+pytest companion          # with Node.js 22 or later installed, this runs the extension's tests too
 pytest -m e2e companion   # in Chromium: pip install -e "companion[e2e]", then playwright install chromium
 ```
 

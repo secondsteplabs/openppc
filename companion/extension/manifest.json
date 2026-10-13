@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "OpenPPC Tag Inspector",
+  "version": "0.1.0",
+  "description": "The marketing tags a page loaded and fired, their events, consent and Consent Mode, and SEO basics. Sends nothing.",
+  "minimum_chrome_version": "95",
+  "permissions": ["activeTab", "scripting"],
+  "action": {"default_popup": "popup.html", "default_title": "OpenPPC Tag Inspector"},
+  "content_security_policy": {"extension_pages": "script-src 'self'; object-src 'none'; connect-src 'self'"}
+}

@@ -1,0 +1,11 @@
+body { font: 13px/1.4 system-ui, sans-serif; width: 440px; margin: 0; padding: 12px; color: #1a1a1a; }
+h1 { font-size: 15px; margin: 0 0 4px; }
+h2 { font-size: 13px; margin: 14px 0 6px; }
+p { margin: 4px 0; }
+.muted, .note { color: #666; }
+.note { margin-top: 14px; font-size: 12px; }
+.url, .value { word-break: break-all; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 3px 4px; border-bottom: 1px solid #eee; vertical-align: top; }
+.bad { color: #b00020; }
+.good { color: #0a7d32; }

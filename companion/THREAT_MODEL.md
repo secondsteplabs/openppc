@@ -1,8 +1,8 @@
 # Threat model: `openppc-online`
 
-What each command protects, from whom, and how: the local server (`app`) first, then the website check (`site`).
-Each defence has a test in `tests/`. Review this page, and run a security review of the diff, before each release
-that changes either.
+What each part protects, from whom, and how: the local server (`app`) first, then the website check (`site`), then
+the Tag Inspector browser extension. Each defence has a test in `tests/`. Review this page, and run a security
+review of the diff, before each release that changes any of them.
 
 # `openppc-online app`
 
@@ -121,3 +121,41 @@ browser runs their JavaScript. The tests are in `tests/test_net.py`, `tests/test
   it, but it reaches only what the guard allows, which that program could reach directly.
 - **Screenshots show what the page shows,** which may include personal data on a logged-out page. They are saved
   only with `--screenshots`, where you say.
+
+# The Tag Inspector extension
+
+It runs in your browser, on pages you are already looking at, and reads one when you click it. The tests are in
+`tests/test_extension.py` (which runs `tests/js/extension.test.mjs` in Node), `tests/test_tag_cases.py` and, in
+Chromium, `tests/test_extension_e2e.py`.
+
+## What it has
+
+- **The page you're on,** which may be private (an account page), and the addresses it loaded, which may carry
+  IDs.
+- **Your browser.** An extension with broad permissions could read every site you visit.
+- **Whoever reads the popup.**
+
+## Who might attack it
+
+1. **The page being read.** Its scripts share the world the dataLayer is read from, so they can answer with
+   anything, including text meant to become markup.
+2. **A later change to the extension** that gains a way to send data or to read more than you asked it to.
+
+## Defences
+
+| Threat | Defence | Test |
+| --- | --- | --- |
+| Reading pages you didn't ask it to | `activeTab` and `scripting` only: no host permissions, content scripts or background worker. It reads a tab only when you click, and only that tab's page, not its frames | `test_the_extension_asks_for_the_least` |
+| Sending what it reads | No network permission, and no XHR, beacon, WebSocket, EventSource or outside `fetch` in its code; its pages may load only their own files; it stores nothing | `test_the_extension_has_no_way_to_send_or_inject_anything`, `test_the_inspector_reads_a_shop_and_sends_nothing` (every request the browser made was the page's own) |
+| A page answering with nonsense or too much | Strings only, each cut to size; at most 3,000 addresses, 200 events and 20 consent commands | `a reading keeps what a page sends back in shape and in size`, `a page whose world can't be read, or that answers nonsense, still gives a reading` (Node) |
+| The page's text as markup | The popup builds text nodes only, with no `innerHTML` or `eval`, and its HTML runs `popup.js` alone | `test_the_popup_runs_only_its_own_scripts`, `test_the_inspector_reads_a_shop_and_sends_nothing` (a page event that is an `<img>` tag shows as text) |
+| A page changing the reading code | The addresses and page basics are read in the extension's isolated world, whose functions page scripts can't replace | Chrome's isolated worlds |
+| Rules drifting from the crawler's | The same `signatures.json`, and one set of cases both matchers must pass | `test_the_extension_knows_the_crawlers_tags`, `test_tag_cases.py`, `the matcher gives tags.py's answers` (Node) |
+
+## Accepted
+
+- **A page can misreport itself.** It can clear its list of addresses or fake its dataLayer, so a reading is the
+  page's own account. `openppc-online site --render` watches the traffic instead.
+- **Not everything shows:** the first 250 addresses unless the page asks the browser to keep more, nothing from
+  other sites' frames, and no events that only a POST body names.
+- **It isn't in a store yet.** Load it from this folder, so the code you run is the code you can read here.
