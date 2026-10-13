@@ -16,7 +16,7 @@ behaviour that [docs/compatibility.md](docs/compatibility.md) lists, except to f
 ### Changed
 
 - `openppc app`, `openppc fetch` and `openppc site` say they are not commands, because OpenPPC never goes online,
-  and name the companion that has (or will have) them. They exit 1, as any unknown command does.
+  and name the companion command that does each job. They exit 1, as any unknown command does.
 
 ## Unreleased (0.3.1)
 

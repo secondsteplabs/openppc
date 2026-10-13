@@ -1,7 +1,7 @@
 # Threat model: `openppc-online`
 
-What each part protects, from whom, and how: the local server (`app`) first, then the website check (`site`), then
-the Tag Inspector browser extension. Each defence has a test in `tests/`. Review this page, and run a security
+What each part protects, from whom, and how: the local server (`app`) first, then the website check (`site`), the
+downloads (`fetch`), the Tag Inspector browser extension and the WordPress plugin. Each defence has a test in `tests/`. Review this page, and run a security
 review of the diff, before each release that changes any of them.
 
 # `openppc-online app`
@@ -9,11 +9,13 @@ review of the diff, before each release that changes any of them.
 ## What it has
 
 - **The page's token.** A new random value each run (32 bytes, URL-safe). Every call to `/api/` needs it in the
-  `X-OpenPPC-Token` header. With it, a page can start a site audit from this computer.
+  `X-OpenPPC-Token` header. With it, a page can start a site audit or a download from this computer.
 - **The job API.** `POST /api/jobs` starts a site audit (`openppc-online site`, with everything in that section
-  below), `GET /api/jobs/<id>` shows it, and `POST /api/jobs/<id>/stop` stops it. A job may carry a CrUX key, rule
-  packs and a baseline, uploaded from the page; results stay in memory, the last 4 finished, and nothing is
-  written to disk.
+  below) or a download (`openppc-online fetch`, likewise), `GET /api/jobs/<id>` shows it, and
+  `POST /api/jobs/<id>/stop` stops it. A site audit may carry a CrUX key, rule packs and a baseline, uploaded from
+  the page; results stay in memory, the last 4 finished, and nothing is written to disk.
+- **Ad platform credentials.** A download's API credentials, typed into the page, are in the request and in that
+  job's memory while it runs.
 - **The files on this computer.** The server must never hand out anything but the app's own files.
 
 ## Who might attack it
@@ -35,25 +37,30 @@ review of the diff, before each release that changes any of them.
 | Another site calling the API | The token header: sending a custom header from another origin needs a CORS preflight, and the server answers `OPTIONS` (and PUT, DELETE and PATCH) with 501 and no `Access-Control-*` header | `test_the_api_needs_this_runs_token`, `test_it_never_allows_another_origin` |
 | Another site starting a job | POST needs the token and `Content-Type: application/json`, each of which takes a preflight from another origin; an `Origin` header that isn't this server's own is refused as well. Only `/api/jobs` and `/api/jobs/<id>/stop` take a POST | `test_a_post_is_read_only_from_this_page_as_json_of_a_bounded_size`, `test_a_post_to_another_name_or_address_gets_nothing` |
 | A body from someone without the token | The Host name, the `Origin`, the token, the content type and a `Content-Length` of at most 20 MB are checked first; a request that fails one is answered and its connection closed with the body unread (chunked bodies are refused) | `test_a_post_is_read_only_from_this_page_as_json_of_a_bounded_size` |
-| A job doing what the form didn't say | Every field is checked before a job starts: known names only, types and the command's limits; `--post-to` and `--screenshots` aren't offered, so a job sends no result to a third host and writes no file | `test_every_field_is_checked_before_anything_runs` |
+| A job doing what the form didn't say | Every field is checked before a job starts: known names only, types and the command's limits; `--post-to`, `--screenshots`, `--out` and `--force` aren't offered, so a job sends no result to a third host and writes no file; a download's credentials must be its platform's own names | `test_every_field_is_checked_before_anything_runs`, `test_every_download_field_is_checked_before_anything_runs` |
 | Uploaded file names | Base name only, at most 100 characters, without control characters or backticks; the file is read from memory, never saved, so no path reaches the report or an error | `test_a_site_audit_runs_as_a_job_and_comes_back_in_every_format` |
-| The audited site's text in the app's page | The Site view (`local/site.js`) builds its page as text nodes and writes no markup itself; the report goes through the app's own renderer, which shows any HTML in it as text and sanitizes the rest (DOMPurify), and the site's text is in code spans or escaped already | `test_the_view_writes_no_markup_of_its_own`, `test_the_sites_own_text_never_becomes_markup_in_the_report` |
+| The audited site's text in the app's page | The Site and Download views (`local/site.js`, `local/fetch.js`) build their page as text nodes and write no markup themselves; the report goes through the app's own renderer, which shows any HTML in it as text and sanitizes the rest (DOMPurify), and the site's text is in code spans or escaped already | `test_the_view_writes_no_markup_of_its_own`, `test_the_sites_own_text_never_becomes_markup_in_the_report` |
 | The CrUX key leaking | It arrives in the request body and goes to the run only; no job view, progress line, error or report carries it | `test_the_crux_key_goes_to_the_run_and_never_comes_back` |
+| A download's credentials leaking or staying | They arrive in the request body and go to that job only, never to the environment; no job view, progress line, error or result carries them, and they are cleared when the job ends, finished, failed or stopped | `test_a_download_comes_back_as_the_files_and_their_templates`, `test_a_failure_is_explained_without_any_credential`, `test_the_credentials_are_dropped_when_the_download_ends` |
 | Another site reading the token | The token is only in the page, which another origin can't read; `Cross-Origin-Resource-Policy: same-origin` on every answer | `test_the_apps_files_are_served` |
 | Guessing the token | 32 random bytes per run, compared in constant time, as bytes (a header that isn't ASCII is refused, not an error) | `test_the_api_needs_this_runs_token` |
 | Token leaks | Never in a URL (the address printed and opened has none), a log line (the server logs no requests), a header, or any answer but the page; `Referrer-Policy: no-referrer`; the page is `Cache-Control: no-store` | `test_the_token_is_only_ever_in_the_page`, `test_serve_says_where_without_the_token_and_takes_another_port_if_needed` |
 | Path traversal and listings | A fixed map of the app's files, read at start; any other path is 404, whatever it contains (`..`, `%2e%2e`, backslashes, drive letters) | `test_no_path_reaches_anything_else` |
 | Framing | `frame-ancestors 'none'` in the page's policy header | `test_the_page_is_the_hosted_app_plus_the_token_and_local_js` |
 | A weakened page policy | The page is openppc.si's with one change, `connect-src 'self'`; if the hosted policy changes, the server stops rather than serve a page that half works | `test_a_change_to_the_hosted_policy_stops_it` |
-| Exhaustion | Bodies up to 20 MB, read only from the token's holder; one job at a time (another gets 409) and the last 4 finished kept; an idle connection is dropped after 30 seconds; threads are daemons | `test_one_run_at_a_time_and_stop_keeps_what_was_crawled`, `test_the_last_four_finished_runs_are_kept` |
-| Contacting other hosts | Only `app.py` imports the HTTP server, and serving the app connects to nothing but 127.0.0.1. A job connects as `openppc-online site` does, through its guard | `test_only_the_named_modules_touch_the_network`, `test_the_app_contacts_only_127_0_0_1` |
+| Exhaustion | Bodies up to 20 MB, read only from the token's holder; one job at a time (another gets 409) and the last 4 finished kept; an idle connection is dropped after 30 seconds; threads are daemons | `test_one_run_at_a_time_and_stop_keeps_what_was_crawled`, `test_one_job_at_a_time_and_stop_ends_a_download_with_nothing`, `test_the_last_four_finished_runs_are_kept` |
+| Contacting other hosts | Only `app.py` imports the HTTP server, and serving the app connects to nothing but 127.0.0.1. A job connects as `openppc-online site` or `openppc-online fetch` does, through its guard or its allowlist | `test_only_the_named_modules_touch_the_network`, `test_the_app_contacts_only_127_0_0_1` |
 
 ## Accepted
 
 - **Another program or user on this computer** can load the page and so read the token. It can only do what the
   page can, which now includes starting a site audit from this computer (with "allow private addresses", of your
-  network), and see the last 4 results. Anything running as you can already do both. On a shared computer, stop
-  the app when you are done.
+  network), and see the last 4 results. Anything running as you can already do both. A download needs
+  credentials, which the page's form keeps only until a download succeeds or the page closes, and a finished job
+  no longer has. On a shared
+  computer, stop the app when you are done.
+- **Credentials typed into a page** can be read by what runs in that browser: its extensions, and a password
+  manager that offers to save them. Use a browser profile you trust, or the command with environment variables.
 - **Stop is not instant.** It takes effect at the run's next progress line, so a page that is slow to answer
   finishes first.
 - **The page loads its Python runtime, two libraries and its fonts from cdn.jsdelivr.net,** as openppc.si does,
@@ -121,6 +128,58 @@ browser runs their JavaScript. The tests are in `tests/test_net.py`, `tests/test
   it, but it reaches only what the guard allows, which that program could reach directly.
 - **Screenshots show what the page shows,** which may include personal data on a logged-out page. They are saved
   only with `--screenshots`, where you say.
+
+# `openppc-online fetch`
+
+Downloads an ad account's reports through Google's, Microsoft's or Meta's API, with credentials you made, and
+writes them as the files `openppc audit` reads. The same code runs for the app's Download view. The tests are in
+`tests/test_fetch_http.py`, `tests/test_fetch_google.py`, `tests/test_fetch_microsoft.py`,
+`tests/test_fetch_meta.py` and `tests/test_fetch_command.py`, against fakes of each API built from its
+documentation.
+
+## What it has
+
+- **Your API credentials.** Developer tokens, OAuth client secrets and refresh tokens, and Meta access tokens. Most
+  can change the account as well as read it, so they matter more than the reports.
+- **The account's numbers:** spend, conversions, search terms, campaign names.
+- **Your files.** It writes into the `--out` folder.
+
+## Who might attack it
+
+1. **An API answer,** or a fault in one: an error that quotes what was sent, a redirect, a download address
+   elsewhere, a next page on another list, an answer too big, or a zip that isn't one report.
+2. **Anyone who sees what the command prints** or what it writes: a terminal shared on a call, a CI log, a
+   ticket the files are attached to.
+3. **A mistyped or crafted argument:** an account ID or conversion name that would change a query or a path.
+
+## Defences
+
+| Threat | Defence | Test |
+| --- | --- | --- |
+| Calling anything else, or changing the account | Each platform has a list of the method, host and path of every call it may make, checked before connecting, https on port 443 only; Google's queries are SELECTs on searchStream, Microsoft's calls only submit and poll reports, and Meta's are GETs | `test_each_platform_may_make_only_its_reviewed_calls`, `test_anything_else_is_refused_before_connecting`, `test_every_query_only_reads_and_none_mixes_keywords_into_performance_max` |
+| Contacting hosts it doesn't declare | Of fetch's modules, only `fetch/http.py` imports `urllib.request`, and every call goes through its one opener, which follows no redirect | `test_only_the_named_modules_touch_the_network`, `test_no_redirect_is_followed` |
+| Microsoft's download address | Microsoft names a new one per report, so it is let through once, for one GET, only if it is https on port 443 on a host name (not an IP address) without a user name; it carries no credential | `test_a_download_address_must_be_https_on_a_host_name`, `test_a_download_address_the_api_gave_is_called_once_with_get`, `test_the_download_carries_no_credential_and_is_made_once`, `test_a_download_address_that_isnt_https_on_a_host_name_is_never_called` |
+| Meta's next page | Followed only on the same list's path, through the allowlist, with any `access_token` taken out of its address | `test_a_next_page_on_another_list_is_not_followed`, `test_a_next_page_on_another_host_is_refused_by_the_gate` |
+| A token in an address | Meta's token goes in the `Authorization` header, never the URL, so it stays out of proxy and server logs | `test_every_call_is_a_get_with_the_token_in_a_header_never_the_address` |
+| Credentials leaking | Read from environment variables (or the app's request), never from flags or shell history; never in a file, the output or an error; an API's error shows only its codes (names like `RESOURCE_EXHAUSTED`), never its free text, which could quote the request | `test_no_credential_reaches_the_files` (each platform), `test_a_failure_shows_no_credential_and_writes_nothing`, `test_only_error_codes_are_shown_never_free_text`, `test_a_failure_keeps_its_body_out_of_the_message`, the three `..._errors_say_what_to_do_without_echoing_the_answer` |
+| An argument changing a query or path | Account IDs must be digits (Google's 10, with or without dashes; Meta's with or without `act_`), Microsoft's customer ID too, and Meta's conversion a name like `lead` (letters, digits, `_` and `.`), all before any call | `test_anything_else_is_not_a_customer_id`, `test_anything_else_is_not_an_account_id` (Microsoft and Meta), `test_a_customer_id_that_isnt_digits_is_refused_before_any_call`, `test_a_conversion_that_isnt_an_action_type_is_refused_before_any_call` |
+| An answer too big, or a zip bomb | Answers are read up to 200 MB and error bodies up to 64 KB; Microsoft's zip must hold one file, whose size is checked before it is unzipped | `test_a_report_too_big_unzipped_is_never_read`, `test_a_download_that_isnt_one_zipped_report_is_refused` |
+| A run that never ends | 120 seconds per call; Microsoft's polls wait 2 seconds, then longer, to 30, and give up after 10 minutes; Meta reads at most 200 pages of a list | `test_polls_wait_longer_each_time`, `test_a_report_that_never_finishes_is_given_up_on` |
+| Writing elsewhere, or half a set | Fixed file names only, inside `--out`, which is checked before connecting; nothing is written until every report is in; each file is written whole, then renamed; a file already there is replaced only with `--force` | `test_files_are_written_only_under_their_names_and_whole`, `test_a_failure_part_way_writes_none_of_the_files`, `test_files_already_in_out_stop_it_before_connecting` |
+| An API version past its sunset | Each version and its sunset date are in `fetch/versions.py`; the command warns within 60 days of it, and a test fails within 60 days, so a release can't ship an expiring one | `test_a_version_near_its_sunset_is_said_after_the_files`, `test_no_api_version_is_near_its_sunset` |
+
+## Accepted
+
+- **The credentials can do more than it does.** Google's and Microsoft's OAuth scopes and Meta's `ads_read` are
+  the narrowest the APIs offer for reports, but Google's and Microsoft's also allow changes. The code never makes
+  one; a token you create for this alone limits what a leak could do.
+- **The files hold what searchers typed.** A search term can start with `=` or `+`, which a spreadsheet may read
+  as a formula, as in the platform's own exports. `openppc audit` reads them as text; open them in a spreadsheet
+  with that in mind.
+- **The fakes are built from each API's documentation,** not recorded from real accounts. A change in an API that
+  its documentation doesn't show yet surfaces as an error that names its codes.
+- **Meta's Bearer header** rests on Graph API practice and its SDKs rather than a page of Meta's that says so in
+  words; the token in the address would also work, but would reach logs.
 
 # The Tag Inspector extension
 

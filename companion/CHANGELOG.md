@@ -2,6 +2,33 @@
 
 Semantic versioning, as in OpenPPC. Each release names the `openppc` versions it works with.
 
+## Unreleased (0.5.0)
+
+Needs `openppc` 0.4.
+
+### Added
+
+- **`openppc-online fetch google|microsoft|meta ACCOUNT --out DIR`**: downloads an ad account's reports with your
+  own API credentials, from environment variables, and writes them as the files `openppc audit` reads, printing
+  the audit command for each. Google Ads API v25 gives `search_terms.csv` (Performance Max's search terms
+  included), `keywords.csv`, `account.json` and `account_structure.json`; Microsoft Advertising's Reporting API v13
+  the first three; Meta's Graph API v25.0 `account.json` and `account_structure.json`, with `--conversion` naming
+  the action type that counts. `--days` (30 by default, at most 365) and `--force`.
+- Each platform's calls are checked against a list of methods, hosts and paths before connecting; no redirect is
+  followed, nothing in an account changes, and no credential reaches a file, the output or an error. Nothing is
+  written until every report is in.
+- `fetch/versions.py`: each API version with its sunset date. The command warns within 60 days of one, and a test
+  fails then.
+- **The Download view in `openppc-online app`:** the same download from a form, its files listed and saved, and
+  **Audit them here**, which opens the audit with them loaded. The credentials go in the request, live in that job
+  only and are cleared when it ends; Stop ends a download with nothing.
+- THREAT_MODEL.md: the `fetch` section, and the job API's download.
+
+### Changed
+
+- The job API's 409 names the kind of job already running, and the Site view follows only a site audit.
+- On a phone, the app's rail sizes its items by their labels, so seven fit at 360 px.
+
 ## Unreleased (0.4.0)
 
 ### Added

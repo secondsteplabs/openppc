@@ -7,8 +7,8 @@ OpenPPC itself never goes online. `pip install openppc` never installs this, and
 it. This is a separate install with its own command, so that stays true without exceptions.
 
 It is not released yet. Version 0.1.0 is its foundation, the app on your computer; 0.2.0 adds the website check,
-`openppc-online site`, 0.3.0 its browser pass, `--render`, and 0.4.0 the Tag Inspector browser extension.
-Downloads with your own API credentials (`openppc-online fetch`) are planned.
+`openppc-online site`, 0.3.0 its browser pass, `--render`, 0.4.0 the Tag Inspector browser extension, and 0.5.0
+downloads with your own API credentials, `openppc-online fetch`.
 
 ## What it promises
 
@@ -38,14 +38,23 @@ It adds one view openppc.si doesn't have: **Site**, in the left rail, runs `open
 form. It has the start page, page and time limits, fast, external links, private addresses, `--render` with its
 extra pages and consent selector, rule packs, a baseline and a CrUX key. It shows the report and downloads it as
 .md, .html, .json or .sarif. Stop ends the run at its next step and keeps what was crawled, as Ctrl-C does.
-`--post-to` and `--screenshots` are command-line only. The run happens in this process, one at a time; the page
-keeps the last few results in memory and writes nothing to disk.
+`--post-to` and `--screenshots` are command-line only.
+
+**Download**, below it, runs `openppc-online fetch` (below) from a form: the platform, the account, the days, Meta's
+conversion, and your API credentials, typed into the page. It lists the files, saves each one, and **Audit them
+here** opens the audit with them loaded, in the same tab. The credentials go to this server for that one download
+and are dropped when it ends; nothing saves them, the page never sends them back, and the form empties once a
+download succeeds. Stop ends a download with
+nothing.
+
+Runs happen in this process, one at a time; the page keeps the last few results in memory and writes nothing to
+disk.
 
 - **Hosts:** it answers only on 127.0.0.1. Serving the app connects to nothing; the page loads its Python runtime,
   libraries and fonts from cdn.jsdelivr.net, as on openppc.si. A site audit connects to what
-  `openppc-online site` connects to.
+  `openppc-online site` connects to, and a download to what `openppc-online fetch` connects to.
 - **Security:** it answers only to its own address, and the page gets a new token on each run, which every call to
-  this server needs; a site audit can be started only by that page.
+  this server needs; a site audit or a download can be started only by that page.
   [THREAT_MODEL.md](https://github.com/secondsteplabs/openppc/blob/main/companion/THREAT_MODEL.md) has the details.
 
 Exit codes: 0 when it stops normally (Ctrl-C), 1 for bad input, as `openppc` uses them.
@@ -118,6 +127,53 @@ rule packs [`site-config.schema.json`](openppc_online/schemas/site-config.schema
 Exit codes: 0 clean, 1 bad input, 2 a finding at `--fail-on` (with `--baseline`, a new one), 3 the report failed its
 own number check (a bug: please report it), 4 with `--fail-on`, a scan too broken to judge (bot protection,
 robots.txt failing, the start page not loading).
+
+### `openppc-online fetch`
+
+```
+openppc-online fetch google 123-456-7890 --out exports
+openppc-online fetch microsoft 149123456 --out exports --days 90
+openppc-online fetch meta act_123456789 --out exports --conversion lead
+```
+
+Downloads one ad account's reports through the platform's API, with your own credentials, and writes them as the
+files `openppc audit` reads. It prints the `openppc audit` command for each file, so the audit stays offline and
+the same as for a file you exported yourself.
+
+| Platform | Files | API |
+| --- | --- | --- |
+| `google` | `search_terms.csv` (Performance Max's search terms included), `keywords.csv`, `account.json`, `account_structure.json` | Google Ads API v25, SELECT queries only |
+| `microsoft` | `search_terms.csv`, `keywords.csv`, `account.json` | Microsoft Advertising Reporting API v13 |
+| `meta` | `account.json`, `account_structure.json` (Meta has no search terms or keywords) | Meta Graph API v25.0, GET only |
+
+`account.json` compares the last `--days` full days (30 by default, at most 365) with as many days just before.
+For Meta, `--conversion` names the action type that counts, such as `lead`; without it, the error lists the
+account's action types with their counts.
+
+The credentials come from environment variables, never from the command line, so they stay out of your shell's
+history:
+
+| Platform | Environment variables |
+| --- | --- |
+| `google` | `GOOGLE_ADS_DEVELOPER_TOKEN`, `GOOGLE_ADS_CLIENT_ID`, `GOOGLE_ADS_CLIENT_SECRET`, `GOOGLE_ADS_REFRESH_TOKEN`; `GOOGLE_ADS_LOGIN_CUSTOMER_ID` for an account under a manager account |
+| `microsoft` | `MICROSOFT_ADS_DEVELOPER_TOKEN`, `MICROSOFT_ADS_CLIENT_ID`, `MICROSOFT_ADS_REFRESH_TOKEN`, `MICROSOFT_ADS_CUSTOMER_ID` (the manager account); `MICROSOFT_ADS_CLIENT_SECRET` for a web app registration only |
+| `meta` | `META_ACCESS_TOKEN`, with the `ads_read` permission |
+
+A missing one is named before anything connects. No credential reaches a file, the output or an error message;
+an API's error is shown by its codes, never its free text.
+
+Nothing is written until every report is in, and `--out` is checked first: a file of the same name already there
+is replaced only with `--force`. When the API version a platform is called with is within 60 days of its sunset,
+it says so after the files.
+
+- **Hosts:** `google`: oauth2.googleapis.com and googleads.googleapis.com. `microsoft`: login.microsoftonline.com,
+  reporting.api.bingads.microsoft.com, and the address each report's answer gives to download it from (https on a
+  host name, once, without credentials). `meta`: graph.facebook.com. Nothing else, each call checked against its
+  platform's list of methods and paths before it is made, and no redirect followed.
+- **Read-only:** Google's searchStream only answers SELECT queries, Microsoft's Reporting service only builds
+  reports, and Meta's calls are GETs. Nothing in the account changes.
+
+Exit codes: 0 when the files are written, 1 for bad input, a missing credential or an API's refusal.
 
 ## The Tag Inspector extension
 
