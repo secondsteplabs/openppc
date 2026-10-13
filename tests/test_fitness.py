@@ -87,7 +87,7 @@ def test_a_command_that_goes_online_says_where_it_lives(no_network, command, cap
     assert main([command, "--port", "8766"]) == 1
     assert main(["--debug", command]) == 1
     err = capsys.readouterr().err
-    assert err.count("OpenPPC never goes online") == 2 and "openppc-online" in err
+    assert err.count("OpenPPC never goes online") == 2 and f"`openppc-online {command}`" in err
 
 
 def test_the_mcp_tools_only_read_files_and_text():

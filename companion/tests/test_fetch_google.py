@@ -106,7 +106,8 @@ class FakeGoogle:
         source = re.search(r"\bFROM\s+(\w+)", query)[1]
         if source == "customer" and "segments.date" in query:
             start = re.search(r"BETWEEN '([\d-]+)'", query)[1]
-            return 200, json.dumps(_batches([{"metrics": TOTALS[start]}])).encode()
+            metrics = TOTALS.get(start, _metrics(100, 2000, 150.0, 5.0))
+            return 200, json.dumps(_batches([{"metrics": metrics}])).encode()
         return 200, json.dumps(ANSWERS[source]).encode()
 
     def queries(self):

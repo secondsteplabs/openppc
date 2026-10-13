@@ -32,7 +32,8 @@ ISSUES = "https://github.com/secondsteplabs/openppc/issues"
 # Commands that go online live in the optional companion (ADR-7). Here they are only words, never code.
 ELSEWHERE = {
     "app": "The app on this computer is `openppc-online app`, in the optional companion openppc-online",
-    "fetch": "Downloads with your own API credentials are planned for the optional companion openppc-online",
+    "fetch": "Downloading with your own API credentials is `openppc-online fetch`, in the optional companion "
+             "openppc-online",
     "site": "The website check is `openppc-online site`, in the optional companion openppc-online",
 }
 

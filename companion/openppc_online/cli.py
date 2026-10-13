@@ -5,12 +5,15 @@
     openppc-online site https://example.com
     openppc-online site https://example.com --config openppc-site.json --baseline last.json --fail-on high
     openppc-online site https://example.com --render --render-url /thank-you
+    openppc-online fetch google 123-456-7890 --out exports/
+    openppc-online fetch meta act_123456789 --conversion lead --out exports/
 
 Exit codes: 0 clean, 1 bad input, as `openppc` uses them. `site` adds 2 a finding at the --fail-on level (with
 --baseline, a new one), 3 the report failed its own number check (a bug: please report it), and 4 a scan too broken
 to judge with --fail-on (bot protection, robots.txt failing, the start page not loading).
 """
 import argparse
+import os
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -20,6 +23,8 @@ import openppc
 
 from . import __version__, site
 from .app import PORT, serve
+from .fetch import command as fetch_command
+from .fetch.files import DAYS
 from .siteaudit.crawl import FAST_WORKERS, MAX_PER_PATTERN
 from .siteaudit.crux import KEY_ENV
 from .siteaudit.render import RENDER_PAGES, VITALS_PAGES
@@ -99,6 +104,22 @@ def _parser() -> argparse.ArgumentParser:
     s.add_argument("--post-to", metavar="URL",
                    help="also POST the JSON result to this webhook when the run ends: https://, or http:// to this "
                         "computer (connects to that host)")
+    f = sub.add_parser("fetch", help="download an ad account's reports through the platform's API, with your own "
+                                     "credentials from environment variables, as the files `openppc audit` reads "
+                                     "(connects to that platform only, and changes nothing in the account)")
+    f.add_argument("platform", choices=fetch_command.PLATFORMS,
+                   help="where the account is; its credentials come from environment variables the companion's "
+                        "README lists, never from the command line")
+    f.add_argument("account", help="a Google Ads customer ID (123-456-7890), a Microsoft Advertising account ID "
+                                   "(149123456) or a Meta ad account (act_123456789)")
+    f.add_argument("--out", required=True, metavar="DIR", help="the folder to write the files in")
+    f.add_argument("--days", type=_at_least(int, 1), default=DAYS,
+                   help=f"the last full days to read (default {DAYS}, at most {fetch_command.MAX_DAYS}); account.json "
+                        "compares them with as many days before")
+    f.add_argument("--force", action="store_true", help="replace files of the same names already in --out")
+    f.add_argument("--conversion", metavar="ACTION_TYPE",
+                   help="fetch meta only: the action type that is a conversion for this account, such as lead or "
+                        "offsite_conversion.fb_pixel_purchase (without it, the error lists the account's)")
     return ap
 
 
@@ -151,12 +172,26 @@ def _site(args: argparse.Namespace) -> int:
     return site.exit_code(result, args.fail_on)
 
 
+def _fetch(args: argparse.Namespace) -> int:
+    done = fetch_command.run(args.platform, args.account, args.out, os.environ, force=args.force,
+                             days=int(args.days), conversion=args.conversion)
+    for path in done.paths:
+        print(f"wrote {path}", file=sys.stderr)
+    for note in done.notes:
+        print(f"note: {note}", file=sys.stderr)
+    for path in done.paths:
+        print(f"openppc audit {fetch_command.TEMPLATE[path.name]} {path}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     _utf8_output()
     args = _parser().parse_args(argv)
     try:
         if args.command == "site":
             return _site(args)
+        if args.command == "fetch":
+            return _fetch(args)
         return serve(args.port, open_browser=not args.no_browser)
     except (ValueError, OSError) as e:
         print(f"openppc-online: {e}", file=sys.stderr)
