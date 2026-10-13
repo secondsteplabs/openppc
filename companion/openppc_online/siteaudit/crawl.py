@@ -43,7 +43,12 @@ AI_BOTS = ("GPTBot", "OAI-SearchBot", "ChatGPT-User", "ClaudeBot", "Claude-Searc
 
 SCHEME = re.compile(r"\s*[a-z][a-z0-9+.-]*:(?!\d)", re.I)  # a scheme, not host:port
 
-Progress = Callable[[str], object]
+Progress = Callable[[str], object]  # raising KeyboardInterrupt stops the run, as Ctrl-C does
+
+
+def stopped(e: KeyboardInterrupt) -> str:
+    """How the run was cut short: the words the interrupt carries (the app's Stop button), else Ctrl-C."""
+    return str(e) or "stopped with Ctrl-C"
 
 
 def normalize(url: str) -> str:
@@ -406,8 +411,8 @@ def crawl(start: str, guard: Guard, max_pages: int | None = None, max_seconds: f
                          progress)
             if external:
                 _check_external(c, guard, progress)
-    except KeyboardInterrupt:
-        c.incomplete = "stopped with Ctrl-C"
+    except KeyboardInterrupt as e:
+        c.incomplete = stopped(e)
         c.pages.setdefault(start, Page(start, 0, first))
     c.seconds = time.monotonic() - began
     return c
@@ -431,8 +436,8 @@ def follow(c: Crawl, guard: Guard, links: dict[str, str], max_pages: int | None 
     began = time.monotonic() - c.seconds  # --max-time counts the first pass too
     try:
         _crawl_pages(c, crawler, FAST_WORKERS if fast else POLITE_WORKERS, max_pages, max_seconds, began, progress)
-    except KeyboardInterrupt:
-        c.incomplete = c.incomplete or "stopped with Ctrl-C, while following links JavaScript added"
+    except KeyboardInterrupt as e:
+        c.incomplete = c.incomplete or f"{stopped(e)}, while following links JavaScript added"
     return len(c.pages) - before
 
 

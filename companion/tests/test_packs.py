@@ -35,7 +35,7 @@ PACK = {"openppc_site": 1, "name": "agency basics",
 def _pack(tmp_path, doc=PACK, name="pack.json"):
     path = tmp_path / name
     path.write_text(json.dumps(doc, indent=2), encoding="utf-8")
-    return str(path)
+    return str(path), path.read_text(encoding="utf-8")
 
 
 @pytest.fixture
@@ -128,12 +128,11 @@ def test_a_baseline_says_what_is_new_and_what_was_fixed(tmp_path):
     path = tmp_path / "old.json"
     path.write_text(json.dumps(old), encoding="utf-8")
     now = [checks.Finding("site-noindex", ["https://www.a.test/x", "https://www.a.test/y"])]
-    diff = triage.compare(now, triage.read_baseline(str(path)), str(path))
+    diff = triage.compare(now, triage.read_baseline("old.json", json.dumps(old)), "old.json")
     assert diff.new == {"site-noindex": ["https://www.a.test/y"]} and diff.unchanged == 1
     assert diff.fixed == [("No title", "https://a.test/gone")]
-    path.write_text("{}", encoding="utf-8")
-    with pytest.raises(ValueError, match="isn't an `openppc-online site --format json` result"):
-        triage.read_baseline(str(path))
+    with pytest.raises(ValueError, match="old.json isn't an `openppc-online site --format json` result"):
+        triage.read_baseline("old.json", "{}")
 
 
 def test_scores_lose_points_by_severity():
@@ -166,4 +165,4 @@ def test_the_schemas_are_valid_and_ship_inside_the_package():
 def test_the_example_rule_packs_match_the_schema_and_load(path, own_signatures):
     jsonschema.validate(json.loads(path.read_text(encoding="utf-8")),
                         json.loads((SCHEMAS / "site-config.schema.json").read_text(encoding="utf-8")))
-    assert packs.load([str(path)]).files == [str(path)]
+    assert packs.load([(path.name, path.read_text(encoding="utf-8"))]).files == [path.name]

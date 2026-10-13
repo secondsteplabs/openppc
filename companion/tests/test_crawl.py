@@ -91,6 +91,15 @@ def test_ctrl_c_keeps_what_was_crawled(serve, monkeypatch):
     assert c.incomplete == "stopped with Ctrl-C" and base + "/" in c.pages
 
 
+def test_a_progress_callback_stops_the_crawl_in_its_own_words(serve):
+    def stop(msg):
+        if "pages" in msg:
+            raise KeyboardInterrupt("stopped with the Stop button")
+    base = serve(acme)
+    c = crawl(base, local(), fast=True, progress=stop)
+    assert c.incomplete == "stopped with the Stop button" and len(c.pages) < 10
+
+
 def test_the_page_limit_and_a_429_retried_once(serve, monkeypatch):
     c = crawl(serve(acme), local(), fast=True, external=False, max_pages=3)
     assert len(c.pages) == 3 and c.incomplete == "stopped at the `--max-pages` limit"

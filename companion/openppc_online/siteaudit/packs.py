@@ -18,7 +18,6 @@ import json
 import re
 from dataclasses import dataclass, field
 from fnmatch import fnmatchcase
-from pathlib import Path
 from typing import Any, NoReturn
 from urllib.parse import urlsplit
 
@@ -218,12 +217,12 @@ def parse(text: str, where: str, config: Config) -> None:
         config.suppress.append(Suppression(rule, match, _text(where, path + ".reason", s["reason"], 500), where))
 
 
-def load(paths: list[str]) -> Config:
-    """Reads every --config file, then makes their tag signatures known to the scan."""
+def load(files: list[tuple[str, str]]) -> Config:
+    """Reads every --config file, as (name, text), then makes their tag signatures known to the scan."""
     config = Config()
-    for p in paths:
-        parse(Path(p).read_text(encoding="utf-8"), p, config)
-        config.files.append(p)
+    for name, text in files:
+        parse(text, name, config)
+        config.files.append(name)
     add_vendors(config.vendors)
     return config
 

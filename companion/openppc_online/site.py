@@ -17,7 +17,7 @@ from openppc.formats import to_html
 from . import __version__
 from .siteaudit import net, packs
 from .siteaudit.checks import SEVERITY_RANK, Finding, evaluate, home, host_base, js_only_links, same_site
-from .siteaudit.crawl import Progress, crawl, follow, normalize, start_url
+from .siteaudit.crawl import Progress, crawl, follow, normalize, start_url, stopped
 from .siteaudit.crux import field_data, key_from
 from .siteaudit.net import Guard
 from .siteaudit.render import RENDER_PAGES, VITALS_PAGES, Rendered, preflight, render
@@ -93,13 +93,14 @@ def _screenshots_folder(folder: str) -> None:
 
 def run(url: str, *, max_pages: int | None = None, max_seconds: float | None = None, max_per_pattern: int,
         fast: bool = False, external: bool = True, allow_private: bool = False, crux_key: str | None = None,
-        config: list[str] | None = None, baseline: str | None = None, post_to: str | None = None,
-        rendered: bool = False, render_pages: int = RENDER_PAGES, vitals_pages: int = VITALS_PAGES,
-        render_url: list[str] | None = None, consent_selector: str = "", screenshots: str = "",
-        progress: Progress | None = None) -> tuple[Result, Guard]:
-    """Everything the command does short of writing the report and posting it. rendered: the --render pass."""
+        config: list[tuple[str, str]] | None = None, baseline: tuple[str, str] | None = None,
+        post_to: str | None = None, rendered: bool = False, render_pages: int = RENDER_PAGES,
+        vitals_pages: int = VITALS_PAGES, render_url: list[str] | None = None, consent_selector: str = "",
+        screenshots: str = "", progress: Progress | None = None) -> tuple[Result, Guard]:
+    """Everything the command does short of writing the report and posting it. config and baseline: files as
+    (name, text), already read. rendered: the --render pass. progress may stop the run (crawl.Progress)."""
     rules = packs.load(config or [])
-    earlier = read_baseline(baseline) if baseline else None
+    earlier = read_baseline(*baseline) if baseline else None
     key = key_from(crux_key) if crux_key is not None else None
     if post_to:
         webhook_host(post_to)
@@ -116,8 +117,8 @@ def run(url: str, *, max_pages: int | None = None, max_seconds: float | None = N
     if rendered and not c.blocked_by:
         try:
             r = render(c, guard, render_pages, consent_selector, vitals_pages, progress, screenshots, also)
-        except KeyboardInterrupt:
-            c.incomplete = c.incomplete or "stopped with Ctrl-C, before the browser pass finished"
+        except KeyboardInterrupt as e:
+            c.incomplete = c.incomplete or f"{stopped(e)}, before the browser pass finished"
     if r and not c.incomplete:
         hidden = js_only_links(c, r)
         if hidden:
@@ -125,7 +126,7 @@ def run(url: str, *, max_pages: int | None = None, max_seconds: float | None = N
     field = field_data(c.origin, home(c).url, key) if key and not c.blocked_by else []
     findings = evaluate(c, r, field) + ([] if c.blocked_by else packs.evaluate(rules, c, r))
     findings, suppressed = suppress(findings, rules.suppress)
-    diff = compare(findings, earlier, baseline) if earlier is not None and baseline else None
+    diff = compare(findings, earlier, baseline[0]) if earlier is not None and baseline else None
     extras = Extras(rules.files, suppressed, diff, field)
     markdown, book, passed = report(c, r, findings, extras)
     doc: dict[str, Any] = {"format_version": FORMAT_VERSION, "openppc_online": __version__,

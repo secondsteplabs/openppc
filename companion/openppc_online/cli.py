@@ -127,12 +127,18 @@ def _progress(msg: str) -> None:
     print(f"\r\x1b[K{msg[:160]}", end="", file=sys.stderr, flush=True)
 
 
+def _read(path: str) -> tuple[str, str]:
+    return path, Path(path).read_text(encoding="utf-8")
+
+
 def _site(args: argparse.Namespace) -> int:
     progress = _progress if sys.stderr.isatty() else None
+    config = [_read(p) for p in args.config]
+    baseline = _read(args.baseline) if args.baseline else None
     result, guard = site.run(args.url, max_pages=args.max_pages, max_seconds=args.max_time,
                              max_per_pattern=args.max_per_pattern, fast=args.fast, external=not args.no_external,
-                             allow_private=args.allow_private, crux_key=args.crux_key, config=args.config,
-                             baseline=args.baseline, post_to=args.post_to, rendered=args.render,
+                             allow_private=args.allow_private, crux_key=args.crux_key, config=config,
+                             baseline=baseline, post_to=args.post_to, rendered=args.render,
                              render_pages=args.render_pages, vitals_pages=args.vitals_pages,
                              render_url=args.render_url, consent_selector=args.consent_selector,
                              screenshots=args.screenshots, progress=progress)

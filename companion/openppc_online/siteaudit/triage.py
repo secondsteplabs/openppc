@@ -6,7 +6,6 @@ import json
 import re
 from dataclasses import dataclass, field, replace
 from fnmatch import fnmatchcase
-from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -115,14 +114,14 @@ class Diff:
     unchanged: int = 0
 
 
-def read_baseline(path: str) -> dict[str, tuple[str, str]]:
+def read_baseline(name: str, text: str) -> dict[str, tuple[str, str]]:
     """An earlier `openppc-online site --format json` result: instance fingerprint -> (title, item)."""
     try:
-        doc = json.loads(Path(path).read_text(encoding="utf-8"))
+        doc = json.loads(text)
         found = {fingerprint(f["id"], item): (str(f.get("title", f["id"])), item)
                  for f in doc["findings"] for item in f["items"]}
     except (ValueError, KeyError, TypeError) as e:
-        raise ValueError(f"{path} isn't an `openppc-online site --format json` result ({type(e).__name__}: {e})") from None
+        raise ValueError(f"{name} isn't an `openppc-online site --format json` result ({type(e).__name__}: {e})") from None
     return found
 
 
