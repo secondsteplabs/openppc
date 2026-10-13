@@ -1,5 +1,17 @@
 {
-  "about": "Answers tags.py and the extension's match.js must both give: test_tag_cases.py and js/extension.test.mjs read this file.",
+  "about": "Answers tags.py, the extension's match.js and the WordPress plugin must give: test_tag_cases.py, js/extension.test.mjs and php/site_check_test.php read this file. in_text is the plugin's (the extension reads no page source).",
+  "in_text": [
+    ["<script>gtag('config', 'G-ABC123XYZ');</script>", ["ga4"]],
+    ["(function(w,d,s,l,i){})(window,document,'script','dataLayer','GTM-ABC1234');", ["gtm"]],
+    ["gtag('config', 'AW-123456789'); fbq('init', '1234');", ["google-ads", "meta"]],
+    ["fbq( \"init\", \"1\"); ttq.load('X'); window._linkedin_partner_id = 1;", ["linkedin", "meta", "tiktok"]],
+    ["<script src=\"https://www.clarity.ms/tag/abc\"></script><script src=\"https://static.hotjar.com/c/hotjar.js\">", ["clarity", "hotjar"]],
+    ["s = new AppMeasurement(); UET ({ti: 1})", ["adobe", "microsoft-ads"]],
+    ["xG-ABC123XYZ and G-ABC12 and BAW-1234567", []],
+    ["AW-\u0661\u0662\u0663\u0664\u0665\u0666\u0667", []],
+    ["\u00e9G-ABC123XYZ", ["ga4"]],
+    ["<p>No tags here.</p>", []]
+  ],
   "vendor_of": [
     ["https://alb.reddit.com/rp?id=t2_x", ["reddit", "hit"]],
     ["https://px4.ads.linkedin.com/collect?pid=1", ["linkedin", "hit"]],

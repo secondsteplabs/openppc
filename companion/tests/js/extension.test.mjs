@@ -29,7 +29,8 @@ test('the matcher gives tags.py\'s answers', () => {
     assert.ok(cases[name].length > 0, name);
     for (const [given, expected] of cases[name]) assert.deepEqual(check(given), expected, `${name}(${given})`);
   }
-  assert.deepEqual(Object.keys(cases).filter((k) => k !== 'about').sort(), Object.keys(checks).sort());
+  const others = ['about', 'in_text']; // in_text is the WordPress plugin's
+  assert.deepEqual(Object.keys(cases).filter((k) => !others.includes(k)).sort(), Object.keys(checks).sort());
 });
 
 test('a page summary lists each tag\'s events once, in the order first named', () => {

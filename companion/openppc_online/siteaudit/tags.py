@@ -11,7 +11,8 @@ SIGNATURES: dict[str, Any] = json.loads((files("openppc_online.siteaudit") / "si
 VERSION: str = SIGNATURES["version"]
 VENDORS: dict[str, dict[str, Any]] = {v["id"]: v for v in SIGNATURES["vendors"]}
 CONSENT: dict[str, dict[str, Any]] = {c["id"]: c for c in SIGNATURES["consent"]}
-_SOURCE = {v["id"]: [re.compile(p) for p in v["source"]] for v in SIGNATURES["vendors"]}
+# ASCII, as PHP's PCRE reads them in the WordPress plugin: \d and \b mean ASCII digits and word edges
+_SOURCE = {v["id"]: [re.compile(p, re.ASCII) for p in v["source"]] for v in SIGNATURES["vendors"]}
 _HOSTS = {p["host"] for v in SIGNATURES["vendors"] for p in v["load"] + v["hit"] if "host" in p}
 BODY_LINES = 50   # events read from one POST body; GA4 sends at most 25 per request
 EVENT_CHARS = 100
@@ -22,7 +23,7 @@ def add_vendors(vendors: list[dict[str, Any]]) -> None:
     ponytail: process-wide, fine for one CLI run; a long-lived library user would need per-scan tables."""
     for v in vendors:
         VENDORS[v["id"]] = v
-        _SOURCE[v["id"]] = [re.compile(p) for p in v["source"]]
+        _SOURCE[v["id"]] = [re.compile(p, re.ASCII) for p in v["source"]]
         _HOSTS.update(p["host"] for p in v["load"] + v["hit"] if "host" in p)
 
 
@@ -78,11 +79,15 @@ def consent_platform_of(url: str) -> str | None:
     return next((cid for cid, c in CONSENT.items() if any(_host_is(host, h) for h in c["hosts"])), None)
 
 
+def in_text(text: str) -> set[str]:
+    """Vendors whose code or ID pattern is in the text."""
+    return {vid for vid, patterns in _SOURCE.items() if any(p.search(text) for p in patterns)}
+
+
 def in_source(info: PageInfo) -> set[str]:
     """Vendors whose script or ID is in the page's HTML. Found in the source is not the same as firing."""
     found = {v[0] for v in map(vendor_of, info.scripts) if v}
-    text = info.inline + "\n".join(info.scripts)
-    return found | {vid for vid, patterns in _SOURCE.items() if any(p.search(text) for p in patterns)}
+    return found | in_text(info.inline + "\n".join(info.scripts))
 
 
 def consent_platforms_in_source(info: PageInfo) -> set[str]:

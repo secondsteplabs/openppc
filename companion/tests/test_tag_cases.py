@@ -14,6 +14,11 @@ def _tuples(answer):
     return answer
 
 
+@pytest.mark.parametrize(("text", "found"), CASES["in_text"])
+def test_in_text(text, found):
+    assert sorted(tags.in_text(text)) == found
+
+
 @pytest.mark.parametrize(("url", "found"), CASES["vendor_of"])
 def test_vendor_of(url, found):
     assert tags.vendor_of(url) == _tuples(found)
