@@ -1,0 +1,54 @@
+{
+  "about": "Answers tags.py and the extension's match.js must both give: test_tag_cases.py and js/extension.test.mjs read this file.",
+  "vendor_of": [
+    ["https://alb.reddit.com/rp?id=t2_x", ["reddit", "hit"]],
+    ["https://px4.ads.linkedin.com/collect?pid=1", ["linkedin", "hit"]],
+    ["https://region1.google-analytics.com/g/s/collect?v=2", ["ga4", "hit"]],
+    ["https://ad.doubleclick.net/ccm/collect?en=page_view", ["google-ads", "hit"]],
+    ["https://www.google.com/rmkt/collect/123/", ["google-ads", "hit"]],
+    ["https://edge.adobedc.net/ee/v1/interact?configId=x", ["adobe", "hit"]],
+    ["https://metrics.example.com/b/ss/suite/1/JS-2.22.0", ["adobe", "hit"]],
+    ["https://assets.adobedtm.com/abc/launch-1.min.js", ["adobe-tags", "load"]],
+    ["https://www.googletagmanager.com/gtag/js?id=G-ABC123", ["ga4", "load"]],
+    ["https://www.googletagmanager.com/gtm.js?id=GTM-ABC1234", ["gtm", "load"]],
+    ["https://connect.facebook.net/en_US/fbevents.js", ["meta", "load"]],
+    ["https://www.facebook.com/tr/?id=1&ev=PageView", ["meta", "hit"]],
+    ["https://bat.bing.com/bat.js", ["microsoft-ads", "load"]],
+    ["https://cdn.taboola.com/libtrc/x.js", null],
+    ["https://notfacebook.com/tr/?ev=PageView", null]
+  ],
+  "events_of": [
+    ["https://region1.google-analytics.com/g/collect?v=2&tid=G-ABC123&en=page_view", ["ga4", ["page_view"]]],
+    ["https://www.facebook.com/tr/?id=1&ev=Purchase&cd[value]=9", ["meta", ["Purchase"]]],
+    ["https://bat.bing.com/action/0?ti=1&evt=custom&ea=submit_lead_form&ev=5", ["microsoft-ads", ["submit_lead_form"]]],
+    ["https://bat.bing.com/action/0?ti=1&evt=pageLoad", ["microsoft-ads", ["pageLoad"]]],
+    ["https://www.googleadservices.com/pagead/conversion/123/?label=x&value=9", ["google-ads", ["conversion"]]],
+    ["https://www.google.com/rmkt/collect/123/", ["google-ads", ["remarketing"]]],
+    ["https://px4.ads.linkedin.com/collect?pid=1", ["linkedin", []]],
+    ["https://www.google-analytics.com/g/collect?v=2&en=add%20to%20cart", ["ga4", ["add to cart"]]],
+    ["https://www.googletagmanager.com/gtag/js?id=G-ABC123&en=x", null]
+  ],
+  "known_host": [
+    ["connect.facebook.net", true],
+    ["c.clarity.ms", true],
+    ["cdn.taboola.com", false]
+  ],
+  "consent_platform_of": [
+    ["https://cdn.cookielaw.org/scripttemplates/otSDKStub.js", "onetrust"],
+    ["https://consent.cookiebot.com/uc.js", "cookiebot"],
+    ["https://fundingchoicesmessages.google.com/i/pub-1?ers=1", "funding-choices"],
+    ["https://cdn.example.com/cookie.js", null]
+  ],
+  "consent_mode_ping": [
+    ["https://region1.google-analytics.com/g/collect?gcs=G100", true],
+    ["https://region1.google-analytics.com/g/collect?gcs=G101", true],
+    ["https://region1.google-analytics.com/g/collect?gcs=G111", false],
+    ["https://region1.google-analytics.com/g/collect?v=2", false]
+  ],
+  "consent_mode_on": [
+    ["https://region1.google-analytics.com/g/collect?v=2&gcs=G111", true],
+    ["https://www.google.com/ccm/collect?gcd=13l3l3l3l1", true],
+    ["https://region1.google-analytics.com/g/collect?v=2", false],
+    ["https://example.com/collect?gcs=G111", false]
+  ]
+}
