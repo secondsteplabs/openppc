@@ -16,6 +16,16 @@ Needs `openppc` 0.4.
 - The browser reaches the network only through a proxy on 127.0.0.1 that applies the crawler's guard, loopback
   included.
 - THIRD_PARTY_LICENSES.md: axe-core (MPL-2.0) and Playwright.
+- **The Site view in `openppc-online app`:** a form for `openppc-online site` (with `--render` when installed),
+  its report on the page, downloads as .md, .html, .json and .sarif, and Stop. It is in the copy of the app this
+  command serves only; openppc.si is unchanged.
+- The app's job API behind it: `POST /api/jobs`, `GET /api/jobs/<id>`, `POST /api/jobs/<id>/stop`, for this
+  page only (THREAT_MODEL.md).
+
+### Fixed
+
+- `openppc-online app`: on some Windows machines a page load stalled for half a minute and came up without
+  `app.js`. The server now writes in 8 KB pieces.
 
 ### Changed
 

@@ -34,11 +34,19 @@ Opens the OpenPPC app from this computer, at `http://127.0.0.1:8766/` (or any fr
 the same app as [openppc.si/app](https://openppc.si/app/): audits and checks run in the browser tab, and your files
 stay on your computer. The line at the top of the page names openppc-online when this server is serving it.
 
-- **Hosts:** it answers only on 127.0.0.1. It connects to nothing itself; the page loads its Python runtime,
-  libraries and fonts from cdn.jsdelivr.net, as on openppc.si.
+It adds one view openppc.si doesn't have: **Site**, in the left rail, runs `openppc-online site` (below) from a
+form. It has the start page, page and time limits, fast, external links, private addresses, `--render` with its
+extra pages and consent selector, rule packs, a baseline and a CrUX key. It shows the report and downloads it as
+.md, .html, .json or .sarif. Stop ends the run at its next step and keeps what was crawled, as Ctrl-C does.
+`--post-to` and `--screenshots` are command-line only. The run happens in this process, one at a time; the page
+keeps the last few results in memory and writes nothing to disk.
+
+- **Hosts:** it answers only on 127.0.0.1. Serving the app connects to nothing; the page loads its Python runtime,
+  libraries and fonts from cdn.jsdelivr.net, as on openppc.si. A site audit connects to what
+  `openppc-online site` connects to.
 - **Security:** it answers only to its own address, and the page gets a new token on each run, which every call to
-  this server needs. [THREAT_MODEL.md](https://github.com/secondsteplabs/openppc/blob/main/companion/THREAT_MODEL.md)
-  has the details.
+  this server needs; a site audit can be started only by that page.
+  [THREAT_MODEL.md](https://github.com/secondsteplabs/openppc/blob/main/companion/THREAT_MODEL.md) has the details.
 
 Exit codes: 0 when it stops normally (Ctrl-C), 1 for bad input, as `openppc` uses them.
 

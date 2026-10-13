@@ -53,13 +53,14 @@ jobs:
       - run: python tools/stage_companion_web.py
       - run: pip install build==1.6.1
       - run: python -m build companion
-      - name: The wheel carries the app, local.js, the site check's data files and the license
+      - name: The wheel carries the app, the local files, the site check's data files and the license
         shell: python
         run: |
           import glob, zipfile
           names = set(zipfile.ZipFile(glob.glob("companion/dist/*.whl")[0]).namelist())
           need = {f"openppc_online/web/{f}" for f in ("index.html", "app.js", "engine.js", "engine-worker.js", "style.css")}
-          need |= {"openppc_online/local/local.js", "openppc_online/siteaudit/signatures.json",
+          need |= {"openppc_online/local/local.js", "openppc_online/local/site.js", "openppc_online/local/site.css",
+                   "openppc_online/siteaudit/signatures.json",
                    "openppc_online/siteaudit/vendor/axe.min.js"}
           need |= {f"openppc_online/schemas/site-{f}.schema.json" for f in ("config", "report")}
           missing = need - names

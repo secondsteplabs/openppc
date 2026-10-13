@@ -35,7 +35,8 @@ CLONE_WEB = PACKAGE.parent.parent / "web"  # a clone of the repository serves it
 LOCAL = PACKAGE / "local"                 # what only this copy of the app has
 PORT = 8766
 TIMEOUT = 30  # seconds a connection may sit idle: a slow client can't hold a thread for good
-CHUNK = 65_536  # bytes per socket write: one ~1 MB write on Windows loopback can stall the reader for good
+CHUNK = 8_192  # bytes per socket write: on some Windows machines a 64 KB write to a loopback reader stalls until
+               # the connection times out, and the page loads without app.js
 HOSTED_CONNECT = "connect-src https://cdn.jsdelivr.net"  # web/index.html's policy
 LOCAL_CONNECT = "connect-src 'self' https://cdn.jsdelivr.net"
 POLICY = re.compile(r'<meta http-equiv="Content-Security-Policy" content="([^"]+)">')
@@ -68,13 +69,16 @@ def _once(text: str, old: str, new: str) -> str:
 
 
 def page(web: Path, token: str) -> tuple[bytes, str]:
-    """(web/index.html with the token and local.js in it, and its policy): the hosted page, allowed to call this
-    server. A change to the hosted page's policy stops the server rather than serve a page that half works."""
+    """(web/index.html with the token and the local files in it, and its policy): the hosted page, allowed to call
+    this server. A change to the hosted page's policy stops the server rather than serve a page that half works."""
     html = (web / "index.html").read_text(encoding="utf-8")
     html = _once(html, HOSTED_CONNECT + ";", LOCAL_CONNECT + ";")
     html = _once(html, '<meta charset="utf-8">', f'<meta charset="utf-8">\n<meta name="openppc-local" content="{token}">')
-    html = _once(html, '<script defer src="app.js"></script>',
-                 '<script defer src="app.js"></script>\n<script defer src="local.js"></script>')
+    html = _once(html, '<link rel="stylesheet" href="style.css">',
+                 '<link rel="stylesheet" href="style.css">\n<link rel="stylesheet" href="site.css">')
+    html = _once(html, '<script defer src="app.js"></script>',  # after app.js: site.js uses its helpers
+                 '<script defer src="app.js"></script>\n<script defer src="local.js"></script>\n'
+                 '<script defer src="site.js"></script>')
     policy = POLICY.search(html)
     if policy is None:
         raise RuntimeError("web/index.html has no Content-Security-Policy. Update openppc_online/app.py to match.")
@@ -84,7 +88,7 @@ def page(web: Path, token: str) -> tuple[bytes, str]:
 def files(web: Path) -> dict[str, tuple[bytes, str]]:
     """Every file the page may load, by address, read once: nothing else on disk can be asked for."""
     found = [p for p in web.iterdir() if p.is_file() and p.suffix in TYPES and p.name != "index.html"]
-    found.append(LOCAL / "local.js")
+    found += [LOCAL / "local.js", LOCAL / "site.js", LOCAL / "site.css"]
     return {f"/{p.name}": (p.read_bytes(), TYPES[p.suffix]) for p in found}
 
 

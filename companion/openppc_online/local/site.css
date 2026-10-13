@@ -1,0 +1,13 @@
+/* The Site view (site.js), only in the copy of the app that `openppc-online app` serves. */
+.site-wide { width: 100%; }
+.site-checks { display: flex; flex-direction: column; gap: 10px; }
+.site-check { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; line-height: 1.45; cursor: pointer; }
+.site-check input { width: 18px; height: 18px; margin: 1px 0 0; flex-shrink: 0; accent-color: var(--accent); }
+.site-check b { font-weight: 600; color: var(--ink); }
+.site-area { width: 320px; max-width: 100%; min-height: 72px; padding: 10px 12px; border: 1px solid var(--field); border-radius: 8px; background: #ffffff; font-size: 14px; resize: vertical; }
+.site-more > summary { font-size: 14px; font-weight: 600; color: var(--ink3); cursor: pointer; }
+.site-more > .controls { margin-top: 12px; }
+.status.loading { color: var(--muted); }
+@media (max-width: 720px) {
+  .rail .ri { width: 58px; }  /* a sixth item still fits a 360 px phone */
+}
