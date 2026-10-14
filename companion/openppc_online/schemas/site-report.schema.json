@@ -76,6 +76,12 @@
     "robots_blocked": {"type": "array", "items": {"type": "string"}},
     "skipped": {"type": "object", "additionalProperties": {"type": "integer"}},
     "llms_txt": {"type": "boolean"},
+    "ad_params": {"description": "The start page asked for with ad click IDs set to OPENPPC-TEST; null when it wasn't.",
+                  "oneOf": [{"type": "null"}, {
+                    "type": "object", "required": ["url", "final_url", "redirects", "dropped"],
+                    "properties": {"url": {"type": "string"}, "final_url": {"type": "string"},
+                                   "redirects": {"type": "integer", "minimum": 0},
+                                   "dropped": {"type": "array", "items": {"type": "string"}}}}]},
     "tags": {"type": "object", "additionalProperties": {
       "type": "object", "required": ["source", "loaded", "before", "ping", "after"],
       "additionalProperties": {"type": "boolean"}}},
@@ -118,6 +124,8 @@
                               "accessibility", "performance"]},
         "severity": {"enum": ["high", "medium", "low", "info"]},
         "effort": {"enum": ["low", "medium", "high"]},
+        "who": {"description": "Who usually makes the fix.",
+                "enum": ["developer", "hosting", "tag manager", "developer or hosting"]},
         "title": {"type": "string"},
         "unit": {"type": "string"},
         "fix": {"type": "string"},

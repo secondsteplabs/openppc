@@ -33,6 +33,14 @@ Semantic versioning, as in OpenPPC. Each release names the `openppc` versions it
 - **Plain words for clients:** a "What the speed measures mean" section (what each measure means for someone who
   clicked an ad), a line in plain words on the ten Lighthouse audits that fail most on landing pages, and a glossary
   of the terms the report uses (`siteaudit/words.py`).
+- **A summary a client can read, in the app's Site view,** above the full report: pass, warn or fail answers to
+  four questions (loads fast on phones, the tags fire, consent works, ad click IDs survive redirects), score gauges in
+  PageSpeed's colours with their source, the real-visitor verdict, phone and desktop measures in plain words, the
+  top three fixes with who usually makes each, one next step, Re-check (this result becomes the baseline), a
+  glossary, an agency name and a print layout for a one-page PDF. A quick check of one page offers "Check with Google
+  PageSpeed" and "Check on this computer only" as equal buttons, chosen each run. "Loads fast on phones" comes only
+  from PageSpeed or real visitors; Performance shows no gauge when it is the rough estimate.
+- JSON: `who` on findings (developer, hosting, tag manager) and `ad_params` (the redirect check's result).
 - The app's Site form gains "One page only", "Measure with PageSpeed Insights" and a PSI key field.
 - JSON: a top-level `speed` list (each Lighthouse result, its metrics, categories and audits, and its real-visitor
   data), `single`, `scores.<area>.method`, and `device`, `shares`, `verdict` and `source` on `field_data` items and

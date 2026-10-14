@@ -36,7 +36,13 @@ stay on your computer. The line at the top of the page names openppc-online when
 
 It adds one view openppc.si doesn't have: **Site**, in the left rail, runs `openppc-online site` (below) from a
 form. It has the start page, page and time limits, fast, external links, private addresses, `--render` with its
-extra pages and consent selector, rule packs, a baseline and a CrUX key. It shows the report and downloads it as
+extra pages and consent selector, `--single`, `--psi`, rule packs, a baseline, and CrUX and PSI keys. A quick check
+of one page has two equal buttons, "Check with Google PageSpeed" (the address goes to Google) and "Check on this
+computer only", chosen each run and never kept. Above the report, a summary a client can read: four pass, warn or
+fail answers (loads fast on phones, the tags fire, consent works, ad click IDs survive redirects), the scores as
+gauges, real visitors' verdict, phone and desktop measures in plain words, the top three fixes with who usually makes
+each, one next step, and Re-check, which runs it again with this result as the baseline. An agency name, typed on
+the form, is printed on it, and printing it (or saving as PDF) gives the summary alone. The report downloads as
 .md, .html, .json or .sarif. Stop ends the run at its next step and keeps what was crawled, as Ctrl-C does.
 `--post-to` and `--screenshots` are command-line only.
 

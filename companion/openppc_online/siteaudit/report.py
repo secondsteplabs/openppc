@@ -23,7 +23,7 @@ from .checks import (
     home,
     tracking,
 )
-from .crawl import MAX_QUERY_VARIANTS, Crawl
+from .crawl import MAX_QUERY_VARIANTS, Crawl, dropped_ad_params
 from .crux import ALL_METRICS, NO_DATA, FieldData
 from .lab import lhr
 from .lab.lhr import Speed
@@ -628,7 +628,8 @@ def data(c: Crawl, r: Rendered | None, findings: list[Finding], extras: Extras |
         "inconclusive": sick, "seconds": round(c.seconds, 1), "signatures": SIGNATURES,
         "fingerprint_recipe": FINGERPRINT, "config": x.config,
         "findings": [{"id": f.id, "rule": f.rule, "category": f.about.category, "severity": f.level,
-                      "effort": f.about.effort, "title": _title(f), "unit": f.about.unit, "fix": f.about.fix,
+                      "effort": f.about.effort, "who": f.who, "title": _title(f), "unit": f.about.unit,
+                      "fix": f.about.fix,
                       "custom": f.spec is not None, "fingerprint": fingerprint(f.id),
                       "items": f.items, "notes": f.notes} for f in findings],
         "scores": as_data(graded), "overall": None if mean is None else {"score": round(mean), "grade": grade(mean)},
@@ -644,6 +645,9 @@ def data(c: Crawl, r: Rendered | None, findings: list[Finding], extras: Extras |
         "home": home(c).url,
         "sitemap": {"files": c.sitemap_files, "urls": len(c.sitemap_urls), "errors": c.sitemap_errors},
         "robots_blocked": sorted(c.robots_blocked), "skipped": dict(c.skipped), "llms_txt": c.llms_txt,
+        "ad_params": None if not c.ad_params or not c.ad_params.status else {
+            "url": c.ad_params.url, "final_url": c.ad_params.final_url, "redirects": len(c.ad_params.hops),
+            "dropped": dropped_ad_params(c.ad_params)},
         "tags": tracking(c, r), "events": events(r),
         "rendered": None if not r else {
             "pages": [{"url": o.url, "error": o.error, "consent": o.consent, "accepted": o.accepted,

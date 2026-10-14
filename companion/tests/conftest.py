@@ -1,10 +1,30 @@
 import http.client
+import socket
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
+from sites import PSI_HOST, PUBLIC
 
 from openppc_online import app
+
+
+@pytest.fixture
+def public(monkeypatch):
+    """Names resolve to a public address, and connecting to it reaches this computer: the guard sees a public site,
+    so --psi accepts it, and nothing leaves the computer. Every name looked up is recorded."""
+    seen = []
+    real_lookup = socket.getaddrinfo
+
+    def lookup(host, port, *args, **kw):
+        seen.append(host)
+        if host == PUBLIC:
+            return real_lookup("127.0.0.1", port, *args, **kw)
+        if host in ("shop.test", PSI_HOST):
+            return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", (PUBLIC, port))]
+        raise socket.gaierror(f"{host} isn't resolved in this test")
+    monkeypatch.setattr(socket, "getaddrinfo", lookup)
+    return seen
 
 
 @pytest.fixture

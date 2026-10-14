@@ -42,6 +42,9 @@ review of the diff, before each release that changes any of them.
 | The audited site's text in the app's page | The Site and Download views (`local/site.js`, `local/fetch.js`) build their page as text nodes and write no markup themselves; the report goes through the app's own renderer, which shows any HTML in it as text and sanitizes the rest (DOMPurify), and the site's text is in code spans or escaped already | `test_the_view_writes_no_markup_of_its_own`, `test_the_sites_own_text_never_becomes_markup_in_the_report` |
 | The CrUX key leaking | It arrives in the request body and goes to the run only; no job view, progress line, error or report carries it | `test_the_crux_key_goes_to_the_run_and_never_comes_back` |
 | The PageSpeed Insights key leaking | The same: the request body, then the run only | `test_psi_and_one_page_only_reach_the_run_and_the_psi_key_never_comes_back` |
+| Asking Google without meaning to | The quick check's two buttons decide each run on their own and change no tick, so a PageSpeed run never carries over; "Check on this computer only" drops a typed PSI key, since a key alone would ask Google. Re-check repeats the last run exactly as sent | `test_the_quick_check_with_pagespeed_shows_its_score_on_the_summary` |
+| The agency name on the summary | Typed into the page and never sent to the server or kept; at most 80 characters, control characters removed, written as a text node | `test_the_site_view_audits_downloads_stops_and_steps_aside`, `test_the_view_writes_no_markup_of_its_own` |
+| The summary misreporting the report | It is built from the run's own JSON and adds no number; Performance is a gauge only when it is a Lighthouse speed score, never the rough estimate from lab loads here | `test_the_site_view_audits_downloads_stops_and_steps_aside`, `test_the_quick_check_with_pagespeed_shows_its_score_on_the_summary` |
 | A download's credentials leaking or staying | They arrive in the request body and go to that job only, never to the environment; no job view, progress line, error or result carries them, and they are cleared when the job ends, finished, failed or stopped | `test_a_download_comes_back_as_the_files_and_their_templates`, `test_a_failure_is_explained_without_any_credential`, `test_the_credentials_are_dropped_when_the_download_ends` |
 | Another site reading the token | The token is only in the page, which another origin can't read; `Cross-Origin-Resource-Policy: same-origin` on every answer | `test_the_apps_files_are_served` |
 | Guessing the token | 32 random bytes per run, compared in constant time, as bytes (a header that isn't ASCII is refused, not an error) | `test_the_api_needs_this_runs_token` |
@@ -60,6 +63,8 @@ review of the diff, before each release that changes any of them.
   credentials, which the page's form keeps only until a download succeeds or the page closes, and a finished job
   no longer has. On a shared
   computer, stop the app when you are done.
+- **Re-check keeps the last run in the page's memory,** keys included, until the page closes or reloads, as the
+  form's own fields do. Nothing is written to the browser's storage.
 - **Credentials typed into a page** can be read by what runs in that browser: its extensions, and a password
   manager that offers to save them. Use a browser profile you trust, or the command with environment variables.
 - **Stop is not instant.** It takes effect at the run's next progress line, so a page that is slow to answer

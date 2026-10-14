@@ -215,6 +215,12 @@ CATEGORIES = {"crawl": "The crawl", "seo": "On-page SEO", "links": "Links", "ind
               "structured-data": "Structured data", "security": "HTTPS and security", "ai": "AI crawlers",
               "tracking": "Tracking and consent", "accessibility": "Accessibility (automated checks only)",
               "performance": "Performance"}
+# who usually makes the fix, for the app's summary: by area, then the rules whose fix lives elsewhere
+WHO = {"crawl": "hosting", "seo": "developer", "links": "developer", "indexing": "developer",
+       "structured-data": "developer", "security": "hosting", "ai": "developer", "tracking": "tag manager",
+       "accessibility": "developer", "performance": "developer"}
+WHO_RULE = {"site-mixed-content": "developer", "site-crawl-error": "hosting", "site-robots-unreachable": "hosting",
+            "site-ad-params-dropped": "developer or hosting"}
 
 
 @dataclass
@@ -238,6 +244,10 @@ class Finding:
     @property
     def level(self) -> str:
         return self.severity or self.about.severity
+
+    @property
+    def who(self) -> str:
+        return WHO_RULE.get(self.rule) or WHO.get(self.about.category, "developer")
 
 
 def code(text: str) -> str:

@@ -2,12 +2,11 @@
 the report's speed score, real-visitor and Lighthouse audit sections. Nothing here reaches Google: PSI is a local
 server, and the fitness test maps the names it uses to a public address that connects to this computer."""
 import json
-import socket
 from pathlib import Path
 
 import jsonschema
 import pytest
-from sites import by_id, local, page
+from sites import PSI_HOST, PUBLIC, by_id, local, page
 
 from openppc_online.cli import main
 from openppc_online.siteaudit import checks, crux, words
@@ -20,9 +19,6 @@ COMPANION = Path(__file__).resolve().parent.parent
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 LHR = json.loads((FIXTURES / "lhr-13.5-mobile.json").read_text(encoding="utf-8"))
 SCHEMA = json.loads((COMPANION / "openppc_online" / "schemas" / "site-report.schema.json").read_text(encoding="utf-8"))
-PUBLIC = "93.184.215.14"   # a public address; the fitness test connects it to this computer
-PSI_HOST = "pagespeedonline.googleapis.com"
-
 
 def _share(good, middle, poor):
     return [{"min": 0, "max": 1, "proportion": good}, {"min": 1, "max": 2, "proportion": middle},
@@ -173,24 +169,6 @@ def test_the_page_is_shown_first_and_the_site_stands_in_when_it_has_too_few_visi
     empty = [crux.from_psi(None, c.start, False, "phone"), crux.from_psi(None, base, True, "phone")]
     markdown, _, passed = report(c, None, [], Extras(field_data=empty))
     assert passed and "Not enough real visitors yet" in markdown
-
-
-@pytest.fixture
-def public(monkeypatch):
-    """Names resolve to a public address, and connecting to it reaches this computer: the guard sees a public site,
-    so --psi accepts it, and nothing leaves the computer. Every name looked up is recorded."""
-    seen = []
-    real_lookup = socket.getaddrinfo
-
-    def lookup(host, port, *args, **kw):
-        seen.append(host)
-        if host == PUBLIC:
-            return real_lookup("127.0.0.1", port, *args, **kw)
-        if host in ("shop.test", PSI_HOST):
-            return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", (PUBLIC, port))]
-        raise socket.gaierror(f"{host} isn't resolved in this test")
-    monkeypatch.setattr(socket, "getaddrinfo", lookup)
-    return seen
 
 
 def test_psi_contacts_only_its_declared_host_and_the_key_never_shows(serve, public, tmp_path, capsys, monkeypatch):

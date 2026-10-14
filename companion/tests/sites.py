@@ -1,6 +1,9 @@
 """Websites for the site check's tests, served on 127.0.0.1 by the `serve` fixture."""
 from openppc_online.siteaudit.net import Guard
 
+PUBLIC = "93.184.215.14"   # a public address; the `public` fixture connects it to this computer
+PSI_HOST = "pagespeedonline.googleapis.com"
+
 
 def local():
     """A guard on which every name resolves to the test server's address, so another "site" is just another host
