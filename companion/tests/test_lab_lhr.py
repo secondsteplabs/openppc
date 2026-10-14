@@ -10,10 +10,10 @@ import pytest
 from sites import by_id, local, page
 
 from openppc_online.cli import main
-from openppc_online.siteaudit import checks, crux
+from openppc_online.siteaudit import checks, crux, words
 from openppc_online.siteaudit.crawl import crawl
 from openppc_online.siteaudit.lab import lhr, psi
-from openppc_online.siteaudit.net import Guard
+from openppc_online.siteaudit.net import Guard, Response
 from openppc_online.siteaudit.report import Extras, data, report
 
 COMPANION = Path(__file__).resolve().parent.parent
@@ -49,6 +49,7 @@ def test_the_parity_matrix_maps_every_audit_in_the_fixtures():
         assert audits <= set(mapped), sorted(audits - set(mapped))
     assert {m.openppc for m in mapped.values()} - {"", "llms.txt"} <= set(checks.RULES)
     assert {m.section for m in mapped.values()} == {"ad-click", "other"}
+    assert set(words.AUDITS) <= {a for a, m in mapped.items() if m.section == "ad-click"}
 
 
 def test_psi_real_visitor_data_reads_as_pagespeed_shows_it():
@@ -84,6 +85,14 @@ def test_psi_is_asked_through_the_guard_with_the_key_in_a_header(serve, monkeypa
     assert [(d.origin, d.device) for d in s.field_data] == [(False, "phone"), (True, "phone")]
     monkeypatch.setattr(psi, "ENDPOINT", api + "/quota")
     assert psi.measure_one("https://a.test/", "mobile", "", local()).error == psi.QUOTA
+    calls = []
+
+    def dropped(url, *a, **kw):
+        calls.append(url)
+        return Response(url, url, 0, error="ConnectionResetError" if len(calls) == 1 else "timed out")
+    monkeypatch.setattr(psi, "fetch", dropped)
+    assert psi.measure_one("https://a.test/", "mobile", "", local()).error.endswith("timed out") and len(calls) == 2
+    monkeypatch.undo()
     monkeypatch.setattr(psi, "ENDPOINT", api + "/refused")
     assert psi.measure_one("https://a.test/", "desktop", "SENTINEL-PSI-KEY", local()).error == \
         "the PSI key was refused"
@@ -142,6 +151,11 @@ def test_the_speed_score_is_the_performance_area_and_the_report_traces(serve):
         assert heading in markdown, heading
     assert "Core Web Vitals assessment: **failed**" in markdown and "61%" in markdown
     assert "Web Vitals) need a browser" not in markdown   # the LHR covered them
+    plain = markdown.split("## What the speed measures mean")[1].split("\n## ")[0]
+    assert all(f"**{name}:**" in plain for name, _ in words.MEASURES.values())  # PSI shows all seven
+    assert f"In plain words: {words.AUDITS['render-blocking-insight']}" in markdown
+    glossary = markdown.split("## Glossary")[1]
+    assert "**Lighthouse:**" in glossary and "**p75:**" in glossary and "**Canonical:**" not in glossary
     doc = data(c, None, findings, extras)
     perf = doc["scores"]["performance"]
     assert perf["score"] == score and perf["method"] == "PageSpeed Insights speed score"
@@ -191,8 +205,9 @@ def test_psi_contacts_only_its_declared_host_and_the_key_never_shows(serve, publ
     public.clear()
     assert main(["site", start, "--single", "--fast", "--psi-key", key, "--format", "json", "--out", str(out)]) == 0
     assert set(public) == {"shop.test", PSI_HOST, PUBLIC}
-    asked = [headers for path, headers in serve.heard if path.startswith("/psi")]
-    assert len(asked) == 2 and all(h["X-Goog-Api-Key"] == key for h in asked)   # a phone and a desktop
+    asked = [(path, headers) for path, headers in serve.heard if path.startswith("/psi")]
+    assert {"mobile" if "strategy=mobile" in p else "desktop" for p, _ in asked} == {"mobile", "desktop"}
+    assert all(h["X-Goog-Api-Key"] == key for _, h in asked)
     text = out.read_text(encoding="utf-8")
     assert key not in text + capsys.readouterr().err
     doc = json.loads(text)

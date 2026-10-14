@@ -1,5 +1,6 @@
 """The site audit report. Like every OpenPPC report, each number in it is registered as a fact first,
 and the finished markdown is run through the number check before anyone sees it."""
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -30,6 +31,7 @@ from .lab.score import BANDS
 from .lab.throttle import DESKTOP, LOAD_CAP_MS, MOBILE
 from .net import ROBOTS_TOKEN
 from .render import AXE_VERSION, BLOCK_HITS, PROFILE, RENDER_FLAG, Rendered, Vitals
+from . import words
 from .tags import VENDORS
 from .tags import VERSION as SIGNATURES
 from .triage import (
@@ -213,13 +215,36 @@ def _markdown(c: Crawl, r: Rendered | None, findings: list[Finding], extras: Ext
             out += [f"- [ ] {x}" for x in MANUAL_CHECKS]
 
     out += _tracking_table(c, r)
+    out += _meanings(extras.speed, r, extras.field_data)
     out += _speed_section(extras.speed, book)
     out += _vitals_tables(r, book, bool(extras.speed))
     out += _field_table(extras.field_data, book)
     out += _all_audits(extras.speed, book)
     out += _suppressed(extras.suppressed, book)
     out += _crawl_notes(c, r, book)
+    out += _glossary("\n".join(out))
     return out
+
+
+def _meanings(speed: list[Speed], r: Rendered | None, field_data: list[FieldData]) -> list[str]:
+    """A line for each speed measure the report shows, in plain words."""
+    shown: set[str] = set()
+    if any(s.metrics for s in speed):
+        shown |= {"fcp", "lcp", "tbt", "cls", "si"}
+    if r and any(v.runs for v in r.vitals):
+        shown |= {"lcp", "cls", "tbt"}
+    if any(d.p75 for d in field_data):
+        shown |= {"fcp", "lcp", "inp", "cls", "ttfb"}
+    if not shown:
+        return []
+    return ["", "## What the speed measures mean", "", words.WHY, ""] + [
+        f"- **{name}:** {line}" for key, (name, line) in words.MEASURES.items() if key in shown]
+
+
+def _glossary(text: str) -> list[str]:
+    used = [(term, line) for term, marks, line in words.GLOSSARY
+            if any(re.search(rf"\b{re.escape(m)}\b", text) for m in marks)]
+    return ["", "## Glossary", ""] + [f"- **{term}:** {line[0].upper() + line[1:]}" for term, line in used]
 
 
 def _scores(graded: dict[str, Score], book: FactBook, start: Speed | None = None) -> list[str]:
@@ -501,8 +526,10 @@ def _all_audits(speed: list[Speed], book: FactBook) -> list[str]:
                     title = _clean(a.title)
                     _text_numbers(book, title, f"Lighthouse audit title {a.id}")
                     also = mapped[a.id].openppc if a.id in mapped else ""
+                    plain = words.AUDITS.get(a.id, "")
                     out.append(f"- {lead}: {title} (`{a.id}`" + (f"; OpenPPC: `{also}`" if also else "") + ")"
-                               + (f", `{a.docs}`" if a.docs else ""))
+                               + (f", `{a.docs}`" if a.docs else "")
+                               + (f". In plain words: {plain}" if plain else ""))
             passed = sum(a.result == "passed" for a in group)
             na = sum(a.result == "n/a" for a in group)
             out.append(f"- Passed: {n(f'Lighthouse audits passed in {cat} {heading}', passed)}; not applicable: "

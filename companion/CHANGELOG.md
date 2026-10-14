@@ -30,6 +30,9 @@ Semantic versioning, as in OpenPPC. Each release names the `openppc` versions it
   `gclid`, `gbraid`, `wbraid`, `msclkid`, `fbclid` and the five `utm_` parameters set to `OPENPPC-TEST`, and a
   redirect that loses or changes any of them is a high finding. Server redirects only, for now: a redirect in
   JavaScript, or a script that rewrites the address, isn't seen. The site's logs and CRM may record the test value.
+- **Plain words for clients:** a "What the speed measures mean" section (what each measure means for someone who
+  clicked an ad), a line in plain words on the ten Lighthouse audits that fail most on landing pages, and a glossary
+  of the terms the report uses (`siteaudit/words.py`).
 - The app's Site form gains "One page only", "Measure with PageSpeed Insights" and a PSI key field.
 - JSON: a top-level `speed` list (each Lighthouse result, its metrics, categories and audits, and its real-visitor
   data), `single`, `scores.<area>.method`, and `device`, `shares`, `verdict` and `source` on `field_data` items and

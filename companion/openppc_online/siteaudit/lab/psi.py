@@ -81,8 +81,11 @@ def _error(status: int, body: bytes) -> str:
 
 def measure_one(url: str, device: str, key: str, guard: Guard, screenshots: bool = False) -> Speed:
     query = urlencode([("url", url), ("strategy", device)] + [("category", c) for c in CATEGORIES])
-    resp = fetch(f"{ENDPOINT}?{query}", guard, max_bytes=MAX_BYTES, follow=False, seconds=TIMEOUT, timeout=TIMEOUT,
-                 headers={"Accept": "application/json", **({"X-Goog-Api-Key": key} if key else {})})
+    for _ in range(2):  # a dropped connection is asked once more; a refusal or a timeout (two minutes gone) isn't
+        resp = fetch(f"{ENDPOINT}?{query}", guard, max_bytes=MAX_BYTES, follow=False, seconds=TIMEOUT,
+                     timeout=TIMEOUT, headers={"Accept": "application/json", **({"X-Goog-Api-Key": key} if key else {})})
+        if resp.status or resp.refused or resp.error == "timed out":
+            break
     failed = Speed(url, device, SOURCE)
     if resp.status == 0:
         failed.error = f"couldn't reach PageSpeed Insights: {resp.error}"
