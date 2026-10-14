@@ -4,6 +4,13 @@ Semantic versioning, as in OpenPPC. Each release names the `openppc` versions it
 
 ## Unreleased (0.6.0)
 
+### Added
+
+- **Measuring sends no visits to the site's analytics.** The Web Vitals loads answer tag hits (GA4, Google Ads,
+  Meta, LinkedIn and the rest of `signatures.json`) with an empty 204 on this computer; the tag scripts still load,
+  so their cost is measured. The report says how many were answered, and the JSON's `vitals` items gain
+  `hits_answered`. The tags and consent pass stays a real visit.
+
 ### Changed
 
 - **Lab Web Vitals load the page as Lighthouse loads its own tab** (`siteaudit/lab/throttle.py`): a Moto G Power

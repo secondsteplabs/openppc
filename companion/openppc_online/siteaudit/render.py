@@ -19,7 +19,7 @@ from urllib.parse import urlsplit
 from .crawl import Crawl
 from .lab.throttle import LOAD_CAP_MS, MOBILE, Profile
 from .net import Guard, GuardProxy
-from .tags import CONSENT, consent_platform_of, events_of, vendor_of
+from .tags import CONSENT, consent_platform_of, events_of, hit_patterns, is_hit, vendor_of
 
 try:
     from playwright.sync_api import Error as PlaywrightError
@@ -36,6 +36,9 @@ VITALS_RUNS = 3              # the median of this many loads is reported
 VITALS_PAGES = 1             # pages measured, from the first rendered (the home page) on
 VITALS_SETTLE_MS = 5000
 PROFILE = f"lab, {MOBILE.label}"
+# Speed loads answer tag hits themselves (204), so measuring a page sends no visits to its analytics or ad accounts;
+# the tag and consent load stays real. The owner's open question 1 (SITE_AUDIT_PARITY_PLAN.md) may turn it off.
+BLOCK_HITS = True
 AXE_TAGS = ("wcag2a", "wcag2aa", "wcag21a", "wcag21aa")
 AXE_VERSION = "4.10.3"
 METRICS = ("lcp", "cls", "tbt", "fcp", "ttfb")
@@ -125,6 +128,7 @@ class Vitals:
     error: str = ""
     details: dict[str, Any] = field(default_factory=dict)  # from the first run: DETAILS
     capped: int = 0            # loads still going at LOAD_CAP_MS, measured as they were then
+    hits_answered: int = 0     # tag hits the speed loads answered themselves (BLOCK_HITS)
 
     @property
     def median(self) -> dict[str, float | None]:
@@ -250,13 +254,35 @@ def _observe(browser: Any, url: str, consent_selector: str, screenshot: str = ""
     return o
 
 
-def _vitals_run(browser: Any, url: str, profile: Profile = MOBILE) -> tuple[dict[str, Any], bool]:
-    """One measured load, and whether it was still loading at LOAD_CAP_MS (Lighthouse measures it anyway)."""
+def _answer_hits(cdp: Any, answered: list[str]) -> None:
+    """Tag hits get an empty 204 from here; everything else, and anything that goes wrong, continues to the network.
+    CDP's Fetch, not page.route, which would turn the HTTP cache off and send every request through Python."""
+    def paused(event: dict[str, Any]) -> None:
+        url, request = event["request"]["url"], {"requestId": event["requestId"]}
+        try:
+            if event.get("resourceType") != "Document" and is_hit(url):
+                cdp.send("Fetch.fulfillRequest", {**request, "responseCode": 204})
+                answered.append(url)
+                return
+        except PlaywrightError:
+            pass
+        with contextlib.suppress(PlaywrightError):  # the page may have gone, with its request
+            cdp.send("Fetch.continueRequest", request)
+    cdp.on("Fetch.requestPaused", paused)
+    cdp.send("Fetch.enable", {"patterns": [{"urlPattern": p, "requestStage": "Request"} for p in hit_patterns()]})
+
+
+def _vitals_run(browser: Any, url: str, profile: Profile = MOBILE) -> tuple[dict[str, Any], bool, int]:
+    """One measured load, whether it was still loading at LOAD_CAP_MS (Lighthouse measures it anyway), and the tag
+    hits it answered."""
     context = browser.new_context(service_workers="block", accept_downloads=False, **profile.context())
+    answered: list[str] = []
     try:
         page = context.new_page()
         page.add_init_script(VITALS_JS)
         cdp = context.new_cdp_session(page)
+        if BLOCK_HITS:
+            _answer_hits(cdp, answered)
         cdp.send("Emulation.setCPUThrottlingRate", {"rate": profile.cpu})
         if network := profile.network():
             cdp.send("Network.enable")
@@ -267,7 +293,7 @@ def _vitals_run(browser: Any, url: str, profile: Profile = MOBILE) -> tuple[dict
         except PlaywrightTimeout:
             capped = True
         page.wait_for_timeout(VITALS_SETTLE_MS)
-        return dict(page.evaluate("() => window.__openppcVitals()")), capped
+        return dict(page.evaluate("() => window.__openppcVitals()")), capped, len(answered)
     finally:
         context.close()
 
@@ -328,11 +354,12 @@ def render(c: Crawl, guard: Guard, pages: int = RENDER_PAGES, consent_selector: 
                     if progress:
                         progress(f"measuring Web Vitals on {url}, run {n + 1} of {VITALS_RUNS}")
                     try:
-                        run, capped = _vitals_run(browser, url)
+                        run, capped, answered = _vitals_run(browser, url)
                     except PlaywrightError as e:
                         v.error = str(e).splitlines()[0]
                         break  # a page that fails once fails again, a minute each
                     v.capped += capped
+                    v.hits_answered += answered
                     details = {k: run.pop(k, None) for k in DETAILS}
                     v.details = v.details or details
                     v.runs.append(run)

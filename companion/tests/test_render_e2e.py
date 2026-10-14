@@ -119,6 +119,7 @@ def test_the_browser_pass_sees_tags_consent_accessibility_and_vitals(shop, tmp_p
     assert findings["site-js-only-links"].items == [shop + "/spa/page"]
     v = r.vitals[0]
     assert len(r.vitals) == 1 and len(v.runs) == 3 and v.median["lcp"] is not None
+    assert v.hits_answered == 6  # each speed load's GA4 and Adobe hits answered here, the tags still loaded
     assert v.details["lcp_element"] and isinstance(v.details["heavy"], list)
     markdown, _, passed = report(c, r, list(findings.values()))
     assert passed, markdown

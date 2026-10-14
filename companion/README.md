@@ -101,7 +101,9 @@ playwright install chromium
 ```
 
 The browser keeps no cookies between pages, runs no service workers, downloads nothing, and reaches the network
-only through the check's own guard, on 127.0.0.1, for as long as the pass runs.
+only through the check's own guard, on 127.0.0.1, for as long as the pass runs. The Web Vitals loads answer tag
+hits themselves, so measuring a page sends no visits to its analytics or ad accounts; the tags and consent pass is
+a real visit.
 
 | Flag | What it does |
 | --- | --- |

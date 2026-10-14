@@ -50,6 +50,31 @@ def vendor_of(url: str) -> tuple[str, str] | None:
     return None
 
 
+def is_hit(url: str) -> bool:
+    """A request that reports a visit or an event to a tag's vendor."""
+    match = vendor_of(url)
+    return match is not None and match[1] == "hit"
+
+
+def _glob(text: str) -> str:
+    return "".join("\\" + ch if ch in "*?\\" else ch for ch in text)
+
+
+def hit_patterns() -> list[str]:
+    """Chrome's Fetch.enable urlPatterns that catch every tag hit: a coarse first cut, which is_hit decides on."""
+    out = []
+    for v in VENDORS.values():
+        for p in v["hit"]:
+            path = _glob(p.get("path", "/"))
+            if "host" in p:
+                out += [f"*://{_glob(p['host'])}{path}*", f"*://*.{_glob(p['host'])}{path}*"]
+            elif "path" in p:
+                out.append(f"*://*{path}*")
+            else:
+                out.append(f"*{_glob(p['contains'])}*")
+    return list(dict.fromkeys(out))
+
+
 def events_of(url: str, body: str = "") -> tuple[str, list[str]] | None:
     """(vendor id, the events a tag hit sends), or None for a request that isn't a hit. GA4 batches
     several events in one POST, a line of the body each."""

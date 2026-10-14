@@ -27,7 +27,7 @@ from .crux import FORM_FACTOR, FieldData
 from .crux import METRICS as CRUX_METRICS
 from .lab.throttle import LOAD_CAP_MS, MOBILE
 from .net import ROBOTS_TOKEN
-from .render import AXE_VERSION, PROFILE, RENDER_FLAG, Rendered, Vitals
+from .render import AXE_VERSION, BLOCK_HITS, PROFILE, RENDER_FLAG, Rendered, Vitals
 from .tags import VENDORS
 from .tags import VERSION as SIGNATURES
 from .triage import (
@@ -275,6 +275,10 @@ def _vitals_tables(r: Rendered | None, book: FactBook) -> list[str]:
     out = ["", "## Web Vitals (lab)", "", f"{PROFILE[0].upper() + PROFILE[1:]}. Lab numbers show what to fix; real "
            "visitors' numbers (from Chrome's field data, `--crux`) can differ. Interaction to Next Paint needs "
            "real clicks, so it isn't measured; Total Blocking Time is its lab stand-in."]
+    if BLOCK_HITS:
+        out += ["", "During these loads, tag hits (analytics and ad pixels reporting a visit) were answered on this "
+                    "computer, so measuring sends no visits to the site's analytics or ad accounts; the tags themselves "
+                    "still load. The tags and consent pass above was a real visit."]
     for v in r.vitals:
         out += _vitals_one(v, book)
     return out
@@ -286,6 +290,8 @@ def _vitals_one(v: Vitals, book: FactBook) -> list[str]:
     out = ["", f"### `{v.url}`", "", f"The median of {book.count(f'Web Vitals runs on {v.url}', len(v.runs))} loads."]
     if v.error:
         out += ["", f"A run failed: {code(v.error)}"]
+    if v.hits_answered:
+        out += ["", f"Tag hits answered on this computer: {book.count(f'tag hits answered on {v.url}', v.hits_answered)}."]
     if v.capped:
         out += ["", f"{book.count(f'loads still going at the cap on {v.url}', v.capped)} of them hadn't finished "
                     f"loading after {book.count('load cap seconds', LOAD_CAP_MS / 1000, 'rule')} seconds, so they "
@@ -405,7 +411,7 @@ def report(c: Crawl, r: Rendered | None, findings: list[Finding],
 
 def _vitals_data(v: Vitals) -> dict[str, Any]:
     return {"url": v.url, "profile": PROFILE, "runs": v.runs, "median": v.median, "error": v.error,
-            "details": v.details, "capped": v.capped}
+            "details": v.details, "capped": v.capped, "hits_answered": v.hits_answered}
 
 
 def data(c: Crawl, r: Rendered | None, findings: list[Finding], extras: Extras | None = None) -> dict[str, Any]:
