@@ -215,6 +215,52 @@ def _clean(e: Event) -> Event:
     return {**e, "args": {**e["args"], "data": {k: v for k, v in data.items() if k not in DROP_DATA}}}
 
 
+# Lighthouse 13.5's computeBenchmarkIndex (core/lib/page-functions.js): a string-building loop that leans on the
+# garbage collector and an array copy that doesn't, half a second each, averaged
+BENCHMARK_JS = """() => {
+  function benchmarkIndexGC() {
+    const start = Date.now();
+    let iterations = 0;
+    while (Date.now() - start < 500) {
+      let s = '';
+      for (let j = 0; j < 10000; j++) s += 'a';
+      if (s.length === 1) throw new Error('will never happen, but prevents compiler optimizations');
+      iterations++;
+    }
+    const durationInSeconds = (Date.now() - start) / 1000;
+    return Math.round(iterations / 10 / durationInSeconds);
+  }
+  function benchmarkIndexNoGC() {
+    const arrA = [];
+    const arrB = [];
+    for (let i = 0; i < 100000; i++) arrA[i] = arrB[i] = i;
+    const start = Date.now();
+    let iterations = 0;
+    while (iterations % 10 !== 0 || Date.now() - start < 500) {
+      const src = iterations % 2 === 0 ? arrA : arrB;
+      const tgt = iterations % 2 === 0 ? arrB : arrA;
+      for (let j = 0; j < src.length; j++) tgt[j] = src[j];
+      iterations++;
+    }
+    const durationInSeconds = (Date.now() - start) / 1000;
+    return Math.round(iterations / 10 / durationInSeconds);
+  }
+  return (benchmarkIndexGC() + benchmarkIndexNoGC()) / 2;
+}"""
+
+
+def benchmark(browser: Any) -> float | None:
+    """This computer's BenchmarkIndex, in a blank page with no throttling, as Lighthouse measures it before a load
+    (1000 and up is a desktop-class CPU). None when the page can't run it."""
+    page = browser.new_page()
+    try:
+        return float(page.evaluate(BENCHMARK_JS))
+    except (PlaywrightError, TypeError, ValueError):
+        return None
+    finally:
+        page.context.close()
+
+
 def histograms(browser: Any, shots: list[str]) -> list[list[int]]:
     """Each JPEG screenshot's histograms, counted in a blank page of the same browser (nothing is fetched)."""
     if not shots:

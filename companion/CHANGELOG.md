@@ -60,6 +60,12 @@ Semantic versioning, as in OpenPPC. Each release names the `openppc` versions it
   report shows the load Lighthouse CI would pick (nearest the middle FCP and TTI) with the range of all loads, and
   says when the loads disagree more than Lighthouse CI accepts. JSON `vitals` items gain `representative`, `shown`,
   `range`, `unstable` and `no_tti`; `median` stays.
+- **An OpenPPC lab score, uncalibrated:** Lighthouse's speed score formula on the load shown, 0 to 100 with
+  PageSpeed's colours, for each page and device measured here. It isn't PageSpeed's score and doesn't count toward
+  Performance until the lab is checked against Lighthouse on the same computer. Beside it, a fixed explanation of
+  why lab numbers differ from PageSpeed's, and this computer's Lighthouse benchmark index, with Lighthouse's
+  slow-CPU warning at 1000 or below. JSON: `score` and `score_label` on `vitals` items, `rendered.benchmark_index`.
+  The app's summary shows the score and all six measures for lab loads.
 - **`--runs N`** (1 to 9, default 3): loads of the first measured page per device; later pages get one each. With
   one load, a lab number less than 20% over its good line isn't a finding; the report notes it instead.
 - Speed loads run in Chromium's new headless mode, which paints as a visitor's Chrome does, not the headless shell.

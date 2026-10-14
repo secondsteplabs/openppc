@@ -30,7 +30,7 @@ from .crux import ALL_METRICS, NO_DATA, FieldData
 from .lab import lhr
 from .lab.lhr import Speed
 from .lab.metrics import QUIET_WINDOW_MS
-from .lab.score import BANDS, CONTROL
+from .lab.score import BANDS, CONTROL, LAB_SCORE, SLOW_HOST, band
 from .lab.throttle import DESKTOP, LOAD_CAP_MS, MOBILE
 from .net import ROBOTS_TOKEN
 from .render import AXE_VERSION, BLOCK_HITS, PROFILE, RENDER_FLAG, VITALS_RUNS, Rendered, Vitals
@@ -399,7 +399,13 @@ def _vitals_tables(r: Rendered | None, book: FactBook, psi: bool = False) -> lis
            "Lighthouse measures a throttled load, and waited out as it waits; these are OpenPPC's lab numbers, not "
            "PageSpeed's. Lab numbers show what to fix; real visitors' numbers (from Chrome's field data) can differ. "
            "Interaction to Next Paint needs real clicks, so it isn't measured; Total Blocking Time is its lab "
-           "stand-in."]
+           "stand-in.", "", words.DIFFERS]
+    if r.benchmark is not None:
+        index = book.count("benchmark index of this computer", round(r.benchmark))
+        out += ["", f"This computer's benchmark index (Lighthouse's CPU test, run before the loads): {index}."]
+        if r.benchmark <= SLOW_HOST:
+            out[-1] += (f" At {book.count('slow CPU benchmark line', SLOW_HOST, 'rule')} or below, Lighthouse warns "
+                        "that the CPU is slower than it expects, so these loads come out slower than they should.")
     if any(v.device == "desktop" for v in r.vitals):
         book.add("lab desktop width", DESKTOP.width, "count", "rule")
         book.add("lab desktop height", DESKTOP.height, "count", "rule")
@@ -469,6 +475,11 @@ def _vitals_one(v: Vitals, book: FactBook) -> list[str]:
     if close:
         out += ["", "Just over the good line, too close for one load to call, so no finding: "
                 + ", ".join(close) + ". Re-check this page on its own with `--single`."]
+    score = v.score
+    if score is not None:
+        out += ["", f"{LAB_SCORE}: **{n(f'{LAB_SCORE} on {on}', score)}** ({BAND_SHOWN[band(score)]}), Lighthouse's "
+                    "speed score formula on the load shown. It isn't PageSpeed's score, and it doesn't count toward "
+                    "Performance."]
     d = v.details
     slows = []
     if d.get("lcp_element"):
@@ -658,7 +669,7 @@ def _vitals_data(v: Vitals) -> dict[str, Any]:
             "median": v.median, "error": v.error, "details": v.details, "capped": v.capped,
             "hits_answered": v.hits_answered, "device": v.device, "representative": v.rep, "shown": v.shown,
             "range": {k: list(lo_hi) for k, lo_hi in v.spread.items()}, "unstable": v.unstable,
-            "no_tti": v.no_tti}
+            "no_tti": v.no_tti, "score": v.score, "score_label": LAB_SCORE}
 
 
 def _field_data(d: FieldData) -> dict[str, Any]:
@@ -704,7 +715,7 @@ def data(c: Crawl, r: Rendered | None, findings: list[Finding], extras: Extras |
                        "tcf": o.tcf, "consent_mode": o.consent_mode, "screenshot": o.screenshot,
                        "events": o.events, "datalayer": o.datalayer} for o in r.pages],
             "vitals": [_vitals_data(v) for v in r.vitals],
-            "refused": r.refused, "browser_calls": r.browser_calls},
+            "refused": r.refused, "browser_calls": r.browser_calls, "benchmark_index": r.benchmark},
     }
 
 

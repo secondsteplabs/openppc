@@ -112,10 +112,16 @@
                          "unstable": {"description": "Metrics the loads disagreed on, by Lighthouse CI's tolerance.",
                                       "type": "array", "items": {"enum": ["fcp", "lcp", "tbt"]}},
                          "no_tti": {"description": "Loads that never went quiet for Time to Interactive; their Total Blocking Time counts to the end of the load.",
-                                    "type": "integer", "minimum": 0}}}},
+                                    "type": "integer", "minimum": 0},
+                         "score": {"description": "Lighthouse's speed score formula on the representative load, 0 to 100; not PageSpeed's score, and not Performance's.",
+                                   "type": ["integer", "null"], "minimum": 0, "maximum": 100},
+                         "score_label": {"description": "How the report names it: uncalibrated until the lab is checked against Lighthouse on the same computer.",
+                                         "type": "string"}}}},
         "refused": {"type": "array", "items": {"type": "string"}},
         "browser_calls": {"description": "Hosts Chromium itself asked for (updates, sign-in, push), refused before they were resolved.",
-                          "type": "array", "items": {"type": "string"}}}}]},
+                          "type": "array", "items": {"type": "string"}},
+        "benchmark_index": {"description": "This computer's Lighthouse BenchmarkIndex, measured before the speed loads; at 1000 or below Lighthouse warns of a slow CPU.",
+                            "type": ["number", "null"]}}}]},
     "facts": {"type": "array", "items": {"$ref": "#/$defs/fact"}}
   },
   "$defs": {

@@ -344,12 +344,14 @@
       return h('div', { class: 'stack' }, h('p', { class: 'small' }, `From ${s.source}, Lighthouse ${s.lighthouse}.`), h('ul', { class: 'site-measures' }, rows));
     }
     if (lab) {
-      for (const key of ['lcp', 'cls', 'tbt']) {
-        if (!(key in lab.median)) continue;
-        rows.push(h('li', {}, h('b', {}, words.measures[key][0]), ` ${measureValue(key, lab.median[key], false)}`,
+      const shown = lab.shown || lab.median;
+      for (const key of ['fcp', 'lcp', 'tbt', 'cls', 'si', 'ttfb']) {
+        if (shown[key] === null || shown[key] === undefined) continue;
+        rows.push(h('li', {}, h('b', {}, words.measures[key][0]), ` ${measureValue(key, shown[key], false)}`,
           h('span', { class: 'hint' }, ` ${words.measures[key][1]}`)));
       }
-      return h('div', { class: 'stack' }, h('p', { class: 'small' }, 'A lab load on this computer: a rough estimate, not PageSpeed\u2019s score.'),
+      const scored = typeof lab.score === 'number' ? `${lab.score_label}: ${lab.score} of 100, from ` : 'From ';
+      return h('div', { class: 'stack' }, h('p', { class: 'small' }, `${scored}lab loads on this computer: a rough estimate, not PageSpeed\u2019s score.`),
         h('ul', { class: 'site-measures' }, rows));
     }
     return h('p', { class: 'small' }, `Not measured on a ${device === 'mobile' ? 'phone' : 'desktop'}.`);

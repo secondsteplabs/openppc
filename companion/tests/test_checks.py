@@ -5,7 +5,7 @@ import json
 import pytest
 from sites import acme, by_id, local, page
 
-from openppc_online.siteaudit import checks, crux, packs, tags
+from openppc_online.siteaudit import checks, crux, packs, tags, words
 from openppc_online.siteaudit.crawl import crawl
 from openppc_online.siteaudit.page import read
 from openppc_online.siteaudit.render import Observation, Rendered, Vitals
@@ -116,6 +116,15 @@ def test_the_vitals_section_without_a_measurement(serve):
     assert "`img#hero.big`" in markdown and "(246 KB)" in markdown and "block the first paint" in markdown
     assert "One load, so a number just over a line" in markdown and "The representative of 2 loads" in markdown
     assert "| Speed Index | 1 ms | 1 to 1 ms |" in markdown and "## Glossary" in markdown
+    # 1 ms is top for the four timings; a layout shift of 1 is poor and costs CLS's quarter of the score
+    assert "OpenPPC lab score (uncalibrated): **76** (average, orange)" in markdown and words.DIFFERS in markdown
+    assert "**OpenPPC lab score:**" in markdown and "benchmark index" not in markdown  # no benchmark measured
+    markdown, _, passed = report(c, Rendered(vitals=[Vitals(base + "/", runs=[run])], benchmark=812.6), [])
+    assert passed, markdown
+    assert "benchmark index (Lighthouse's CPU test, run before the loads): 813. At 1,000 or below" in markdown
+    slow = run | {"fcp": 3000.0, "si": 5800.0, "lcp": 4000.0, "tbt": 600.0, "cls": 0.25}  # each at its median
+    assert Vitals(base + "/", runs=[slow]).score == 50 and Vitals(base + "/", runs=[slow], device="desktop").score < 50
+    assert Vitals(base + "/", runs=[run | {"si": None}]).score is None
 
 
 def test_one_load_just_over_a_line_is_no_finding_but_a_note(serve):

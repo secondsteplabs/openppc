@@ -21,7 +21,8 @@ from urllib.parse import urlsplit
 
 from .crawl import Crawl
 from .lab import metrics
-from .lab.capture import capture
+from .lab.capture import benchmark, capture
+from .lab.score import performance
 from .lab.throttle import DESKTOP, MOBILE
 from .net import Guard, GuardProxy, Sink
 from .tags import CONSENT, consent_platform_of, events_of, vendor_of
@@ -48,6 +49,8 @@ BLOCK_HITS = True
 AXE_TAGS = ("wcag2a", "wcag2aa", "wcag21a", "wcag21aa")
 AXE_VERSION = "4.10.3"
 METRICS = ("lcp", "cls", "tbt", "fcp", "ttfb", "si")
+SCORED = {"fcp": "first-contentful-paint", "si": "speed-index", "lcp": "largest-contentful-paint",
+          "tbt": "total-blocking-time", "cls": "cumulative-layout-shift"}
 RENDER_FLAG = "`--render`"  # what a check that needs the browser asks for
 # Each browser context calls Google itself, through the page's proxy: an AI Mode check, sent to Chrome's Google base
 # URL, here a name the guard refuses before resolving it, and a preconnect to the default search engine, turned off
@@ -137,6 +140,15 @@ class Vitals:
         """Loads that never went quiet for Time to Interactive's 5 s window: their TBT runs to the end of the load."""
         return sum(1 for r in self.runs if r.get("fcp") is not None and r.get("tti") is None)
 
+    @property
+    def score(self) -> int | None:
+        """Lighthouse's speed score formula on the representative load (lab.score.LAB_SCORE)."""
+        shown = self.shown
+        values = {name: shown.get(key) for key, name in SCORED.items()}
+        if any(v is None for v in values.values()):
+            return None
+        return performance({name: float(v) for name, v in values.items() if v is not None}, self.device)
+
 
 @dataclass
 class Rendered:
@@ -144,6 +156,7 @@ class Rendered:
     vitals: list[Vitals] = field(default_factory=list)
     refused: list[str] = field(default_factory=list)  # hosts the browser was stopped from reaching
     browser_calls: list[str] = field(default_factory=list)  # hosts the browser itself asked for, refused (net.Sink)
+    benchmark: float | None = None  # this computer's Lighthouse BenchmarkIndex, before the speed loads
 
 
 def pick(c: Crawl, n: int = RENDER_PAGES) -> list[str]:
@@ -353,6 +366,8 @@ def render(c: Crawl, guard: Guard, pages: int = RENDER_PAGES, consent_selector: 
                                           _shot_name(screenshots, n, url) if screenshots else "", proxy.url))
             profiles = (MOBILE, DESKTOP) if desktop else (MOBILE,)
             pending = [u for u in targets[:vitals] if u not in (measured or set())]
+            if pending:
+                out.benchmark = benchmark(browser)
             for i, url in enumerate(pending):
                 for profile in profiles:
                     v = Vitals(url, device=profile.device)

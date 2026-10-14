@@ -22,6 +22,12 @@ MEASURES = {
 }
 WHY = ("A visitor from an ad has already cost you the click, so a slow or jumpy landing page wastes it, and Google Ads "
        "counts landing page experience in Quality Score.")
+# beside every number the lab measures here (SITE_AUDIT_PARITY_PLAN.md, U6)
+DIFFERS = ("Why these differ from PageSpeed Insights: PageSpeed loads the page on Google's servers and works out how a "
+           "slow phone would do from one fast load; this lab loads it on this computer, slowed down as Chrome's "
+           "developer tools slow it, so this computer's speed, its internet connection and its distance from the "
+           "site's servers all count. Loads also differ from each other (ads, tags and servers vary), and real "
+           "visitors, on every kind of phone, differ again. Compare numbers from the same source only.")
 
 # the Lighthouse audits that most often fail on landing pages, by id, in a line each
 AUDITS = {
@@ -51,6 +57,12 @@ GLOSSARY = (
                                                                "data."),
     ("Speed score", ("speed score",), "Lighthouse's grade for how fast a page loads, from its five measures; green is "
                                       "good, orange average, red poor."),
+    ("OpenPPC lab score", ("OpenPPC lab score",), "Lighthouse's speed score formula applied to the test loads on "
+                                                  "this computer. Uncalibrated means it hasn't yet been checked "
+                                                  "against Lighthouse on the same computer; it never replaces "
+                                                  "PageSpeed's score."),
+    ("Benchmark index", ("benchmark index",), "Lighthouse's quick test of how fast this computer's processor is; a "
+                                              "slow one makes test loads slower."),
     ("Lab and real visitors", ("lab", "Real visitors"), "a lab number comes from one test load; real visitors' numbers "
                                                          "come from Chrome users' actual visits. They often differ; "
                                                          "Google ranks on the real ones."),

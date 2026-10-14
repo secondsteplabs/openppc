@@ -122,6 +122,7 @@ def test_the_browser_pass_sees_tags_consent_accessibility_and_vitals(shop, tmp_p
     assert len(r.vitals) == 1 and len(v.runs) == 3 and v.rep is not None
     assert all(v.shown[k] is not None for k in ("fcp", "lcp", "tbt", "cls", "si", "ttfb"))
     assert all(run["tti"] is not None for run in v.runs) and v.no_tti == 0
+    assert v.score is not None and 0 <= v.score <= 100 and r.benchmark and r.benchmark > 0
     assert v.hits_answered == 6  # each speed load's GA4 and Adobe hits answered here, the tags still loaded
     assert v.details["lcp_element"] and isinstance(v.details["heavy"], list)
     assert r.browser_calls  # Chromium's own calls home, refused before they were resolved, never in `asked`

@@ -107,8 +107,10 @@ that appear only after JavaScript runs (which it then crawls), accessibility pro
 and AA), and lab Web Vitals on a throttled phone: three loads of the home page (`--runs N` for more), set up as
 Lighthouse sets up its own tab, traced, and measured as Lighthouse measures a trace (First Contentful Paint, Largest
 Contentful Paint, Total Blocking Time, Cumulative Layout Shift, Speed Index, time to first byte), and the load
-Lighthouse CI would pick shown with the range of all of them. A rough estimate, since Lighthouse's own score simulates
-the slow phone instead; with one load, a number just over a line isn't made a finding. Without it, those checks say
+Lighthouse CI would pick shown with the range of all of them, and an OpenPPC lab score from Lighthouse's formula,
+labelled uncalibrated and kept out of the Performance score. A rough estimate, since Lighthouse's own score simulates
+the slow phone instead (the report explains the difference, and gives this computer's benchmark index); with one
+load, a number just over a line isn't made a finding. Without it, those checks say
 they need it instead of passing. It needs Playwright and Chromium:
 
 ```

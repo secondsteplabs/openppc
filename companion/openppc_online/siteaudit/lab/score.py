@@ -17,6 +17,11 @@ CONTROL = {
 WEIGHTS = {"first-contentful-paint": 10, "speed-index": 10, "largest-contentful-paint": 25,
            "total-blocking-time": 30, "cumulative-layout-shift": 25}
 BANDS = ((90, "good"), (50, "needs improvement"), (0, "poor"))   # PSI's colours: green, orange, red
+# The lab's own score is shown as uncalibrated, and never replaces Performance's points, until the calibration gate
+# (SITE_AUDIT_PARITY_PLAN.md, section 8) holds it to Lighthouse's on the same computer
+CALIBRATED = False
+LAB_SCORE = "OpenPPC lab score" + ("" if CALIBRATED else " (uncalibrated)")
+SLOW_HOST = 1000  # a BenchmarkIndex at or below this, Lighthouse warns that the CPU is slower than it expects
 # the exact doubles Lighthouse clamps each range to
 MIN_PASSING = 0.9000000000000000222
 MAX_AVERAGE = 0.8999999999999999112
