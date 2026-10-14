@@ -41,8 +41,9 @@ VITALS_RUNS = 3              # loads of the first measured page per device; the 
 MAX_RUNS = 9
 VITALS_PAGES = 1             # pages measured, from the first rendered (the home page) on
 PROFILE = f"lab, {MOBILE.label}"
-# Speed loads answer tag hits themselves (204), so measuring a page sends no visits to its analytics or ad accounts;
-# the tag and consent load stays real. The owner's open question 1 (SITE_AUDIT_PARITY_PLAN.md) may turn it off.
+# Speed loads answer the page's tag hits themselves (204), so the page sends no visits to its analytics or ad accounts
+# (another site's frame and workers are other targets, not caught); the tag and consent load stays real. The owner's
+# open question 1 (SITE_AUDIT_PARITY_PLAN.md) may turn it off.
 BLOCK_HITS = True
 AXE_TAGS = ("wcag2a", "wcag2aa", "wcag21a", "wcag21aa")
 AXE_VERSION = "4.10.3"

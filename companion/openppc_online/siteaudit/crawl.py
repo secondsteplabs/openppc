@@ -370,9 +370,10 @@ def dropped_ad_params(resp: Response | None) -> list[str]:
     return [p for p in AD_PARAMS if kept.get(p) != AD_TEST_VALUE]
 
 
-def _check_ad_params(c: Crawl, guard: Guard, limiter: _Limiter) -> None:
+def _check_ad_params(c: Crawl, guard: Guard, limiter: _Limiter, start_rules: Robots | None) -> None:
+    """The request goes to the start page's host and lands where it moved to: both robots.txt files must allow it."""
     url = with_ad_params(c.start)
-    if c.allowed(url):
+    if (start_rules is None or start_rules.can_fetch(ROBOTS_TOKEN, url)) and c.allowed(url):
         c.ad_params = _get(url, guard, limiter, max_bytes=LLMS_BYTES)
 
 
@@ -415,6 +416,7 @@ def crawl(start: str, guard: Guard, max_pages: int | None = None, max_seconds: f
         c.seconds = time.monotonic() - began
         return c
 
+    start_rules = rules
     try:
         if c.origin != origin:  # the start page moved to another host or scheme, which has its own robots.txt
             robots = _get(c.origin + "/robots.txt", guard, limiter, max_bytes=ROBOTS_BYTES)
@@ -436,7 +438,7 @@ def crawl(start: str, guard: Guard, max_pages: int | None = None, max_seconds: f
                 crawler.offer(url, 0, "")
             if final.scheme == "https" and c.allowed(c.origin + "/"):
                 c.plain_http = _get(f"http://{final.netloc}/", guard, limiter, method="HEAD")
-            _check_ad_params(c, guard, limiter)
+            _check_ad_params(c, guard, limiter, start_rules)
             _crawl_pages(c, crawler, POLITE_WORKERS, max_pages, max_seconds, began, progress)
         else:
             _read_sitemaps(c, guard, limiter, crawler)
@@ -448,7 +450,7 @@ def crawl(start: str, guard: Guard, max_pages: int | None = None, max_seconds: f
                     and not llms.body.lstrip()[:15].lower().startswith((b"<!doctype", b"<html"))
             if final.scheme == "https" and c.allowed(c.origin + "/"):
                 c.plain_http = _get(f"http://{final.netloc}/", guard, limiter, method="HEAD")
-            _check_ad_params(c, guard, limiter)
+            _check_ad_params(c, guard, limiter, start_rules)
             _crawl_pages(c, crawler, FAST_WORKERS if fast else POLITE_WORKERS, max_pages, max_seconds, began,
                          progress)
             if external:

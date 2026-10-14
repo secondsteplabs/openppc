@@ -407,9 +407,10 @@ def _vitals_tables(r: Rendered | None, book: FactBook, psi: bool = False) -> lis
     if psi:
         out += ["", "Pages PageSpeed Insights measured aren't measured again here."]
     if BLOCK_HITS:
-        out += ["", "During these loads, tag hits (analytics and ad pixels reporting a visit) were answered on this "
-                    "computer, so measuring sends no visits to the site's analytics or ad accounts; the tags themselves "
-                    "still load. The tags and consent pass above was a real visit."]
+        out += ["", "During these loads, the page's tag hits (analytics and ad pixels reporting a visit) were answered "
+                    "on this computer, so the page sends no visits to the site's analytics or ad accounts; the tags "
+                    "themselves still load. A tag inside another site's frame, or running in a worker, isn't caught. "
+                    "The tags and consent pass above was a real visit."]
     for v in r.vitals:
         out += _vitals_one(v, book)
     return out
@@ -499,7 +500,7 @@ def _field_table(data: list[FieldData], book: FactBook) -> list[str]:
         shown = page if page and page.p75 else site if site and site.p75 else None
         if not shown:
             out.append("Not enough real visitors yet: Chrome's report has nothing for this page or the site.")
-            out += [f"- {'The whole site' if d.origin else f'`{d.target}`'}: {d.error}." for d in group
+            out += [f"- {'The whole site' if d.origin else f'`{d.target}`'}: {code(d.error)}." for d in group
                     if d.error and d.error != NO_DATA]
             continue
         out.append(f"For `{shown.target}`." if shown is page else

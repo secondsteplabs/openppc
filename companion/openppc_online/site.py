@@ -6,7 +6,9 @@ all go through one siteaudit.net.Guard.
 """
 import ipaddress
 import json
+import threading
 from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeout
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -118,22 +120,26 @@ def run(url: str, *, max_pages: int | None = None, max_seconds: float | None = N
         _screenshots_folder(screenshots)
     guard = Guard(allow_private=allow_private)
     measure = list(dict.fromkeys([start_url(url)] + also))
+    psi_secret = ""
     if psi_key is not None:
+        psi_secret = psi.key_from(psi_key)
         psi.check(measure, guard)
     if rendered:
         preflight()
     pool = ThreadPoolExecutor(1)  # PageSpeed Insights takes a minute: it runs while the site is crawled
     later: list[Future[list[Speed]]] = []
+    halt = threading.Event()  # set once the run no longer waits for PSI: no call starts after it
 
     def start_psi(c: Crawl) -> None:  # once robots.txt is read: Google isn't sent a page it keeps OpenPPC out of
         allowed = [u for u in measure if c.allowed(u)]
         if allowed:
-            later.append(pool.submit(psi.measure, allowed, psi.key_from(psi_key), guard))
+            later.append(pool.submit(psi.measure, allowed, psi_secret, guard, stop=halt))
     try:
         c = crawl(url, guard, max_pages, max_seconds, max_per_pattern, fast, external, progress, single,
                   also if single else None, ready=start_psi if psi_key is not None else None)
         speed = _speed(later[0], c, progress) if later else []
     finally:
+        halt.set()
         pool.shutdown(wait=False, cancel_futures=True)
     r: Rendered | None = None
     if rendered and not c.blocked_by:
@@ -168,10 +174,10 @@ def _speed(later: "Future[list[Speed]]", c: Crawl, progress: Progress | None) ->
     """PageSpeed Insights' results once they are in. progress runs while waiting, and may stop the run."""
     while True:
         try:
-            return later.result(timeout=1)
-        except TimeoutError:
-            pass
-        try:
+            try:
+                return later.result(timeout=1)
+            except FutureTimeout:  # not the built-in TimeoutError before Python 3.11
+                pass
             if progress:
                 progress("waiting for PageSpeed Insights (Google takes up to a minute a page)")
         except KeyboardInterrupt as e:

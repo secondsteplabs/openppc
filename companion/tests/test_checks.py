@@ -112,7 +112,7 @@ def test_the_vitals_section_without_a_measurement(serve):
     assert passed, markdown
     assert "Lab, throttled phone (rough estimate): 412x823 screen" in markdown and "562.5 ms latency" in markdown
     assert "### `" + base + "/b`" in markdown and "hadn't gone quiet, after 45 seconds" in markdown
-    assert "sends no visits to the site's analytics" in markdown and "answered on this computer: 14." in markdown
+    assert "the page sends no visits to the site's analytics" in markdown and "running in a worker" in markdown and "answered on this computer: 14." in markdown
     assert "`img#hero.big`" in markdown and "(246 KB)" in markdown and "block the first paint" in markdown
     assert "One load, so a number just over a line" in markdown and "The representative of 2 loads" in markdown
     assert "| Speed Index | 1 ms | 1 to 1 ms |" in markdown and "## Glossary" in markdown

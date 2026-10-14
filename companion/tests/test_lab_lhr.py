@@ -3,6 +3,8 @@ the report's speed score, real-visitor and Lighthouse audit sections. Nothing he
 server, and the fitness test maps the names it uses to a public address that connects to this computer."""
 import gzip
 import json
+import threading
+from concurrent.futures import Future
 from pathlib import Path
 
 import jsonschema
@@ -12,7 +14,7 @@ from sites import PSI_HOST, PUBLIC, by_id, local, page
 from openppc_online import site
 from openppc_online.cli import main
 from openppc_online.siteaudit import checks, crux, words
-from openppc_online.siteaudit.crawl import crawl
+from openppc_online.siteaudit.crawl import Crawl, crawl
 from openppc_online.siteaudit.lab import lhr, psi
 from openppc_online.siteaudit.net import Guard, Response
 from openppc_online.siteaudit.report import Extras, data, report
@@ -213,3 +215,66 @@ def test_psi_contacts_only_its_declared_host_and_the_key_never_shows(serve, publ
     jsonschema.validate(doc, SCHEMA)
     assert doc["passed"] and doc["single"] and doc["scores"]["performance"]["method"] == "PageSpeed Insights speed score"
     assert doc["field_data"][0]["error"].startswith("too few real visitors") and doc["field_data"][1]["p75"]
+
+
+def _gzipped(answer):
+    return 200, {"Content-Type": "application/json", "Content-Encoding": "gzip"}, gzip.compress(json.dumps(answer).encode())
+
+
+def test_a_malformed_answer_is_an_error_on_that_page(serve, monkeypatch):
+    broken = {**LHR, "categories": {**LHR["categories"], "performance": "fast"}}
+    api = serve(lambda b: {"/psi": _gzipped({"lighthouseResult": broken}),
+                           "/crux-list": _gzipped({"record": {"metrics": []}}),
+                           "/crux-word": _gzipped({"record": {"metrics": {
+                               "largest_contentful_paint": {"percentiles": {"p75": "slow"}}}}})})
+    monkeypatch.setattr(psi, "ENDPOINT", api + "/psi")
+    assert psi.measure_one("https://a.test/", "mobile", "", local()).error == "PageSpeed Insights' answer couldn't be read"
+    for path in ("/crux-list", "/crux-word"):
+        monkeypatch.setattr(crux, "ENDPOINT", api + path)
+        d = crux.query("https://a.test/", "k", False, local())
+        assert d.error == "the API's answer couldn't be read" and not d.p75 and d.device == "phone"
+
+
+def test_an_api_error_with_a_number_in_it_passes_the_number_check(serve):
+    base = serve(lambda b: {"/": (200, {}, page("Home"))})
+    c = crawl(base, local(), fast=True, external=False, single=True)
+    errors = [crux.FieldData(c.start, False, error="the API answered 429"),
+              crux.FieldData(base, True, error="couldn't reach the API: OSError: [Errno 11001] getaddrinfo failed")]
+    markdown, _, passed = report(c, None, [], Extras(field_data=errors))
+    assert passed, markdown
+    assert "`the API answered 429`" in markdown
+
+
+def test_a_stop_starts_no_more_psi_calls(monkeypatch):
+    calls = []
+    monkeypatch.setattr(psi, "fetch", lambda url, *a, **kw: calls.append(url) or Response(url, url, 0, error="reset"))
+    stop = threading.Event()
+    stop.set()
+    assert psi.measure_one("https://a.test/", "mobile", "", local(), stop=stop).error.startswith("stopped") and not calls
+
+    def progress(message):
+        raise KeyboardInterrupt
+    stop = threading.Event()
+    with pytest.raises(KeyboardInterrupt):
+        psi.measure(["https://a.test/"], "", local(), progress=progress, stop=stop)
+    assert stop.is_set()
+
+
+def test_waiting_for_psi_outlasts_its_one_second_waits_and_a_stop_keeps_the_crawl():
+    c = Crawl("https://a.test/", "https://a.test", False)
+    later: Future = Future()
+    threading.Timer(1.5, later.set_result, [["measured"]]).start()
+    assert site._speed(later, c, None) == ["measured"] and not c.incomplete
+
+    class Interrupted(Future):
+        def result(self, timeout=None):
+            raise KeyboardInterrupt  # Ctrl-C lands in the wait, not in progress
+    assert site._speed(Interrupted(), c, None) == [] and "before PageSpeed Insights answered" in c.incomplete
+
+
+@pytest.mark.parametrize("key_from", [psi.key_from, crux.key_from])
+def test_a_key_with_a_line_break_is_refused(key_from):
+    with pytest.raises(ValueError, match="letters, digits") as refused:
+        key_from("AIza-secret\r\nX-Injected: 1")
+    assert "AIza" not in str(refused.value)
+    assert key_from(" AIza_good-key ") == "AIza_good-key"

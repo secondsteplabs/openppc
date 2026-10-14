@@ -6,10 +6,11 @@ Semantic versioning, as in OpenPPC. Each release names the `openppc` versions it
 
 ### Added
 
-- **Measuring sends no visits to the site's analytics.** The Web Vitals loads answer tag hits (GA4, Google Ads,
-  Meta, LinkedIn and the rest of `signatures.json`) with an empty 204 on this computer; the tag scripts still load,
-  so their cost is measured. The report says how many were answered, and the JSON's `vitals` items gain
-  `hits_answered`. The tags and consent pass stays a real visit.
+- **Measuring sends no visits to the site's analytics.** The Web Vitals loads answer the page's tag hits (GA4,
+  Google Ads, Meta, LinkedIn and the rest of `signatures.json`) with an empty 204 on this computer; the tag scripts
+  still load, so their cost is measured. A tag inside another site's frame, or in a worker, isn't caught, and the
+  report says so. The report says how many were answered, and the JSON's `vitals` items gain `hits_answered`. The
+  tags and consent pass stays a real visit.
 - **`--psi`: Google PageSpeed Insights' numbers in the report.** The start page and each `--render-url` page (at
   most 5) are measured on a phone and a desktop by PSI, through the guard; no key needed (`--psi-key KEY` or
   `OPENPPC_PSI_KEY` for your own quota). The Performance area becomes PSI's speed score for the start page on a
@@ -79,6 +80,16 @@ Semantic versioning, as in OpenPPC. Each release names the `openppc` versions it
   An API key never follows a redirect.
 - `--render-url` works with `--psi` as well as `--render`.
 - The real-visitor findings read phones' whole-site data, as before; the table now shows phones and desktops.
+- A PSI or CrUX key with anything but letters, digits, `-` and `_` is refused before anything is sent. A CrUX error
+  is shown as written, in a code span, so its numbers don't fail the report's own check.
+- A stop while PageSpeed Insights works (Ctrl-C or the app's Stop) keeps what was crawled, starts no more PSI calls
+  and retries none. An answer from PSI or CrUX that isn't what Google sends is an error on that page, not the run.
+- The app: "Check on this computer only" sends no CrUX key either; Re-check sends only the findings as its
+  baseline; the next step's re-run keeps the form's keys, extra pages and consent button; the `psi` field is always
+  checked, and a PSI key without it asks Google nothing; the Performance gauge shows only when Performance is
+  PageSpeed's score.
+- The ad click ID check is sent only when robots.txt allows it on the start page's host as well as where the start
+  page moved to.
 
 ## Unreleased (0.5.0)
 

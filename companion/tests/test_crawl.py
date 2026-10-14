@@ -176,6 +176,15 @@ def test_ad_click_ids_a_server_redirect_drops_are_found(serve):
     assert c.ad_params is not None and c.ad_params.status == 200 and not dropped_ad_params(c.ad_params)
 
 
+def test_the_ad_click_check_obeys_the_start_hosts_robots_txt_when_the_start_page_moves(serve):
+    moved = serve(lambda b: {"/": (200, {}, page("Home"))})
+    start = serve(lambda b: {"/": (301, {"Location": moved + "/"}, ""),
+                             "/robots.txt": (200, {"Content-Type": "text/plain"}, "User-agent: *\nDisallow: /*gclid=\n")})
+    c = crawl(start, local(), fast=True, external=False, single=True)
+    assert c.origin == moved and c.ad_params is None
+    assert not any("gclid" in path for path, _ in serve.heard)
+
+
 def test_microdata_items_are_read_with_their_properties():
     info = read("<div itemscope itemtype='https://schema.org/Product'><span itemprop='name'>Drain</span>"
                 "<div itemprop='brand' itemscope itemtype='https://schema.org/Brand'><b itemprop='name'>A</b></div>"

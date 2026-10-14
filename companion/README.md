@@ -120,7 +120,8 @@ The browser keeps no cookies between pages, runs no service workers, downloads n
 only through the check's own guard, on 127.0.0.1, for as long as the pass runs. Chromium's own calls home (update
 checks, sign-in, Google's search preconnect) are refused before any name is looked up, and the report lists the hosts
 it tried. The Web Vitals loads answer tag
-hits themselves, so measuring a page sends no visits to its analytics or ad accounts; the tags and consent pass is
+hits the page sends themselves, so measuring a page sends no visits to its analytics or ad accounts (a tag inside
+another site's frame, or in a worker, isn't caught); the tags and consent pass is
 a real visit.
 
 **`--psi`** asks Google PageSpeed Insights to measure the start page (and each `--render-url` page, at most 5 in

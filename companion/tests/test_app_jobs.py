@@ -57,6 +57,7 @@ def test_a_site_audit_runs_as_a_job_and_comes_back_in_every_format(server, serve
     ({"url": 5}, "url must be text"),
     ({"fast": "yes"}, "fast must be true or false"),
     ({"psi": "yes"}, "psi must be true or false"),
+    ({"psi": "no", "psi_key": "k"}, "psi must be true or false"),  # a key doesn't skip the check
     ({"single": 1}, "single must be true or false"),
     ({"psi_key": 5}, "psi_key must be text"),
     ({"max_pages": 0}, "max_pages must be a number above 0"),
@@ -135,6 +136,8 @@ def test_psi_and_one_page_only_reach_the_run_and_the_psi_key_never_comes_back(se
     done = _job(server, view["id"], until=lambda v: seen.append(json.dumps(v)) or v["state"] != "running")
     assert done["state"] == "failed" and "can't be used with --allow-private" in done["error"]  # refused before sending
     assert key not in "".join(seen)
+    status, _, view = _post(server, "/api/jobs", _site(base, single=True, psi=False, psi_key=key))
+    assert _job(server, view["id"])["state"] == "done"  # psi off: the key alone asks Google nothing
 
 
 def _status(server, headers=None, body=b"{}", host=None):

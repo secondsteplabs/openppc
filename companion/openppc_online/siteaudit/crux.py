@@ -4,6 +4,7 @@ the same guard as every other connection; a key travels in a header, so it isn't
 """
 import json
 import os
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -11,6 +12,7 @@ from .net import Guard, fetch
 
 ENDPOINT = "https://chromeuxreport.googleapis.com/v1/records:queryRecord"
 KEY_ENV = "OPENPPC_CRUX_KEY"
+API_KEY = re.compile(r"[A-Za-z0-9_-]+")  # a Google API key; anything else could end up quoted in an error
 TIMEOUT = 30.0
 MAX_BYTES = 1_000_000
 FORM_FACTOR = "PHONE"
@@ -46,10 +48,12 @@ class FieldData:
 
 def key_from(flag: str | None) -> str:
     """--crux-key KEY, or OPENPPC_CRUX_KEY (out of shell history) when only --crux is given."""
-    key = flag or os.environ.get(KEY_ENV, "")
-    if not key.strip():
+    key = (flag or os.environ.get(KEY_ENV, "")).strip()
+    if not key:
         raise ValueError(f"--crux needs a key: pass --crux-key KEY, or set {KEY_ENV}")
-    return key.strip()
+    if not API_KEY.fullmatch(key):
+        raise ValueError("the CrUX key has characters a Google API key doesn't (letters, digits, - and _ only)")
+    return key
 
 
 def assess(p75: dict[str, float]) -> str:
@@ -86,21 +90,20 @@ def query(target: str, key: str, origin: bool, guard: Guard, form_factor: str = 
         return out
     try:
         record = json.loads(resp.body)["record"]
-    except (ValueError, KeyError, TypeError):
-        out.error = "the API's answer couldn't be read"
-        return out
-    for name, (short, _, _) in ALL_METRICS.items():
-        metric = record.get("metrics", {}).get(name, {})
-        p75 = metric.get("percentiles", {}).get("p75")
-        if p75 is not None:
-            out.p75[short] = float(p75)
-        shares = _shares(metric.get("histogram"))
-        if shares:
-            out.shares[short] = shares
+        for name, (short, _, _) in ALL_METRICS.items():
+            metric = record.get("metrics", {}).get(name, {})
+            p75 = metric.get("percentiles", {}).get("p75")
+            if p75 is not None:
+                out.p75[short] = float(p75)
+            shares = _shares(metric.get("histogram"))
+            if shares:
+                out.shares[short] = shares
+        period = record.get("collectionPeriod", {})
+        if period.get("firstDate") and period.get("lastDate"):
+            out.period = f"{_date(period['firstDate'])} to {_date(period['lastDate'])}"
+    except (ValueError, KeyError, TypeError, AttributeError):
+        return FieldData(target, origin, error="the API's answer couldn't be read", device=out.device)
     out.verdict = assess(out.p75)
-    period = record.get("collectionPeriod", {})
-    if period.get("firstDate") and period.get("lastDate"):
-        out.period = f"{_date(period['firstDate'])} to {_date(period['lastDate'])}"
     return out
 
 

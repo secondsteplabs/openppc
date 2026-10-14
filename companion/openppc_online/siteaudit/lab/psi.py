@@ -3,11 +3,12 @@ and sends back the report, so the numbers are PSI's own. The address goes to Goo
 through the same guard as every other connection, and an optional key travels in a header, never in a URL."""
 import json
 import os
+import threading
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urlencode, urlsplit
 
-from ..crux import from_psi
+from ..crux import API_KEY, from_psi
 from ..net import Guard, Refused, fetch
 from ..triage import redact
 from .lhr import Speed, read
@@ -29,7 +30,10 @@ QUOTA = ("Google's shared PageSpeed quota is used up for now: try again later, o
 
 def key_from(flag: str | None) -> str:
     """--psi-key KEY, else OPENPPC_PSI_KEY; PSI works without one, on a shared quota."""
-    return (flag or os.environ.get(KEY_ENV, "")).strip()
+    key = (flag or os.environ.get(KEY_ENV, "")).strip()
+    if key and not API_KEY.fullmatch(key):
+        raise ValueError("the PSI key has characters a Google API key doesn't (letters, digits, - and _ only)")
+    return key
 
 
 def check(urls: list[str], guard: Guard) -> None:
@@ -79,14 +83,18 @@ def _error(status: int, body: bytes) -> str:
     return f"PageSpeed Insights answered {status}"
 
 
-def measure_one(url: str, device: str, key: str, guard: Guard, screenshots: bool = False) -> Speed:
+def measure_one(url: str, device: str, key: str, guard: Guard, screenshots: bool = False,
+                stop: threading.Event | None = None) -> Speed:
     query = urlencode([("url", url), ("strategy", device)] + [("category", c) for c in CATEGORIES])
+    failed = Speed(url, device, SOURCE)
     for _ in range(2):  # a dropped connection is asked once more; a refusal or a timeout (two minutes gone) isn't
+        if stop is not None and stop.is_set():
+            failed.error = "stopped before PageSpeed Insights was asked"
+            return failed
         resp = fetch(f"{ENDPOINT}?{query}", guard, max_bytes=MAX_BYTES, follow=False, seconds=TIMEOUT,
                      timeout=TIMEOUT, headers={"Accept": "application/json", **({"X-Goog-Api-Key": key} if key else {})})
         if resp.status or resp.refused or resp.error == "timed out":
             break
-    failed = Speed(url, device, SOURCE)
     if resp.status == 0:
         failed.error = f"couldn't reach PageSpeed Insights: {resp.error}"
     elif resp.status != 200:
@@ -102,7 +110,7 @@ def measure_one(url: str, device: str, key: str, guard: Guard, screenshots: bool
             out.field_data = [from_psi(answer.get("loadingExperience"), url, False, who),
                          from_psi(answer.get("originLoadingExperience"), _origin(url), True, who)]
             return out
-        except (ValueError, KeyError, TypeError):
+        except (ValueError, KeyError, TypeError, AttributeError):
             failed.error = "PageSpeed Insights' answer couldn't be read"
     if key:
         failed.error = failed.error.replace(key, "<key>")
@@ -110,18 +118,23 @@ def measure_one(url: str, device: str, key: str, guard: Guard, screenshots: bool
 
 
 def measure(urls: list[str], key: str, guard: Guard, screenshots: bool = False,
-            progress: Callable[[str], object] | None = None) -> list[Speed]:
+            progress: Callable[[str], object] | None = None, stop: threading.Event | None = None) -> list[Speed]:
     """Each page on each device, at most AT_ONCE calls at a time, in the order asked: the start page's phone first.
-    progress runs on this thread, so its KeyboardInterrupt (a stop) cancels the calls not yet started."""
+    Once stop is set (or progress raises KeyboardInterrupt, a stop), no call starts and none is retried; the ones
+    already sent finish on their own, at most AT_ONCE."""
+    stop = stop or threading.Event()
     jobs = [(u, d) for u in urls for d in DEVICES]
     pool = ThreadPoolExecutor(AT_ONCE)
     try:
-        futures = [pool.submit(measure_one, u, d, key, guard, screenshots) for u, d in jobs]
+        futures = [pool.submit(measure_one, u, d, key, guard, screenshots, stop) for u, d in jobs]
         if progress:
             progress(f"PageSpeed Insights: {len(jobs)} loads asked for (Google takes up to a minute each)")
         for done, _ in enumerate(as_completed(futures)):
             if progress:
                 progress(f"PageSpeed Insights: {done + 1} of {len(jobs)} loads done")
         return [f.result() for f in futures]
+    except BaseException:
+        stop.set()
+        raise
     finally:
         pool.shutdown(wait=False, cancel_futures=True)

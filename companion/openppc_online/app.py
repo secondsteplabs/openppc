@@ -193,7 +193,7 @@ def site_job(p: dict[str, Any]) -> Callable[[Job], dict[str, Any]]:
         raise ValueError(f"configs must be a list of at most {MAX_FILES} files")
     psi_key = _text(p, "psi_key", 500)
     args: dict[str, Any] = {
-        "psi_key": psi_key if psi_key or _flag(p, "psi", False) else None, "single": _flag(p, "single", False),
+        "psi_key": psi_key if _flag(p, "psi", False) else None, "single": _flag(p, "single", False),
         "max_pages": None if max_pages is None else int(max_pages), "max_seconds": _limit(p, "max_time"),
         "max_per_pattern": MAX_PER_PATTERN, "fast": _flag(p, "fast", False), "external": _flag(p, "external", True),
         "allow_private": _flag(p, "allow_private", False), "rendered": _flag(p, "render", False),

@@ -80,6 +80,22 @@ def test_the_site_view_audits_downloads_stops_and_steps_aside(server, serve, tmp
         page.locator(".rail-logo").click()
         sync_api.expect(page.locator("#home")).to_be_visible()
 
+        site.click()
+        page.get_by_role("button", name="Audit another site").click()
+        page.get_by_text("Rule packs, a baseline, real-visitor data and API keys").click()
+        page.get_by_label("CrUX API key").fill("SENTINEL-CRUX")
+        page.get_by_label("PageSpeed Insights API key").fill("SENTINEL-PSI")
+        sent = []
+
+        def held(route):
+            sent.append(route.request.post_data_json)
+            route.fulfill(status=400, content_type="application/json", body='{"ok": false, "error": "held by the test"}')
+        page.route("**/api/jobs", held)
+        page.get_by_role("button", name="Check on this computer only").click()
+        sync_api.expect(page.locator("#site .status")).to_contain_text("held by the test")
+        assert len(sent) == 1 and not {"crux_key", "psi_key", "local"} & set(sent[0]) and sent[0]["psi"] is False
+        page.unroute("**/api/jobs")
+
         page.set_viewport_size({"width": 360, "height": 780})
         assert page.evaluate("document.querySelector('.rail').scrollWidth <= window.innerWidth")
         browser.close()

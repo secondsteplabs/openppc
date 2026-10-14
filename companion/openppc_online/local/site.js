@@ -70,7 +70,7 @@
   // the quick check of one page: Google or this computer, chosen each time and never kept
   const quickPsi = h('button', { type: 'button', class: 'btn', onclick: () => run({ single: true, psi: true, render: canRender }) },
     'Check with Google PageSpeed');
-  const quickLocal = h('button', { type: 'button', class: 'btn', onclick: () => run({ single: true, psi: false, render: canRender }) },
+  const quickLocal = h('button', { type: 'button', class: 'btn', onclick: () => run({ single: true, psi: false, render: canRender, local: true }) },
     'Check on this computer only');
   const quickLocalHint = h('span', { class: 'hint' }, 'Chromium loads the page here: speed, tags and consent; nothing goes to Google.');
   let canRender = true;
@@ -156,7 +156,7 @@
   }
 
   let current = null;
-  let lastBody = null;  // the last run as sent, keys included, in this page's memory only: Re-check sends it again
+  let lastBody = null;  // the last run's form, keys included, in this page's memory only: Re-check sends it again
   async function run(choice = {}) {
     if (runBtn.disabled) return;
     const url = f.url.value.trim();
@@ -171,11 +171,10 @@
         max_pages: f.maxPages.value ? Number(f.maxPages.value) : null,
         max_time: f.minutes.value ? Number(f.minutes.value) * 60 : null,
         configs: await Promise.all([...f.packs.files].map(read)),
+        render_urls: lines(f.renderUrls.value), consent_selector: f.consent.value.trim(),
+        crux_key: f.crux.value.trim(), psi_key: f.psiKey.value.trim(),
         ...choice,
       };
-      if (body.render) { body.render_urls = lines(f.renderUrls.value); body.consent_selector = f.consent.value.trim(); }
-      if (f.crux.value.trim()) body.crux_key = f.crux.value.trim();
-      if (f.psiKey.value.trim()) body.psi_key = f.psiKey.value.trim();
       if (f.baseline.files[0]) body.baseline = await read(f.baseline.files[0]);
       await submit(body);
     } catch (e) {
@@ -199,9 +198,17 @@
       current = null;
     }
   }
+  // the form as sent: no key for a call that won't be made, nothing for a pass that won't run
+  function wire(body) {
+    const sent = { ...body };
+    if (!sent.render) { delete sent.render_urls; delete sent.consent_selector; }
+    if (!sent.psi || !sent.psi_key) delete sent.psi_key;
+    if (sent.local || !sent.crux_key) delete sent.crux_key;  // "this computer only": nothing goes to Google
+    delete sent.local;
+    return sent;
+  }
   async function submit(body) {
-    if (!body.psi) delete body.psi_key;  // a key alone would ask Google: "this computer only" means it
-    const start = await api('/api/jobs', body);
+    const start = await api('/api/jobs', wire(body));
     if (start.status === 409 && start.kind === 'site') toast(`${start.error} This shows it.`);
     else if (!start.ok) { say(start.error, 'error'); return; }
     else {
@@ -357,7 +364,7 @@
       h('div', { class: `site-answer site-${state}` }, h('span', { class: 'site-state' }, icon(icons[state][0], 14, 3), icons[state][1]),
         h('b', {}, q), h('span', { class: 'small' }, why))));
     // Performance as a gauge only when it is a Lighthouse speed score: points from lab loads here are a rough estimate
-    const speedScored = (doc.speed || []).some((s) => s.score !== null);
+    const speedScored = / speed score$/.test(doc.scores?.performance?.method || '');
     const scored = Object.entries(doc.scores || {}).filter(([area, s]) => s.score !== null && (area !== 'performance' || speedScored));
     const gauges = scored.length ? h('div', { class: 'site-gauges' }, scored.map(([area, s]) =>
       gauge(s.score, words.areas[area] || area, area === 'performance' ? s.method : 'OpenPPC checks'))) : null;
@@ -388,7 +395,7 @@
     let next;
     if (!speedScored) {
       next = ['Check with PageSpeed to compare: Google measures the page as pagespeed.web.dev does.',
-        'Check with PageSpeed (sends the address to Google)', { psi: true }];
+        'Check with PageSpeed (sends the address to Google)', { psi: true, local: false }];
     } else if (!doc.rendered && canRender) {
       next = ['Load the page in Chromium to check that the tags fire and consent works.', 'Load in Chromium', { render: true }];
     } else if (top.length) {
@@ -396,7 +403,7 @@
     } else {
       next = ['Nothing to fix. Re-check after the next change to the site.', null, null];
     }
-    const recheck = h('button', { type: 'button', class: 'btn', onclick: () => rerun({ baseline: { name: 'previous result.json', text: r.texts.json } }) },
+    const recheck = h('button', { type: 'button', class: 'btn', onclick: () => rerun({ baseline: { name: 'previous result.json', text: JSON.stringify({ findings: doc.findings }) } }) },
       'Re-check');
     const used = (words.glossary || []).filter(([term]) => r.texts.md.includes(`**${term}:**`));
     const node = h('div', { class: 'card pad stack site-summary' },
