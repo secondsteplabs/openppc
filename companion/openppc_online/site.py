@@ -1,8 +1,8 @@
 """`openppc-online site`: crawl the website you name, check it, and write the report.
 
 Every input is read before the crawl, so a typo fails in a second, not after an hour. The crawl, the external link
-checks, the browser with --render and the webhook all go through one siteaudit.net.Guard; the only other host is
-Chrome's UX Report API, and only with --crux-key.
+checks, the browser with --render, Chrome's UX Report API with --crux and the webhook all go through one
+siteaudit.net.Guard.
 """
 import ipaddress
 import json
@@ -123,7 +123,7 @@ def run(url: str, *, max_pages: int | None = None, max_seconds: float | None = N
         hidden = js_only_links(c, r)
         if hidden:
             follow(c, guard, hidden, max_pages, max_seconds, max_per_pattern, fast, progress)
-    field = field_data(c.origin, home(c).url, key) if key and not c.blocked_by else []
+    field = field_data(c.origin, home(c).url, key, guard) if key and not c.blocked_by else []
     findings = evaluate(c, r, field) + ([] if c.blocked_by else packs.evaluate(rules, c, r))
     findings, suppressed = suppress(findings, rules.suppress)
     diff = compare(findings, earlier, baseline[0]) if earlier is not None and baseline else None

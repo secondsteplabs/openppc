@@ -87,9 +87,11 @@ def _parser() -> argparse.ArgumentParser:
                    help="with --render, the CSS selector of your consent banner's accept button")
     s.add_argument("--screenshots", metavar="DIR", default="",
                    help="with --render, save each rendered page as first loaded here (nothing is saved by default)")
-    s.add_argument("--crux-key", nargs="?", const="", metavar="KEY",
+    s.add_argument("--crux", action="store_true",
                    help="add real visitors' Web Vitals from Chrome's UX Report with your own Google API key "
-                        f"(connects to chromeuxreport.googleapis.com); give the flag alone to read the key from {KEY_ENV}")
+                        f"(connects to chromeuxreport.googleapis.com); the key comes from --crux-key or {KEY_ENV}")
+    s.add_argument("--crux-key", metavar="KEY", help=f"your CrUX API key, for --crux (it implies it); {KEY_ENV} keeps "
+                                                     "it out of your shell history")
     s.add_argument("--config", action="append", default=[], metavar="FILE",
                    help="a rule pack or project config (rules, suppressions, tag signatures); repeat for more")
     s.add_argument("--baseline", metavar="FILE",
@@ -156,9 +158,10 @@ def _site(args: argparse.Namespace) -> int:
     progress = _progress if sys.stderr.isatty() else None
     config = [_read(p) for p in args.config]
     baseline = _read(args.baseline) if args.baseline else None
+    crux_key = args.crux_key if args.crux_key is not None else ("" if args.crux else None)
     result, guard = site.run(args.url, max_pages=args.max_pages, max_seconds=args.max_time,
                              max_per_pattern=args.max_per_pattern, fast=args.fast, external=not args.no_external,
-                             allow_private=args.allow_private, crux_key=args.crux_key, config=config,
+                             allow_private=args.allow_private, crux_key=crux_key, config=config,
                              baseline=baseline, post_to=args.post_to, rendered=args.render,
                              render_pages=args.render_pages, vitals_pages=args.vitals_pages,
                              render_url=args.render_url, consent_selector=args.consent_selector,

@@ -272,7 +272,7 @@ def _vitals_tables(r: Rendered | None, book: FactBook) -> list[str]:
                            ("simulated phone height", VIEWPORT["height"]), ("simulated round trip ms", RTT_MS)):
         book.add(label, setting, "count", "rule")
     out = ["", "## Web Vitals (lab)", "", f"{PROFILE[0].upper() + PROFILE[1:]}. Lab numbers show what to fix; real "
-           "visitors' numbers (from Chrome's field data, `--crux-key`) can differ. Interaction to Next Paint needs "
+           "visitors' numbers (from Chrome's field data, `--crux`) can differ. Interaction to Next Paint needs "
            "real clicks, so it isn't measured; Total Blocking Time is its lab stand-in."]
     for v in r.vitals:
         out += _vitals_one(v, book)

@@ -112,7 +112,7 @@ def test_the_last_four_finished_runs_are_kept(server):
 def test_the_crux_key_goes_to_the_run_and_never_comes_back(server, serve, monkeypatch):
     key = "SENTINEL-CRUX-KEY-41aa"
     given = []
-    monkeypatch.setattr(site, "field_data", lambda origin, url, k: given.append(k) or [])
+    monkeypatch.setattr(site, "field_data", lambda origin, url, k, guard: given.append(k) or [])
     base = serve(lambda b: {"/": (200, {}, page("Home"))})
     status, _, view = _post(server, "/api/jobs", _site(base, crux_key=f" {key} "))
     seen = [json.dumps(view)]

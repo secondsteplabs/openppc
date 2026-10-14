@@ -21,7 +21,7 @@ def server():
 @pytest.fixture
 def serve():
     """serve(routes) starts a website on 127.0.0.1; routes(base) maps a path, with or without its query, to (status,
-    headers, body). serve.asked lists every path requested, across the sites."""
+    headers, body). serve.asked lists every path requested, across the sites, and serve.heard their headers."""
     servers = []
     asked = []
 
@@ -42,6 +42,7 @@ def serve():
 
             def answer(self, with_body):
                 asked.append(self.path)
+                start.heard.append((self.path, dict(self.headers)))
                 status, headers, body = table.get(self.path) or table.get(self.path.split("?")[0], fallback)
                 data = body if isinstance(body, bytes) else body.encode()
                 self.send_response(status)
@@ -65,6 +66,7 @@ def serve():
 
     start.asked = asked
     start.posted = []
+    start.heard = []  # (path, request headers) of every request
     yield start
     for s in servers:
         s.shutdown()

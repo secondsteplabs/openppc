@@ -3,7 +3,6 @@ function 9), the secrets it never shows (fitness function 11), the webhook, the 
 import json
 import re
 import socket
-import urllib.request
 from html import escape
 from pathlib import Path
 
@@ -143,7 +142,6 @@ def hosts(monkeypatch):
         return real_connect(self, address)
     monkeypatch.setattr(socket, "getaddrinfo", lookup)
     monkeypatch.setattr(socket.socket, "connect", connect)
-    monkeypatch.setattr(urllib.request, "getproxies", dict)  # CrUX's request goes straight to its host
     return seen
 
 
@@ -170,7 +168,7 @@ def test_secrets_never_show(fmt, serve, hosts, tmp_path, capsys, monkeypatch):
     hook = serve(lambda b: {path: (204, {}, "")}) + path
     out = tmp_path / f"site.{fmt}"
     monkeypatch.setenv(KEY_ENV, key)
-    code, output = _run(["site", bad, *P, "--crux-key", "--format", fmt, "--out", str(out), "--post-to", hook], capsys)
+    code, output = _run(["site", bad, *P, "--crux", "--format", fmt, "--out", str(out), "--post-to", hook], capsys)
     assert code == 0, output
     shown = output + out.read_text(encoding="utf-8") + serve.posted[-1][2].decode()
     for secret in (key, "SENTINEL-HOOK-PATH", "SECRET123abc", "a@b.com"):
@@ -202,7 +200,8 @@ def test_which_webhook_addresses_are_taken(url, allowed):
 
 
 @pytest.mark.parametrize("args", [
-    ["--post-to", "ftp://x"], ["--post-to", "http://example.com/hook"], ["--crux-key"], ["--crux-key", " "],
+    ["--post-to", "ftp://x"], ["--post-to", "http://example.com/hook"], ["--crux"], ["--crux-key"],
+    ["--crux-key", " "],
     ["--config", "missing.json"], ["--baseline", "missing.json"], ["--max-pages", "0"], ["--max-pages", "x"],
     ["--max-time", "0"], ["--max-time", "nan"], ["--max-per-pattern", "-1"], ["--format", "pdf"],
     ["--screenshots", "shots"], ["--render-url", "/thanks"], ["--render", "--render-url", "https://elsewhere.test/x"],

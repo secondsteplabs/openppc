@@ -2,6 +2,15 @@
 
 Semantic versioning, as in OpenPPC. Each release names the `openppc` versions it works with.
 
+## Unreleased (0.6.0)
+
+### Changed
+
+- **`--crux` turns on real visitors' data, and `--crux-key KEY` gives the key** (and turns it on). `--crux` alone
+  reads `OPENPPC_CRUX_KEY`. The old `--crux-key` with no key took the next argument, a URL included, as the key.
+- CrUX's requests go through the site check's guard, with its size and time limits, like every other connection.
+  An API key never follows a redirect.
+
 ## Unreleased (0.5.0)
 
 Needs `openppc` 0.4.

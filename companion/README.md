@@ -82,7 +82,7 @@ crawler, apply to it, so a site's owner can see it in their logs and turn it awa
 
 - **Hosts:** the site you name (and the host its start page moves to), the hosts it links to (one `HEAD` or `GET`
   per link, which `--no-external` skips), with `--render` the hosts the rendered pages load from (tags, fonts,
-  CDNs), chromeuxreport.googleapis.com only with `--crux-key`, and the webhook's host only with `--post-to`.
+  CDNs), chromeuxreport.googleapis.com only with `--crux`, and the webhook's host only with `--post-to`.
   Nothing else.
 - **Private addresses:** it refuses to connect to private, local, link-local and cloud-metadata addresses, checked
   on every connection and redirect, the browser's included. `--allow-private` opens private and local ones, to
@@ -112,7 +112,7 @@ only through the check's own guard, on 127.0.0.1, for as long as the pass runs.
 | `--render-url URL` | With `--render`, also render this page, such as a thank-you page no link leads to, to see which events its tags send (a path or a full address on the site; repeat for more) |
 | `--consent-selector CSS` | With `--render`, your consent banner's accept button, when it isn't one the check recognises |
 | `--screenshots DIR` | With `--render`, save each rendered page as first loaded there; they show whatever the page shows, so nothing is saved without it |
-| `--crux-key [KEY]` | Add real visitors' Web Vitals from Chrome's UX Report, with your own Google API key; the flag alone reads `OPENPPC_CRUX_KEY` |
+| `--crux`, `--crux-key KEY` | Add real visitors' Web Vitals from Chrome's UX Report, with your own Google API key: `--crux-key KEY` (which turns `--crux` on), or `--crux` alone to read `OPENPPC_CRUX_KEY` and keep the key out of your shell history |
 | `--config FILE` | A rule pack or project config: your own rules, suppressions and tag signatures (repeat for more; examples in [`examples/rulepacks`](examples/rulepacks)) |
 | `--baseline FILE` | An earlier `--format json` result: report what's new and fixed, and fail only on new problems |
 | `--fail-on high\|medium\|low` | Exit 2 when a finding is this severe or worse |

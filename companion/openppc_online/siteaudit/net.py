@@ -101,22 +101,23 @@ class Guard:
 
 
 class _HTTP(http.client.HTTPConnection):
-    def __init__(self, host: str, port: int, guard: Guard):
-        super().__init__(host, port, timeout=TIMEOUT)
-        self._guard = guard
+    def __init__(self, host: str, port: int, guard: Guard, timeout: float = TIMEOUT):
+        super().__init__(host, port, timeout=timeout)
+        self._guard, self._wait = guard, timeout
 
     def connect(self) -> None:
-        self.sock = self._guard.connect(self.host, self.port)
+        self.sock = self._guard.connect(self.host, self.port, self._wait)
 
 
 class _HTTPS(http.client.HTTPSConnection):
-    def __init__(self, host: str, port: int, guard: Guard):
-        super().__init__(host, port, timeout=TIMEOUT)
-        self._guard = guard
+    def __init__(self, host: str, port: int, guard: Guard, timeout: float = TIMEOUT):
+        super().__init__(host, port, timeout=timeout)
+        self._guard, self._wait = guard, timeout
         self._tls = ssl.create_default_context()
 
     def connect(self) -> None:
-        self.sock = self._tls.wrap_socket(self._guard.connect(self.host, self.port), server_hostname=self.host)
+        self.sock = self._tls.wrap_socket(self._guard.connect(self.host, self.port, self._wait),
+                                          server_hostname=self.host)
 
 
 @dataclass
@@ -148,7 +149,7 @@ def _read(r: http.client.HTTPResponse, max_bytes: int, deadline: float) -> tuple
     out = bytearray()
     while True:
         if time.monotonic() > deadline:
-            raise TimeoutError(f"the response took longer than {PAGE_SECONDS:.0f} seconds")
+            raise TimeoutError("the response took too long")
         chunk = r.read1(65536)  # what has arrived, so a server sending a byte at a time still meets the deadline
         if not chunk:
             return bytes(out), False
@@ -158,13 +159,13 @@ def _read(r: http.client.HTTPResponse, max_bytes: int, deadline: float) -> tuple
             return bytes(out[:max_bytes]), True
 
 
-def connection(url: str, guard: Guard) -> tuple[http.client.HTTPConnection, str]:
+def connection(url: str, guard: Guard, timeout: float = TIMEOUT) -> tuple[http.client.HTTPConnection, str]:
     """A guarded connection for an http(s) URL, and the target to request on it."""
     parts = urlsplit(url)
     if parts.scheme not in ("http", "https") or not parts.hostname:
         raise ValueError(f"not an http(s) address: {url}")
     port = parts.port or (443 if parts.scheme == "https" else 80)
-    conn = (_HTTPS if parts.scheme == "https" else _HTTP)(parts.hostname, port, guard)
+    conn = (_HTTPS if parts.scheme == "https" else _HTTP)(parts.hostname, port, guard, timeout)
     return conn, urlunsplit(("", "", encoded(parts.path or "/"), encoded(parts.query), ""))
 
 
@@ -182,23 +183,27 @@ def post(url: str, guard: Guard, body: bytes, content_type: str) -> int:
 
 
 def fetch(url: str, guard: Guard, method: str = "GET", max_bytes: int = PAGE_BYTES,
-          follow: bool = True, html_only: bool = False) -> Response:
+          follow: bool = True, html_only: bool = False, headers: dict[str, str] | None = None,
+          body: bytes | None = None, seconds: float = PAGE_SECONDS, timeout: float = TIMEOUT) -> Response:
     """One request, its redirects followed hop by hop. Never raises for a network problem: the Response says what
-    went wrong. html_only: the body of anything but an HTML page is not read."""
+    went wrong. html_only: the body of anything but an HTML page is not read. headers and body go to the first
+    address only, so an API key never follows a redirect. seconds: the wall-clock limit; timeout: to connect, and to
+    wait for the next bytes."""
     start = time.monotonic()
     resp = Response(url, url, 0)
     current = url
     try:
         for _ in range(MAX_REDIRECTS + 1):
             try:
-                conn, target = connection(current, guard)
+                conn, target = connection(current, guard, timeout)
             except ValueError as e:
                 resp.error = str(e)
                 return resp
+            first = not resp.hops
             try:
-                conn.request(method, target, headers={
+                conn.request(method, target, body if first else None, headers={
                     "User-Agent": USER_AGENT, "Accept": "text/html,application/xhtml+xml,*/*;q=0.8",
-                    "Accept-Encoding": "gzip, deflate", "Connection": "close"})
+                    "Accept-Encoding": "gzip, deflate", "Connection": "close", **((headers or {}) if first else {})})
                 r = conn.getresponse()
                 location = r.getheader("Location")
                 if follow and r.status in (301, 302, 303, 307, 308) and location:
@@ -208,7 +213,7 @@ def fetch(url: str, guard: Guard, method: str = "GET", max_bytes: int = PAGE_BYT
                 resp.final_url = current
                 resp.headers = {k.lower(): v for k, v in r.getheaders() if k.lower() != "set-cookie"}
                 if method != "HEAD" and not (html_only and resp.content_type not in HTML_TYPES):
-                    resp.body, resp.truncated = _read(r, max_bytes, start + PAGE_SECONDS)
+                    resp.body, resp.truncated = _read(r, max_bytes, start + seconds)
                 resp.status = r.status  # last: a body that fails part-way is no response
                 return resp
             finally:

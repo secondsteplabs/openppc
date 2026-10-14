@@ -89,6 +89,18 @@ def test_too_many_redirects_and_other_schemes_are_no_response(serve):
     assert ftp.status == 0 and "not an http(s) address" in ftp.error
 
 
+def test_a_call_carries_its_own_headers_and_body_to_its_first_address_only(serve):
+    base = serve(lambda b: {"/api": (200, {"Content-Type": "application/json"}, "x" * 2000),
+                            "/moved": (307, {"Location": "/landed"}, ""), "/landed": (200, {}, "")})
+    resp = fetch(base + "/api", local(), "POST", max_bytes=1000, headers={"X-Goog-Api-Key": "SECRET"},
+                 body=b'{"url": "x"}', seconds=5, timeout=5)
+    path, headers, body = serve.posted[0]
+    assert path == "/api" and headers["X-Goog-Api-Key"] == "SECRET" and body == b'{"url": "x"}' and resp.truncated
+    assert fetch(base + "/moved", local(), headers={"X-Goog-Api-Key": "SECRET"}).status == 200
+    sent = dict(serve.heard)
+    assert sent["/moved"]["X-Goog-Api-Key"] == "SECRET" and "X-Goog-Api-Key" not in sent["/landed"]
+
+
 def test_cookies_are_never_kept_and_the_user_agent_says_who_asks(serve):
     base = serve(lambda b: {"/": (200, {"Set-Cookie": "session=secret"}, page("Home"))})
     resp = fetch(base + "/", local())

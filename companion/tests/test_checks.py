@@ -169,42 +169,28 @@ def test_a_tag_hit_says_which_events_it_sent(url, body, found):
     assert tags.events_of(url, body) == found
 
 
-class _FakeResponse:
-    def __init__(self, body):
-        self.body = body
-
-    def read(self):
-        return self.body
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *a):
-        return False
-
-
-def test_field_data_is_read_and_the_key_stays_out_of_sight():
-    sent = []
+def test_field_data_is_read_through_the_guard_and_the_key_stays_out_of_sight(serve, monkeypatch):
     record = {"record": {"metrics": {"largest_contentful_paint": {"percentiles": {"p75": 4200}},
                                      "cumulative_layout_shift": {"percentiles": {"p75": "0.05"}}},
                          "collectionPeriod": {"firstDate": {"year": 2026, "month": 9, "day": 7},
                                               "lastDate": {"year": 2026, "month": 10, "day": 4}}}}
-
-    def opener(req, timeout):
-        sent.append(req)
-        return _FakeResponse(json.dumps(record).encode())
-    d = crux.query("https://a.test", "SECRET", True, opener)
+    api = serve(lambda b: {"/q": (200, {"Content-Type": "application/json"}, json.dumps(record)),
+                           "/none": (404, {}, "{}")})
+    monkeypatch.setattr(crux, "ENDPOINT", api + "/q")
+    d = crux.query("https://a.test", "SECRET", True, local())
     assert d.p75 == {"lcp": 4200.0, "cls": 0.05} and d.period == "2026-09-07 to 2026-10-04"
-    assert "SECRET" not in sent[0].full_url and sent[0].get_header("X-goog-api-key") == "SECRET"
+    path, headers, body = serve.posted[0]
+    assert "SECRET" not in path and headers["X-Goog-Api-Key"] == "SECRET"
+    assert json.loads(body) == {"origin": "https://a.test", "formFactor": "PHONE"}
     found = []
     checks._field_findings([d], lambda rule, items, notes=None, severity="": found.append(
         checks.Finding(rule, items, notes or {}, severity=severity)))
     found = by_id(found)
     assert found["site-field-lcp-slow"].level == "high" and "site-field-cls-high" not in found
-
-    def refuse(req, timeout):
-        raise OSError("can't reach https://x/?key=SECRET")
-    assert "SECRET" not in crux.query("https://a.test", "SECRET", True, refuse).error
+    monkeypatch.setattr(crux, "ENDPOINT", api + "/none")
+    assert crux.query("https://a.test/", "SECRET", False, local()).error == \
+        "not enough real-visitor data in Chrome's report"
+    assert "--allow-private" in crux.query("https://a.test", "SECRET", True, crux.Guard()).error  # the guard's rules
 
 
 def test_sarif_has_a_result_per_page_with_stable_fingerprints(serve):

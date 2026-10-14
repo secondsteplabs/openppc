@@ -16,8 +16,8 @@ ALLOWED = {"http.server": {"app.py"},  # the app's server, bound to 127.0.0.1
            "http.client": {"siteaudit/net.py"}, "ssl": {"siteaudit/net.py"}, "socket": {"siteaudit/net.py"},
            "socketserver": {"siteaudit/net.py"},
            "playwright.sync_api": {"siteaudit/render.py"},  # the --render browser, pointed at the guard's proxy
-           # Chrome's UX Report API, never the audited site; fetch's one way out, behind its allowlists
-           "urllib.request": {"siteaudit/crux.py", "fetch/http.py"}}
+           # fetch's one way out, behind its allowlists
+           "urllib.request": {"fetch/http.py"}}
 # the core's stable API (ADR-2): what the companion may import from openppc, by module
 STABLE = {"openppc": {"__version__"}, "openppc.facts": {"FactBook"}, "openppc.engine.trace": {"trace"},
           "openppc.ingest": {"load_report"}, "openppc.templates": {"run_template", "Template"},
