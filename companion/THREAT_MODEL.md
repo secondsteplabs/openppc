@@ -41,6 +41,7 @@ review of the diff, before each release that changes any of them.
 | Uploaded file names | Base name only, at most 100 characters, without control characters or backticks; the file is read from memory, never saved, so no path reaches the report or an error | `test_a_site_audit_runs_as_a_job_and_comes_back_in_every_format` |
 | The audited site's text in the app's page | The Site and Download views (`local/site.js`, `local/fetch.js`) build their page as text nodes and write no markup themselves; the report goes through the app's own renderer, which shows any HTML in it as text and sanitizes the rest (DOMPurify), and the site's text is in code spans or escaped already | `test_the_view_writes_no_markup_of_its_own`, `test_the_sites_own_text_never_becomes_markup_in_the_report` |
 | The CrUX key leaking | It arrives in the request body and goes to the run only; no job view, progress line, error or report carries it | `test_the_crux_key_goes_to_the_run_and_never_comes_back` |
+| The PageSpeed Insights key leaking | The same: the request body, then the run only | `test_psi_and_one_page_only_reach_the_run_and_the_psi_key_never_comes_back` |
 | A download's credentials leaking or staying | They arrive in the request body and go to that job only, never to the environment; no job view, progress line, error or result carries them, and they are cleared when the job ends, finished, failed or stopped | `test_a_download_comes_back_as_the_files_and_their_templates`, `test_a_failure_is_explained_without_any_credential`, `test_the_credentials_are_dropped_when_the_download_ends` |
 | Another site reading the token | The token is only in the page, which another origin can't read; `Cross-Origin-Resource-Policy: same-origin` on every answer | `test_the_apps_files_are_served` |
 | Guessing the token | 32 random bytes per run, compared in constant time, as bytes (a header that isn't ASCII is refused, not an error) | `test_the_api_needs_this_runs_token` |
@@ -77,7 +78,9 @@ browser runs their JavaScript. The tests are in `tests/test_net.py`, `tests/test
 
 - **Your network.** The crawler runs inside it, so a site could try to point it at your router, a staging server
   or a cloud machine's metadata service, which hands out credentials.
-- **Your CrUX API key** (`--crux-key` or `OPENPPC_CRUX_KEY`) and **your webhook's URL** (`--post-to`), whose path is often its secret.
+- **Your CrUX API key** (`--crux-key` or `OPENPPC_CRUX_KEY`), **your PageSpeed Insights key** (`--psi-key` or
+  `OPENPPC_PSI_KEY`) and **your webhook's URL** (`--post-to`), whose path is often its secret.
+- **The addresses of the pages you measure with `--psi`,** which go to Google.
 - **Your computer's resources.** Memory, disk and time.
 - **Whoever reads the report.** It quotes URLs and some text from the site, and the HTML report opens in a
   browser.
@@ -97,7 +100,9 @@ browser runs their JavaScript. The tests are in `tests/test_net.py`, `tests/test
 | A name with one private address among public ones | Refused as a whole | `test_a_name_with_one_private_address_among_public_ones_is_refused` |
 | DNS rebinding | Each connection resolves the name once and connects to the checked address, not the name | `test_a_name_is_resolved_once_per_connection_and_connected_by_the_checked_address` |
 | A redirect into your network | Redirects are followed by hand, at most 10, http and https only, each hop checked the same way | `test_a_redirect_to_the_metadata_address_is_refused`, `test_too_many_redirects_and_other_schemes_are_no_response` |
-| Contacting hosts it doesn't declare | Only `siteaudit/net.py` makes connections, CrUX's included, so they all pass the guard and its size and time limits; a run looks up the site, the hosts it links to, CrUX's host only with `--crux` and the webhook's only with `--post-to` | `test_only_the_named_modules_touch_the_network`, `test_the_command_contacts_only_its_declared_hosts` |
+| Contacting hosts it doesn't declare | Only `siteaudit/net.py` makes connections, CrUX's and PageSpeed Insights' included, so they all pass the guard and its size and time limits; a run looks up the site, the hosts it links to, CrUX's host only with `--crux`, PageSpeed Insights' only with `--psi` and the webhook's only with `--post-to` | `test_only_the_named_modules_touch_the_network`, `test_the_command_contacts_only_its_declared_hosts`, `test_psi_contacts_only_its_declared_host_and_the_key_never_shows` |
+| Sending Google a page it shouldn't see | `--psi` checks every page before anything is sent: it refuses `--allow-private`, a host that doesn't resolve to public addresses only, an address with a secret-looking query value (refused, not stripped, since PSI would measure another page), and more than 5 pages | `test_psi_refuses_what_it_cant_measure_before_sending_anything` |
+| A huge or slow answer from PageSpeed Insights | Its own limits: 20 MB and 120 seconds a call, at most 2 calls at a time; an answer that isn't a Lighthouse report is an error on that page, not the run | `test_psi_is_asked_through_the_guard_with_the_key_in_a_header` |
 | A compressed bomb or an endless body | Bodies are cut off at 5 MB after decompression, 30 seconds per response, 15 seconds of silence; only HTML bodies are read when the crawler asks for pages | `test_a_compressed_bomb_is_cut_off`, `test_only_html_bodies_are_read_when_asked`, `test_a_body_that_fails_part_way_is_no_response` |
 | XML attacks in sitemaps | A sitemap with a document type declaration (entities) is not read; sitemaps are capped in size and number | `test_a_sitemap_with_a_document_type_declaration_is_not_read` |
 | An endless site | Pages per URL pattern and per query string are capped, and `--max-pages` and `--max-time` stop it; Ctrl-C keeps what was crawled | `test_the_page_limit_and_a_429_retried_once`, `test_ctrl_c_keeps_what_was_crawled` |
@@ -105,6 +110,7 @@ browser runs their JavaScript. The tests are in `tests/test_net.py`, `tests/test
 | Sessions and tracking | No cookies are kept or sent; the user agent says who asks | `test_cookies_are_never_kept_and_the_user_agent_says_who_asks` |
 | The site's text as markup | URLs are percent-encoded; anything else from the site (a rule pack's quoted field, an error) goes in a code span with its backticks replaced, so it can't close the span; the HTML report escapes all text | `test_the_sites_own_text_never_becomes_markup_in_the_report` |
 | Leaking the CrUX key or the webhook's path | The key is read from `--crux-key` or `OPENPPC_CRUX_KEY` and sent only to CrUX, in a header that never follows a redirect; reports and messages name the webhook's host only; secret-looking query values (tokens, emails) are masked in every format | `test_secrets_never_show`, `test_field_data_is_read_through_the_guard_and_the_key_stays_out_of_sight`, `test_a_call_carries_its_own_headers_and_body_to_its_first_address_only`, `test_fingerprints_ignore_the_origin_and_secrets_are_masked` |
+| Leaking the PageSpeed Insights key | Read from `--psi-key` or `OPENPPC_PSI_KEY`, sent only to PageSpeed Insights in the `X-Goog-Api-Key` header, never in a URL, with no redirect followed; an error that quotes it shows `<key>` instead | `test_psi_is_asked_through_the_guard_with_the_key_in_a_header`, `test_psi_contacts_only_its_declared_host_and_the_key_never_shows` |
 | A webhook that sends the result on | `https://`, or `http://` only to this computer (which also needs `--allow-private`); one POST through the guard, no redirect followed | `test_which_webhook_addresses_are_taken`, `test_the_webhook_follows_no_redirect_and_needs_allow_private_for_this_computer` |
 | A hostile rule pack | Plain JSON, every key and value checked as it loads; a rule compares a field with a literal (no regular expressions, no code), and page globs use `fnmatch`, so a pack can't run anything or hang the check | `test_a_pack_mistake_names_the_place`, `test_the_example_rule_packs_match_the_schema_and_load` |
 | A slow failure | Every input (packs, baseline, key, webhook, limits, `--render-url`, the screenshots folder, the browser starting) is read before the crawl | `test_bad_input_fails_before_the_crawl` |
@@ -123,6 +129,11 @@ browser runs their JavaScript. The tests are in `tests/test_net.py`, `tests/test
   network; use it only on hosts you trust.
 - **`--fast` ignores the polite pace,** not robots.txt. It is for your own site.
 - **The CrUX key goes to Google,** as the API needs. Use a key restricted to the Chrome UX Report API.
+- **`--psi` tells Google which pages you measure,** and Google loads them from its servers, as pagespeed.web.dev
+  does; their tag hits are real visits from Google's machines, which this check can't answer for it. A PSI key
+  goes to Google too: restrict it to the PageSpeed Insights API.
+- **PageSpeed Insights' answer is trusted as Google's.** It is read as data only (numbers, titles and links shown
+  as text or in code spans), never run, so a wrong answer can mislead the report but not reach your computer.
 - **The browser runs the site's JavaScript,** in Chromium's sandbox, with a fresh profile per page. A Chromium
   exploit is out of scope; keep Playwright's Chromium updated (`playwright install chromium`).
 - **The proxy has no password.** While the browser pass runs, another program on this computer could connect to

@@ -28,3 +28,5 @@ src-iab-tcf,Transparency & Consent Framework,IAB Europe,https://iabeurope.eu/tra
 src-edpb-eprivacy,Guidelines 2/2023 on the technical scope of Art. 5(3) of the ePrivacy Directive,EDPB,https://www.edpb.europa.eu/our-work-tools/documents/public-consultations/2023/guidelines-22023-technical-scope-art-53-eprivacy_en,standard,2026-10-05
 src-openai-bots,Overview of OpenAI crawlers,OpenAI,https://platform.openai.com/docs/bots,tool-docs,2026-10-05
 src-llmstxt,The /llms.txt file,llmstxt.org,https://llmstxt.org/,industry-publication,2026-10-05
+src-psi-api,About PageSpeed Insights,Google for Developers,https://developers.google.com/speed/docs/insights/v5/about,tool-docs,2026-10-14
+src-lighthouse-scoring,Lighthouse performance scoring,Chrome for Developers,https://developer.chrome.com/docs/lighthouse/performance/performance-scoring,tool-docs,2026-10-14

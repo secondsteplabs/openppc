@@ -66,6 +66,7 @@ openppc-online site https://example.com
 openppc-online site example.com --max-pages 200 --format html --out site.html
 openppc-online site https://example.com --config openppc-site.json --baseline last.json --fail-on high
 openppc-online site https://example.com --render --render-url /thank-you
+openppc-online site https://example.com/landing --single --psi
 ```
 
 Crawls the site from the page you name and checks what a landing page needs before ads point at it: SEO, broken
@@ -82,8 +83,8 @@ crawler, apply to it, so a site's owner can see it in their logs and turn it awa
 
 - **Hosts:** the site you name (and the host its start page moves to), the hosts it links to (one `HEAD` or `GET`
   per link, which `--no-external` skips), with `--render` the hosts the rendered pages load from (tags, fonts,
-  CDNs), chromeuxreport.googleapis.com only with `--crux`, and the webhook's host only with `--post-to`.
-  Nothing else.
+  CDNs), chromeuxreport.googleapis.com only with `--crux`, pagespeedonline.googleapis.com only with `--psi`, and
+  the webhook's host only with `--post-to`. Nothing else.
 - **Private addresses:** it refuses to connect to private, local, link-local and cloud-metadata addresses, checked
   on every connection and redirect, the browser's included. `--allow-private` opens private and local ones, to
   check localhost or a staging server on your network; link-local and metadata addresses never open.
@@ -105,6 +106,22 @@ only through the check's own guard, on 127.0.0.1, for as long as the pass runs. 
 hits themselves, so measuring a page sends no visits to its analytics or ad accounts; the tags and consent pass is
 a real visit.
 
+**`--psi`** asks Google PageSpeed Insights to measure the start page (and each `--render-url` page, at most 5 in
+all) on a phone and on a desktop, as [pagespeed.web.dev](https://pagespeed.web.dev) does: Google loads them on its
+own servers with Lighthouse. The report then has PSI's 0 to 100 speed score as its Performance score, the five lab
+metrics, real visitors' data from Chrome's UX Report (the page's, or the whole site's when the page has too few
+visitors), the Core Web Vitals assessment, and every Lighthouse audit, with what affects the ad click first. It
+needs no browser on this computer and no key: Google's shared quota is used, and when it runs out, a free key of
+your own (`--psi-key KEY`, or `OPENPPC_PSI_KEY`) gets you your own. The pages' addresses go to Google, so `--psi`
+measures public pages only: it refuses `--allow-private`, a page that isn't on a public address, and an address
+with a secret-looking value (`token=`, `session=` and the like) before anything is sent. The key travels in a
+header, never in a URL, and is never shown.
+
+**`--single`** checks one page instead of the whole site: the start page, and any `--render-url` pages. No sitemap,
+no links followed, no links to other sites checked; the checks that need the whole site (titles shared between
+pages, the sitemap, how a missing page answers) don't run, and the report says so. With `--render`, Web Vitals are
+measured on a phone and a desktop. `--single --psi` is the quick check of one landing page.
+
 | Flag | What it does |
 | --- | --- |
 | `--max-pages N`, `--max-time SECONDS` | Stop after this many pages or seconds (default: no limit; Ctrl-C keeps what was crawled) |
@@ -112,10 +129,12 @@ a real visit.
 | `--no-external`, `--fast`, `--allow-private` | As above |
 | `--render` | The browser pass, as above |
 | `--render-pages N`, `--vitals-pages N` | With `--render`: pages to render (default 5), and how many of them to measure Web Vitals on (default 1, the home page; 0 skips them) |
-| `--render-url URL` | With `--render`, also render this page, such as a thank-you page no link leads to, to see which events its tags send (a path or a full address on the site; repeat for more) |
+| `--render-url URL` | With `--render`, also render this page, such as a thank-you page no link leads to, to see which events its tags send; with `--psi`, also measure it (a path or a full address on the site; repeat for more) |
 | `--consent-selector CSS` | With `--render`, your consent banner's accept button, when it isn't one the check recognises |
 | `--screenshots DIR` | With `--render`, save each rendered page as first loaded there; they show whatever the page shows, so nothing is saved without it |
 | `--crux`, `--crux-key KEY` | Add real visitors' Web Vitals from Chrome's UX Report, with your own Google API key: `--crux-key KEY` (which turns `--crux` on), or `--crux` alone to read `OPENPPC_CRUX_KEY` and keep the key out of your shell history |
+| `--psi`, `--psi-key KEY` | Measure with Google PageSpeed Insights, as above; `--psi-key KEY` (which turns `--psi` on), or `OPENPPC_PSI_KEY`, uses your own key instead of the shared quota |
+| `--single` | Check the start page (and `--render-url` pages) only, not the whole site |
 | `--config FILE` | A rule pack or project config: your own rules, suppressions and tag signatures (repeat for more; examples in [`examples/rulepacks`](examples/rulepacks)) |
 | `--baseline FILE` | An earlier `--format json` result: report what's new and fixed, and fail only on new problems |
 | `--fail-on high\|medium\|low` | Exit 2 when a finding is this severe or worse |

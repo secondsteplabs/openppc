@@ -17,7 +17,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from .crawl import Crawl
-from .lab.throttle import LOAD_CAP_MS, MOBILE, Profile
+from .lab.throttle import DESKTOP, LOAD_CAP_MS, MOBILE, Profile
 from .net import Guard, GuardProxy
 from .tags import CONSENT, consent_platform_of, events_of, hit_patterns, is_hit, vendor_of
 
@@ -129,6 +129,7 @@ class Vitals:
     details: dict[str, Any] = field(default_factory=dict)  # from the first run: DETAILS
     capped: int = 0            # loads still going at LOAD_CAP_MS, measured as they were then
     hits_answered: int = 0     # tag hits the speed loads answered themselves (BLOCK_HITS)
+    device: str = "mobile"     # the lab.throttle profile's
 
     @property
     def median(self) -> dict[str, float | None]:
@@ -321,9 +322,10 @@ def _shot_name(folder: str, n: int, url: str) -> str:
 
 def render(c: Crawl, guard: Guard, pages: int = RENDER_PAGES, consent_selector: str = "",
            vitals: int = VITALS_PAGES, progress: Progress | None = None, screenshots: str = "",
-           also: list[str] | None = None) -> Rendered:
+           also: list[str] | None = None, desktop: bool = False, measured: set[str] | None = None) -> Rendered:
     """Renders `pages` pages, then the `also` pages (a thank-you page no link leads to), and measures Web Vitals on
-    the first `vitals` of them."""
+    the first `vitals` of them that aren't `measured` already (by PageSpeed Insights): on a phone, then with
+    `desktop` on a desktop too."""
     if sync_playwright is None:
         raise ValueError(INSTALL)
     targets = pick(c, pages)
@@ -347,14 +349,15 @@ def render(c: Crawl, guard: Guard, pages: int = RENDER_PAGES, consent_selector: 
                     progress(f"rendering {n} of {len(targets)}: {url}")
                 out.pages.append(_observe(browser, url, consent_selector,
                                           _shot_name(screenshots, n, url) if screenshots else ""))
-            for url in targets[:vitals]:
-                v = Vitals(url)
+            profiles = (MOBILE, DESKTOP) if desktop else (MOBILE,)
+            for url, profile in [(u, p) for u in targets[:vitals] if u not in (measured or set()) for p in profiles]:
+                v = Vitals(url, device=profile.device)
                 out.vitals.append(v)
                 for n in range(VITALS_RUNS):
                     if progress:
-                        progress(f"measuring Web Vitals on {url}, run {n + 1} of {VITALS_RUNS}")
+                        progress(f"measuring Web Vitals ({profile.device}) on {url}, run {n + 1} of {VITALS_RUNS}")
                     try:
-                        run, capped, answered = _vitals_run(browser, url)
+                        run, capped, answered = _vitals_run(browser, url, profile)
                     except PlaywrightError as e:
                         v.error = str(e).splitlines()[0]
                         break  # a page that fails once fails again, a minute each

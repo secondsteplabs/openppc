@@ -11,6 +11,7 @@ from urllib.parse import urlsplit
 
 from .checks import CATEGORIES, Finding
 from .crawl import PROBE_PREFIX, Crawl
+from .lab.lhr import Speed
 from .packs import Suppression
 from .render import RENDER_FLAG
 
@@ -26,6 +27,10 @@ GRADES = ((90, "A"), (80, "B"), (70, "C"), (60, "D"), (0, "F"))
 FAILED_SHARE = 0.25   # this share of pages with no answer makes a scan inconclusive
 FAILED_MIN_PAGES = 4
 BROWSER_CATEGORIES = ("tracking", "accessibility", "performance")  # scored only after a browser pass
+# Score.method: findings' points; the same for Performance from this computer's lab loads; a Lighthouse speed score
+POINTS = "points per finding"
+ROUGH = "points per finding, from lab loads on this computer (rough estimate)"
+SPEED_SCORE = "{source} speed score"
 # axe rules that find what an SEO rule already found: the SEO finding costs the points, the axe one none
 TWINS = {"site-a11y:image-alt": "site-img-alt-missing", "site-a11y:document-title": "site-title-missing",
          "site-a11y:html-has-lang": "site-lang-missing"}
@@ -166,6 +171,7 @@ class Score:
     grade: str = ""
     lost: list[tuple[Finding, int]] = field(default_factory=list)  # each finding and the points it cost
     why_not: str = ""
+    method: str = POINTS                   # how the score was worked out
 
 
 def points(level: str) -> int:
@@ -182,10 +188,17 @@ def counted_elsewhere(f: Finding, findings: list[Finding]) -> Finding | None:
     return next((g for g in findings if g.id == twin), None) if twin else None
 
 
-def scores(findings: list[Finding], rendered: bool) -> dict[str, Score]:
+def scores(findings: list[Finding], rendered: bool, speed: Speed | None = None) -> dict[str, Score]:
+    """Each area from 100 down by its findings' points. With `speed` (the start page's Lighthouse result on a phone),
+    Performance is its speed score instead, and Performance findings cost nothing: the score counts them."""
     out = {}
     for cat in CATEGORIES:
         if cat == "crawl":
+            continue
+        if cat == "performance" and speed and speed.score is not None:
+            value = speed.score
+            out[cat] = Score(cat, value, grade(value), [(f, 0) for f in findings if f.about.category == cat],
+                             method=SPEED_SCORE.format(source=speed.source))
             continue
         if cat in BROWSER_CATEGORIES and not rendered:
             out[cat] = Score(cat, None, why_not=f"needs {RENDER_FLAG}")
@@ -193,7 +206,7 @@ def scores(findings: list[Finding], rendered: bool) -> dict[str, Score]:
         lost = [(f, 0 if counted_elsewhere(f, findings) else points(f.level))
                 for f in findings if f.about.category == cat]
         value = max(0, 100 - sum(p for _, p in lost))
-        out[cat] = Score(cat, value, grade(value), lost)
+        out[cat] = Score(cat, value, grade(value), lost, method=ROUGH if cat == "performance" else POINTS)
     return out
 
 
@@ -204,4 +217,5 @@ def overall(by_category: dict[str, Score]) -> float | None:
 
 def as_data(by_category: dict[str, Score]) -> dict[str, Any]:
     return {cat: {"score": s.score, "grade": s.grade, "not_scored": s.why_not.replace("`", "") or None,
-                  "lost": [{"finding": f.id, "points": p} for f, p in s.lost]} for cat, s in by_category.items()}
+                  "lost": [{"finding": f.id, "points": p} for f, p in s.lost],
+                  "method": None if s.score is None else s.method} for cat, s in by_category.items()}

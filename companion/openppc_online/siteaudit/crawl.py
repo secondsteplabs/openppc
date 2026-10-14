@@ -191,6 +191,7 @@ class Crawl:
     blocked_by: str = ""
     incomplete: str = ""                 # why the crawl stopped early, or ""
     seconds: float = 0.0
+    single: bool = False                 # --single: the start page (and --render-url pages) only
 
     def allowed(self, url: str, agent: str = ROBOTS_TOKEN) -> bool:
         return self.rules is None or self.rules.can_fetch(agent, url)
@@ -261,6 +262,7 @@ class _Crawler:
         self.per_pattern: Counter[str] = Counter()
         self.per_path: Counter[str] = Counter()
         self.host = host_of(c.origin)
+        self.links = not c.single  # follow a page's links (redirects and meta refreshes are followed either way)
 
     def internal(self, url: str) -> bool:
         return host_of(url) == self.host
@@ -301,7 +303,7 @@ class _Crawler:
         if resp.status == 200 and not resp.hops and resp.content_type in ("text/html", "application/xhtml+xml") \
                 and not p.blocked_by:
             p.info = html.read(html.decode(resp.body, resp.headers.get("content-type", "")), resp.final_url)
-            for link in p.info.links:
+            for link in p.info.links if self.links else []:
                 self.offer(link, depth + 1, url)
             if p.info.refresh:
                 self.offer(p.info.refresh, depth + 1, url)
@@ -357,7 +359,9 @@ def _robots_rules(robots: Response) -> Robots | None:
 
 def crawl(start: str, guard: Guard, max_pages: int | None = None, max_seconds: float | None = None,
           max_per_pattern: int = MAX_PER_PATTERN, fast: bool = False, external: bool = True,
-          progress: Progress | None = None) -> Crawl:
+          progress: Progress | None = None, single: bool = False, also: list[str] | None = None) -> Crawl:
+    """The site from `start`; with `single`, the start page and the `also` pages only, with robots.txt and the
+    http:// check, and none of the sitemap, the missing-page probe, llms.txt or other sites' links."""
     began = time.monotonic()
     start = start_url(start)
     limiter = _Limiter(0.0 if fast else POLITE_INTERVAL)
@@ -367,14 +371,14 @@ def crawl(start: str, guard: Guard, max_pages: int | None = None, max_seconds: f
     rules = _robots_rules(robots)
     if rules and not rules.can_fetch(ROBOTS_TOKEN, start):
         c = Crawl(start, origin, guard.allow_private, robots=robots, rules=rules, robots_blocked={start},
-                  incomplete="didn't fetch the start page, because robots.txt disallows it for OpenPPC")
+                  incomplete="didn't fetch the start page, because robots.txt disallows it for OpenPPC", single=single)
         c.seconds = time.monotonic() - began
         return c
     first = fetch(start, guard)
     if first.status == 0:
         raise ValueError(f"couldn't fetch {start}: {first.error}")
     final = urlsplit(normalize(first.final_url))
-    c = Crawl(start, f"{final.scheme}://{final.netloc}", guard.allow_private)
+    c = Crawl(start, f"{final.scheme}://{final.netloc}", guard.allow_private, single=single)
     crawler = _Crawler(c, guard, limiter, max_per_pattern)
     crawler.seen.add(start)
     c.blocked_by = bot_wall(first)
@@ -397,6 +401,12 @@ def crawl(start: str, guard: Guard, max_pages: int | None = None, max_seconds: f
             crawler.queue.clear()
             c.incomplete = "stopped after the first page: robots.txt couldn't be read, and until it can, " \
                            "crawlers are expected to stay out"
+        elif single:
+            for url in also or []:
+                crawler.offer(url, 0, "")
+            if final.scheme == "https" and c.allowed(c.origin + "/"):
+                c.plain_http = _get(f"http://{final.netloc}/", guard, limiter, method="HEAD")
+            _crawl_pages(c, crawler, POLITE_WORKERS, max_pages, max_seconds, began, progress)
         else:
             _read_sitemaps(c, guard, limiter, crawler)
             if c.allowed(c.origin + PROBE):

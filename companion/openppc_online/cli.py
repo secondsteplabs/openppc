@@ -5,6 +5,7 @@
     openppc-online site https://example.com
     openppc-online site https://example.com --config openppc-site.json --baseline last.json --fail-on high
     openppc-online site https://example.com --render --render-url /thank-you
+    openppc-online site https://example.com/landing --single --psi
     openppc-online fetch google 123-456-7890 --out exports/
     openppc-online fetch meta act_123456789 --conversion lead --out exports/
 
@@ -27,6 +28,7 @@ from .fetch import command as fetch_command
 from .fetch.files import DAYS
 from .siteaudit.crawl import FAST_WORKERS, MAX_PER_PATTERN
 from .siteaudit.crux import KEY_ENV
+from .siteaudit.lab.psi import KEY_ENV as PSI_KEY_ENV
 from .siteaudit.render import RENDER_PAGES, VITALS_PAGES
 
 
@@ -82,7 +84,8 @@ def _parser() -> argparse.ArgumentParser:
                    help=f"rendered pages to measure Web Vitals on (default {VITALS_PAGES}: the home page)")
     s.add_argument("--render-url", action="append", default=[], metavar="URL",
                    help="with --render, also render this page of the site, e.g. a thank-you page no link leads to, "
-                        "to see which events its tags send; a path or a full address; repeat for more")
+                        "to see which events its tags send; with --psi, also measure it; a path or a full address; "
+                        "repeat for more")
     s.add_argument("--consent-selector", default="", metavar="CSS",
                    help="with --render, the CSS selector of your consent banner's accept button")
     s.add_argument("--screenshots", metavar="DIR", default="",
@@ -92,6 +95,17 @@ def _parser() -> argparse.ArgumentParser:
                         f"(connects to chromeuxreport.googleapis.com); the key comes from --crux-key or {KEY_ENV}")
     s.add_argument("--crux-key", metavar="KEY", help=f"your CrUX API key, for --crux (it implies it); {KEY_ENV} keeps "
                                                      "it out of your shell history")
+    s.add_argument("--psi", action="store_true",
+                   help="also measure the start page and each --render-url page with Google PageSpeed Insights, on "
+                        "a phone and a desktop: the speed score pagespeed.web.dev shows, Lighthouse's audits and real "
+                        "visitors' data (public pages only; sends their addresses to "
+                        "pagespeedonline.googleapis.com; works without a key, on a shared quota)")
+    s.add_argument("--psi-key", metavar="KEY",
+                   help=f"your own PageSpeed Insights API key, for --psi (it implies it); {PSI_KEY_ENV} keeps it out "
+                        "of your shell history")
+    s.add_argument("--single", action="store_true",
+                   help="check the start page (and any --render-url pages) only, not the whole site: no sitemap, "
+                        "no links followed")
     s.add_argument("--config", action="append", default=[], metavar="FILE",
                    help="a rule pack or project config (rules, suppressions, tag signatures); repeat for more")
     s.add_argument("--baseline", metavar="FILE",
@@ -159,9 +173,11 @@ def _site(args: argparse.Namespace) -> int:
     config = [_read(p) for p in args.config]
     baseline = _read(args.baseline) if args.baseline else None
     crux_key = args.crux_key if args.crux_key is not None else ("" if args.crux else None)
+    psi_key = args.psi_key if args.psi_key is not None else ("" if args.psi else None)
     result, guard = site.run(args.url, max_pages=args.max_pages, max_seconds=args.max_time,
                              max_per_pattern=args.max_per_pattern, fast=args.fast, external=not args.no_external,
-                             allow_private=args.allow_private, crux_key=crux_key, config=config,
+                             allow_private=args.allow_private, crux_key=crux_key, psi_key=psi_key,
+                             single=args.single, config=config,
                              baseline=baseline, post_to=args.post_to, rendered=args.render,
                              render_pages=args.render_pages, vitals_pages=args.vitals_pages,
                              render_url=args.render_url, consent_selector=args.consent_selector,

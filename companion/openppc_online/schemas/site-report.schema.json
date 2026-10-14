@@ -38,11 +38,35 @@
                      "new": {"type": "object", "additionalProperties": {"type": "array", "items": {"type": "string"}}},
                      "fixed": {"type": "array", "items": {"type": "object", "required": ["title", "item"]}},
                      "unchanged": {"type": "integer"}}}]},
-    "field_data": {"type": "array", "items": {
-      "type": "object", "required": ["target", "origin", "p75", "period", "error"],
-      "properties": {"target": {"type": "string"}, "origin": {"type": "boolean"},
-                     "p75": {"type": "object", "additionalProperties": {"type": "number"}},
-                     "period": {"type": "string"}, "error": {"type": "string"}}}},
+    "single": {"type": "boolean", "description": "--single: the start page (and --render-url pages) only."},
+    "field_data": {"type": "array", "items": {"$ref": "#/$defs/field_data"},
+                   "description": "Real visitors, from the CrUX API (--crux) or as PageSpeed Insights passed them on: for phones, the page then the site, then the same for desktops."},
+    "speed": {"type": "array", "description": "Lighthouse results (--psi): each page on a phone, then a desktop.",
+              "items": {
+      "type": "object", "required": ["url", "device", "source", "score", "error", "metrics", "categories", "audits"],
+      "properties": {
+        "url": {"type": "string"}, "final_url": {"type": "string"}, "device": {"enum": ["mobile", "desktop"]},
+        "source": {"type": "string"}, "method": {"type": "string"}, "lighthouse": {"type": "string"},
+        "fetched": {"type": "string"},
+        "score": {"type": ["integer", "null"], "minimum": 0, "maximum": 100},
+        "band": {"enum": ["good", "needs improvement", "poor", null]},
+        "error": {"type": ["string", "null"]},
+        "warnings": {"type": "array", "items": {"type": "string"}},
+        "metrics": {"type": "array", "items": {
+          "type": "object", "required": ["id", "value", "score", "weight"],
+          "properties": {"id": {"type": "string"}, "acronym": {"type": "string"},
+                         "value": {"type": ["number", "null"]}, "score": {"type": ["number", "null"]},
+                         "weight": {"type": "integer"}}}},
+        "categories": {"type": "object", "additionalProperties": {
+          "type": "object", "required": ["title", "score"],
+          "properties": {"title": {"type": "string"}, "score": {"type": ["number", "null"]}}}},
+        "audits": {"type": "array", "items": {
+          "type": "object", "required": ["id", "title", "category", "result"],
+          "properties": {"id": {"type": "string"}, "title": {"type": "string"}, "category": {"type": "string"},
+                         "result": {"enum": ["passed", "failed", "info", "manual", "n/a"]},
+                         "docs": {"type": "string"}}}},
+        "screenshot": {"type": ["string", "null"]},
+        "field_data": {"type": "array", "items": {"$ref": "#/$defs/field_data"}}}}},
     "pages": {"type": "array", "items": {
       "type": "object", "required": ["url", "status", "final_url", "depth", "linked_from"],
       "properties": {"url": {"type": "string"}, "status": {"type": "integer"}, "final_url": {"type": "string"},
@@ -70,7 +94,8 @@
                          "capped": {"description": "Loads still going after 45 seconds, measured as they were then.",
                                     "type": "integer", "minimum": 0},
                          "hits_answered": {"description": "Tag hits the speed loads answered on this computer.",
-                                           "type": "integer", "minimum": 0}}}},
+                                           "type": "integer", "minimum": 0},
+                         "device": {"enum": ["mobile", "desktop"]}}}},
         "refused": {"type": "array", "items": {"type": "string"}}}}]},
     "facts": {"type": "array", "items": {"$ref": "#/$defs/fact"}}
   },
@@ -110,8 +135,21 @@
         "not_scored": {"type": ["string", "null"]},
         "lost": {"type": "array", "items": {"type": "object", "required": ["finding", "points"],
                                             "properties": {"finding": {"type": "string"},
-                                                           "points": {"type": "integer"}}}}
+                                                           "points": {"type": "integer"}}}},
+        "method": {"type": ["string", "null"],
+                   "description": "How the score was worked out: points per finding, or a Lighthouse speed score (Performance with --psi)."}
       }
+    },
+    "field_data": {
+      "type": "object", "required": ["target", "origin", "p75", "period", "error"],
+      "properties": {"target": {"type": "string"}, "origin": {"type": "boolean"},
+                     "p75": {"type": "object", "additionalProperties": {"type": "number"}},
+                     "period": {"type": "string"}, "error": {"type": "string"},
+                     "device": {"enum": ["phone", "desktop"]},
+                     "shares": {"type": "object", "description": "Per metric: the good, needs-improvement and poor shares of visits, 0 to 1.",
+                                "additionalProperties": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3}},
+                     "verdict": {"enum": ["passed", "failed", null]},
+                     "source": {"type": "string"}}
     }
   }
 }

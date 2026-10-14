@@ -1,7 +1,7 @@
 # Third-party licenses: openppc-online
 
-openppc-online's own code is MIT, like OpenPPC. It ships one third-party file, copies a few published values, and
-uses one optional package.
+openppc-online's own code is MIT, like OpenPPC. It ships one third-party file, copies a few published values and
+one scoring formula, and uses one optional package.
 
 ## Shipped in the package
 
@@ -17,6 +17,8 @@ Its source: [github.com/dequelabs/axe-core](https://github.com/dequelabs/axe-cor
 | From | What | Where | License |
 |---|---|---|---|
 | Lighthouse 13 (`core/config/constants.js`) and Lantern (`simulation/Constants.ts`, in Chrome DevTools) | The mobile and desktop screens, user agents, throttling and load cap | `openppc_online/siteaudit/lab/throttle.py`; `tests/test_lab.py` checks each value | Apache-2.0 (Lighthouse), BSD-3-Clause (Chrome DevTools) |
+| Lighthouse 13 (`shared/statistics.js`, `shared/util.js`, `core/audits/metrics/*.js`, `core/scoring.js`) | The performance score: the log-normal curve, each metric's control points per device, the weights and the rounding, ported to Python | `openppc_online/siteaudit/lab/score.py`; `tests/test_lab_score.py` checks it against a Lighthouse 13.5 report | Apache-2.0 |
+| Lighthouse 13.5 (a report it wrote, from its own test pages) | A test fixture, and the audit ids and categories of the parity matrix | `tests/fixtures/lhr-13.5-mobile.json`; `openppc_online/siteaudit/lab/lighthouse-13.csv` | Apache-2.0 |
 
 ## Installed only on request
 

@@ -45,10 +45,13 @@
     external: check('Check links to other sites', 'that they still answer', true),
     fast: check('Fast', 'many requests at once with no pause: your own site only'),
     private: check('Allow private addresses', 'localhost, or a staging server on your network'),
+    single: check('One page only', '(--single): this page, not the whole site'),
+    psi: check('Measure with PageSpeed Insights', '(--psi): Google\u2019s speed score and Lighthouse audits, on a phone and a desktop; public pages only'),
     render: check('Load pages in Chromium', '(--render): tags and events, consent, accessibility, Web Vitals'),
     renderUrls: h('textarea', { class: 'site-area', spellcheck: 'false', placeholder: '/thank-you' }),
     consent: h('input', { class: 'text-input site-wide', type: 'text', spellcheck: 'false', placeholder: '#accept-cookies' }),
     crux: h('input', { class: 'text-input site-wide', type: 'password', autocomplete: 'off', spellcheck: 'false' }),
+    psiKey: h('input', { class: 'text-input site-wide', type: 'password', autocomplete: 'off', spellcheck: 'false' }),
     packs: h('input', { type: 'file', multiple: true, accept: '.json' }),
     baseline: h('input', { type: 'file', accept: '.json' }),
   };
@@ -68,13 +71,15 @@
     h('div', { class: 'card composer' },
       h('div', { class: 'field' }, h('label', { class: 'lbl', for: 'site-url' }, 'The site'), f.url),
       h('div', { class: 'controls' }, control('Max pages', f.maxPages, 'optional'), control('Minutes', f.minutes, 'optional')),
-      h('div', { class: 'site-checks' }, f.external.node, f.fast.node, f.private.node, f.render.node, renderInstall),
+      h('div', { class: 'site-checks' }, f.single.node, f.external.node, f.fast.node, f.private.node, f.psi.node,
+        f.render.node, renderInstall),
       renderMore,
-      h('details', { class: 'site-more' }, h('summary', {}, 'Rule packs, a baseline and real-visitor data'),
+      h('details', { class: 'site-more' }, h('summary', {}, 'Rule packs, a baseline, real-visitor data and API keys'),
         h('div', { class: 'controls' },
           control('Rule packs', f.packs, '.json, rules and suppressions'),
           control('Baseline', f.baseline, 'an earlier .json result: report what is new'),
-          control('CrUX API key', f.crux, 'adds real visitors\u2019 Web Vitals from Google'))),
+          control('CrUX API key', f.crux, 'adds real visitors\u2019 Web Vitals from Google'),
+          control('PageSpeed Insights API key', f.psiKey, 'optional, for when Google\u2019s shared quota runs out'))),
       h('div', { class: 'controls' }, runBtn, stopBtn),
       status));
   f.url.id = 'site-url';
@@ -143,12 +148,14 @@
       const body = {
         kind: 'site', url, fast: f.fast.input.checked, external: f.external.input.checked,
         allow_private: f.private.input.checked, render: f.render.input.checked,
+        single: f.single.input.checked, psi: f.psi.input.checked,
         max_pages: f.maxPages.value ? Number(f.maxPages.value) : null,
         max_time: f.minutes.value ? Number(f.minutes.value) * 60 : null,
         configs: await Promise.all([...f.packs.files].map(read)),
       };
       if (body.render) { body.render_urls = lines(f.renderUrls.value); body.consent_selector = f.consent.value.trim(); }
       if (f.crux.value.trim()) body.crux_key = f.crux.value.trim();
+      if (f.psiKey.value.trim()) body.psi_key = f.psiKey.value.trim();
       if (f.baseline.files[0]) body.baseline = await read(f.baseline.files[0]);
       const start = await api('/api/jobs', body);
       if (start.status === 409 && start.kind === 'site') toast(`${start.error} This shows it.`);

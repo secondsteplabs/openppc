@@ -10,6 +10,28 @@ Semantic versioning, as in OpenPPC. Each release names the `openppc` versions it
   Meta, LinkedIn and the rest of `signatures.json`) with an empty 204 on this computer; the tag scripts still load,
   so their cost is measured. The report says how many were answered, and the JSON's `vitals` items gain
   `hits_answered`. The tags and consent pass stays a real visit.
+- **`--psi`: Google PageSpeed Insights' numbers in the report.** The start page and each `--render-url` page (at
+  most 5) are measured on a phone and a desktop by PSI, through the guard; no key needed (`--psi-key KEY` or
+  `OPENPPC_PSI_KEY` for your own quota). The Performance area becomes PSI's speed score for the start page on a
+  phone, and its findings cost no points of their own; lab LCP, CLS and TBT findings come from Lighthouse's numbers;
+  a Speed section shows each page's score and five metrics; an "All Lighthouse audits" section lists every audit,
+  what affects the ad click first, mapped to OpenPPC's own rules by a parity matrix
+  (`siteaudit/lab/lighthouse-13.csv`). Pages PSI measured aren't measured again with `--render`. It needs no
+  browser on this computer. Public pages only: `--allow-private`, private hosts and secret-looking addresses are
+  refused before anything is sent.
+- **`--single`: one page, not the whole site.** The start page and any `--render-url` pages, no sitemap, no links
+  followed or checked; whole-site rules (shared titles, the sitemap, the missing-page probe, other sites' links)
+  don't run, and the report says so. With `--render`, Web Vitals on a phone and a desktop.
+- **Real visitors' data as PageSpeed Insights shows it:** good, needs-improvement and poor shares, and p75, for LCP,
+  INP, CLS, FCP and TTFB; the Core Web Vitals assessment (passed, failed or none); phones and desktops; the page's
+  data first and the whole site's when the page has too few visitors. From PSI with `--psi`, or from the CrUX API
+  with `--crux`, which now asks for desktops, histograms, FCP and TTFB too.
+- The app's Site form gains "One page only", "Measure with PageSpeed Insights" and a PSI key field.
+- JSON: a top-level `speed` list (each Lighthouse result, its metrics, categories and audits, and its real-visitor
+  data), `single`, `scores.<area>.method`, and `device`, `shares`, `verdict` and `source` on `field_data` items and
+  `device` on `vitals` items. Additive, so `format_version` stays 1.
+- Rulebook rows for the speed score, PSI's limits, each Lighthouse category, the real-visitor assessment and
+  `--single`.
 
 ### Changed
 
@@ -25,6 +47,8 @@ Semantic versioning, as in OpenPPC. Each release names the `openppc` versions it
   reads `OPENPPC_CRUX_KEY`. The old `--crux-key` with no key took the next argument, a URL included, as the key.
 - CrUX's requests go through the site check's guard, with its size and time limits, like every other connection.
   An API key never follows a redirect.
+- `--render-url` works with `--psi` as well as `--render`.
+- The real-visitor findings read phones' whole-site data, as before; the table now shows phones and desktops.
 
 ## Unreleased (0.5.0)
 

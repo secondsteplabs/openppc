@@ -10,6 +10,7 @@ from urllib.parse import urlsplit
 from .crawl import AI_BOTS, Crawl, Page, normalize
 from .crux import METRICS as CRUX_METRICS
 from .crux import FieldData
+from .lab.lhr import Speed
 from .net import Response
 from .page import PageInfo, read
 from .render import Rendered
@@ -24,6 +25,7 @@ CLS_GOOD = 0.1
 CLS_POOR = 0.25
 TBT_GOOD_MS = 200            # Lighthouse's lines for Total Blocking Time, the lab stand-in for INP
 TBT_POOR_MS = 600
+LHR_METRICS = {"largest-contentful-paint": "lcp", "cumulative-layout-shift": "cls", "total-blocking-time": "tbt"}
 UNVERIFIABLE = (401, 403, 429, 999)  # an external site refusing a bot, not a broken link
 SECURITY_HEADERS = ("strict-transport-security", "content-security-policy", "x-content-type-options",
                     "referrer-policy")
@@ -48,6 +50,10 @@ REQUIRED: dict[str, tuple[tuple[str, ...], ...]] = {
     "ClaimReview": (("claimReviewed",), ("reviewRating",), ("url",)),
     "EmployerAggregateRating": (("itemReviewed",), ("ratingValue",)),
 }
+# rules that judge a whole site, which `--single` (one page) can't: comparisons across pages, the sitemap, how the
+# site answers a missing page, and other sites' links, which it doesn't check
+WHOLE_SITE = frozenset({"site-title-duplicate", "site-description-duplicate", "site-sitemap-missing",
+                        "site-sitemap-bad-url", "site-soft-404", "site-broken-external", "site-external-unverified"})
 SEVERITY_RANK = {"high": 3, "medium": 2, "low": 1, "info": 0}
 AXE_SEVERITY = {"critical": "high", "serious": "high", "moderate": "medium", "minor": "low"}
 
@@ -388,16 +394,32 @@ def _rendered_findings(r: Rendered, add: Any) -> None:
         add("site-a11y", entry["pages"], entry["notes"], key=f"site-a11y:{axe_id}",
             title=f"`{axe_id}`: {v['help']}" + (f" (WCAG {criteria})" if criteria else ""),
             severity=AXE_SEVERITY.get(v["impact"] or "minor", "low"))
+
+
+def lab_values(r: Rendered | None, speed: list[Speed]) -> dict[str, dict[str, float | None]]:
+    """Each page's lab LCP, CLS and TBT on a phone: Lighthouse's (PageSpeed Insights') where it measured the page,
+    else the median of this computer's loads."""
+    out: dict[str, dict[str, float | None]] = {}
+    for s in speed:
+        if s.device == "mobile" and s.metrics:
+            got = {m.id: m.value for m in s.metrics}
+            out[s.url] = {key: got.get(audit) for audit, key in LHR_METRICS.items()}
+    for v in r.vitals if r else []:
+        if v.device == "mobile" and v.runs:
+            out.setdefault(v.url, v.median)
+    return out
+
+
+def _lab_findings(values: dict[str, dict[str, float | None]], add: Any) -> None:
     slow: dict[str, list[str]] = defaultdict(list)
     poor: dict[str, bool] = defaultdict(bool)
-    for measured in r.vitals:
-        m = measured.median if measured.runs else {}
+    for url, m in values.items():
         for rule, key, good, bad in (("site-lcp-slow", "lcp", LCP_GOOD_MS, LCP_POOR_MS),
                                      ("site-cls-high", "cls", CLS_GOOD, CLS_POOR),
                                      ("site-tbt-high", "tbt", TBT_GOOD_MS, TBT_POOR_MS)):
             value = m.get(key)
             if value is not None and value > good:
-                slow[rule].append(measured.url)
+                slow[rule].append(url)
                 poor[rule] |= value > bad
     for rule, urls in slow.items():
         add(rule, urls, severity="high" if poor[rule] else "")
@@ -428,7 +450,7 @@ def js_only_links(c: Crawl, r: Rendered) -> dict[str, str]:
 
 
 def _field_findings(field_data: list[FieldData], add: Any) -> None:
-    site = next((f for f in field_data if f.origin and f.p75), None)
+    site = next((f for f in field_data if f.origin and f.p75 and f.device == "phone"), None)
     if not site:
         return
     for rule, short in (("site-field-lcp-slow", "lcp"), ("site-field-inp-slow", "inp"),
@@ -440,12 +462,13 @@ def _field_findings(field_data: list[FieldData], add: Any) -> None:
                 severity="high" if value > bad else "")
 
 
-def evaluate(c: Crawl, r: Rendered | None = None, field_data: list[FieldData] | None = None) -> list[Finding]:
+def evaluate(c: Crawl, r: Rendered | None = None, field_data: list[FieldData] | None = None,
+             speed: list[Speed] | None = None) -> list[Finding]:
     out: list[Finding] = []
 
     def add(rule: str, items: list[str], notes: dict[str, str] | None = None, key: str = "", title: str = "",
             severity: str = "") -> None:
-        if items:
+        if items and not (c.single and rule in WHOLE_SITE):
             out.append(Finding(rule, list(dict.fromkeys(items)), notes or {}, key, title, severity))
 
     if c.blocked_by:
@@ -556,5 +579,6 @@ def evaluate(c: Crawl, r: Rendered | None = None, field_data: list[FieldData] | 
         hidden = js_only_links(c, r)
         add("site-js-only-links", list(hidden), {u: f"on `{page}`" for u, page in hidden.items()})
         _rendered_findings(r, add)
+    _lab_findings(lab_values(r, speed or []), add)
     _field_findings(field_data or [], add)
     return out

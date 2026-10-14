@@ -173,7 +173,9 @@ def test_a_tag_hit_says_which_events_it_sent(url, body, found):
 
 
 def test_field_data_is_read_through_the_guard_and_the_key_stays_out_of_sight(serve, monkeypatch):
-    record = {"record": {"metrics": {"largest_contentful_paint": {"percentiles": {"p75": 4200}},
+    bins = [{"start": 0, "end": 2500, "density": 0.5}, {"start": 2500, "end": 4000, "density": 0.2},
+            {"start": 4000, "density": 0.3}]
+    record = {"record": {"metrics": {"largest_contentful_paint": {"percentiles": {"p75": 4200}, "histogram": bins},
                                      "cumulative_layout_shift": {"percentiles": {"p75": "0.05"}}},
                          "collectionPeriod": {"firstDate": {"year": 2026, "month": 9, "day": 7},
                                               "lastDate": {"year": 2026, "month": 10, "day": 4}}}}
@@ -182,6 +184,7 @@ def test_field_data_is_read_through_the_guard_and_the_key_stays_out_of_sight(ser
     monkeypatch.setattr(crux, "ENDPOINT", api + "/q")
     d = crux.query("https://a.test", "SECRET", True, local())
     assert d.p75 == {"lcp": 4200.0, "cls": 0.05} and d.period == "2026-09-07 to 2026-10-04"
+    assert d.shares == {"lcp": [0.5, 0.2, 0.3]} and d.verdict == "failed" and d.device == "phone"
     path, headers, body = serve.posted[0]
     assert "SECRET" not in path and headers["X-Goog-Api-Key"] == "SECRET"
     assert json.loads(body) == {"origin": "https://a.test", "formFactor": "PHONE"}

@@ -56,6 +56,9 @@ def test_a_site_audit_runs_as_a_job_and_comes_back_in_every_format(server, serve
     ({"url": ""}, "give the address"),
     ({"url": 5}, "url must be text"),
     ({"fast": "yes"}, "fast must be true or false"),
+    ({"psi": "yes"}, "psi must be true or false"),
+    ({"single": 1}, "single must be true or false"),
+    ({"psi_key": 5}, "psi_key must be text"),
     ({"max_pages": 0}, "max_pages must be a number above 0"),
     ({"max_pages": 2.5}, "whole number"),
     ({"max_pages": True}, "max_pages must be a number"),
@@ -118,6 +121,19 @@ def test_the_crux_key_goes_to_the_run_and_never_comes_back(server, serve, monkey
     seen = [json.dumps(view)]
     done = _job(server, view["id"], until=lambda v: seen.append(json.dumps(v)) or v["state"] != "running")
     assert done["state"] == "done" and given == [key]
+    assert key not in "".join(seen)
+
+
+def test_psi_and_one_page_only_reach_the_run_and_the_psi_key_never_comes_back(server, serve):
+    key = "SENTINEL-PSI-KEY-0c3f"
+    base = serve(acme)
+    status, _, view = _post(server, "/api/jobs", _site(base, single=True))
+    done = _job(server, view["id"])
+    assert done["state"] == "done" and "One page only" in done["result"]["texts"]["md"]
+    status, _, view = _post(server, "/api/jobs", _site(base, psi=True, psi_key=f" {key} "))
+    seen = [json.dumps(view)]
+    done = _job(server, view["id"], until=lambda v: seen.append(json.dumps(v)) or v["state"] != "running")
+    assert done["state"] == "failed" and "can't be used with --allow-private" in done["error"]  # refused before sending
     assert key not in "".join(seen)
 
 

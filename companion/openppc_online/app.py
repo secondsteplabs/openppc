@@ -54,7 +54,7 @@ STOP_CHECK = 0.25  # seconds between looks at the Stop button while a platform b
 JOB = re.compile(r"/api/jobs/([\w-]{1,32})")
 STOP = re.compile(r"/api/jobs/([\w-]{1,32})/stop")
 SITE_FIELDS = {"kind", "url", "max_pages", "max_time", "fast", "external", "allow_private", "render", "render_urls",
-               "consent_selector", "crux_key", "configs", "baseline"}
+               "consent_selector", "crux_key", "psi", "psi_key", "single", "configs", "baseline"}
 FETCH_FIELDS = {"kind", "platform", "account", "days", "conversion", "credentials"}
 MAX_FILES = 20
 MAX_NAME = 100
@@ -189,7 +189,9 @@ def site_job(p: dict[str, Any]) -> Callable[[Job], dict[str, Any]]:
         raise ValueError(f"render_urls must be a list of at most {MAX_FILES} addresses")
     if not isinstance(configs, list) or len(configs) > MAX_FILES:
         raise ValueError(f"configs must be a list of at most {MAX_FILES} files")
+    psi_key = _text(p, "psi_key", 500)
     args: dict[str, Any] = {
+        "psi_key": psi_key if psi_key or _flag(p, "psi", False) else None, "single": _flag(p, "single", False),
         "max_pages": None if max_pages is None else int(max_pages), "max_seconds": _limit(p, "max_time"),
         "max_per_pattern": MAX_PER_PATTERN, "fast": _flag(p, "fast", False), "external": _flag(p, "external", True),
         "allow_private": _flag(p, "allow_private", False), "rendered": _flag(p, "render", False),

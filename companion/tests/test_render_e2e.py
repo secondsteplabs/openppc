@@ -17,6 +17,7 @@ from sites import qa_site
 from openppc_online.cli import main
 from openppc_online.siteaudit import checks
 from openppc_online.siteaudit import crawl as crawl_module
+from openppc_online.siteaudit import render as render_module
 from openppc_online.siteaudit.checks import evaluate, tracking
 from openppc_online.siteaudit.crawl import crawl, follow
 from openppc_online.siteaudit.net import Guard
@@ -148,6 +149,18 @@ def test_qa_site_30_takes_a_consent_selector(serve, tmp_path, monkeypatch, capsy
                  "#accept", "--vitals-pages", "0", "--out", str(out)]) == 0
     markdown = out.read_text(encoding="utf-8")
     assert "in Chromium for tags, consent" in markdown and "--render`" not in markdown
+
+
+def test_one_page_only_measures_a_phone_then_a_desktop_and_skips_what_psi_measured(shop, monkeypatch):
+    monkeypatch.setattr(render_module, "VITALS_RUNS", 1)
+    guard, _ = recording()
+    c = crawl(shop, guard, fast=True, single=True)
+    r = render(c, guard, pages=1, desktop=True)
+    assert [(v.url, v.device) for v in r.vitals] == [(shop + "/", "mobile"), (shop + "/", "desktop")]
+    assert all(len(v.runs) == 1 and v.median["lcp"] is not None for v in r.vitals)
+    markdown, _, passed = report(c, r, evaluate(c, r))
+    assert passed and "on a desktop" in markdown and "On a desktop: desktop (rough estimate)" in markdown
+    assert render(c, guard, pages=1, desktop=True, measured={shop + "/"}).vitals == []
 
 
 def test_the_browser_is_held_to_the_same_address_rules(shop):
