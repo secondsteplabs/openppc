@@ -25,8 +25,9 @@ from .checks import (
 from .crawl import MAX_QUERY_VARIANTS, Crawl
 from .crux import FORM_FACTOR, FieldData
 from .crux import METRICS as CRUX_METRICS
+from .lab.throttle import LOAD_CAP_MS, MOBILE
 from .net import ROBOTS_TOKEN
-from .render import AXE_VERSION, PROFILE, RENDER_FLAG, RTT_MS, VIEWPORT, Rendered, Vitals
+from .render import AXE_VERSION, PROFILE, RENDER_FLAG, Rendered, Vitals
 from .tags import VENDORS
 from .tags import VERSION as SIGNATURES
 from .triage import (
@@ -268,8 +269,8 @@ def _tracking_table(c: Crawl, r: Rendered | None) -> list[str]:
 def _vitals_tables(r: Rendered | None, book: FactBook) -> list[str]:
     if not r or not r.vitals:
         return []
-    for label, setting in (("simulated phone width", VIEWPORT["width"]),
-                           ("simulated phone height", VIEWPORT["height"]), ("simulated round trip ms", RTT_MS)):
+    for label, setting in (("lab phone width", MOBILE.width), ("lab phone height", MOBILE.height),
+                           ("lab latency ms", MOBILE.latency_ms), ("lab Mbps down", round(MOBILE.down_kbps / 1024, 2))):
         book.add(label, setting, "count", "rule")
     out = ["", "## Web Vitals (lab)", "", f"{PROFILE[0].upper() + PROFILE[1:]}. Lab numbers show what to fix; real "
            "visitors' numbers (from Chrome's field data, `--crux`) can differ. Interaction to Next Paint needs "
@@ -285,6 +286,10 @@ def _vitals_one(v: Vitals, book: FactBook) -> list[str]:
     out = ["", f"### `{v.url}`", "", f"The median of {book.count(f'Web Vitals runs on {v.url}', len(v.runs))} loads."]
     if v.error:
         out += ["", f"A run failed: {code(v.error)}"]
+    if v.capped:
+        out += ["", f"{book.count(f'loads still going at the cap on {v.url}', v.capped)} of them hadn't finished "
+                    f"loading after {book.count('load cap seconds', LOAD_CAP_MS / 1000, 'rule')} seconds, so they "
+                    "were measured as they were then, as Lighthouse does."]
     out += ["", "| Measure | Median | Good up to | Poor above |", "|---|---|---|---|"]
     median = v.median
     for key, name, unit, good, poor, dp in VITALS:
@@ -400,7 +405,7 @@ def report(c: Crawl, r: Rendered | None, findings: list[Finding],
 
 def _vitals_data(v: Vitals) -> dict[str, Any]:
     return {"url": v.url, "profile": PROFILE, "runs": v.runs, "median": v.median, "error": v.error,
-            "details": v.details}
+            "details": v.details, "capped": v.capped}
 
 
 def data(c: Crawl, r: Rendered | None, findings: list[Finding], extras: Extras | None = None) -> dict[str, Any]:

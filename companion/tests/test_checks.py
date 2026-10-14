@@ -107,9 +107,10 @@ def test_the_vitals_section_without_a_measurement(serve):
     details = {"lcp_element": "img#hero.big", "lcp_url": base + "/hero.jpg", "blocking": [base + "/app.css"],
                "heavy": [[base + "/hero.jpg", 251_904], [base + "/app.js", 90_112]]}
     markdown, _, passed = report(c, Rendered(vitals=[Vitals(base + "/", runs=[run], details=details),
-                                                     Vitals(base + "/b", runs=[run, run])]), [])
+                                                     Vitals(base + "/b", runs=[run, run], capped=1)]), [])
     assert passed, markdown
-    assert "Lab, simulated phone" in markdown and "slower CPU" in markdown and "### `" + base + "/b`" in markdown
+    assert "Lab, throttled phone (rough estimate): 412x823 screen" in markdown and "562.5 ms latency" in markdown
+    assert "### `" + base + "/b`" in markdown and "hadn't finished loading after 45 seconds" in markdown
     assert "`img#hero.big`" in markdown and "(246 KB)" in markdown and "block the first paint" in markdown
 
 

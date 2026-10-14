@@ -1,6 +1,7 @@
 # Third-party licenses: openppc-online
 
-openppc-online's own code is MIT, like OpenPPC. It ships one third-party file, and uses one optional package.
+openppc-online's own code is MIT, like OpenPPC. It ships one third-party file, copies a few published values, and
+uses one optional package.
 
 ## Shipped in the package
 
@@ -10,6 +11,12 @@ openppc-online's own code is MIT, like OpenPPC. It ships one third-party file, a
 
 The file is byte for byte the one npm publishes as `axe-core@4.10.3`; `tests/test_render.py` pins its SHA-256.
 Its source: [github.com/dequelabs/axe-core](https://github.com/dequelabs/axe-core/tree/v4.10.3).
+
+## Values copied
+
+| From | What | Where | License |
+|---|---|---|---|
+| Lighthouse 13 (`core/config/constants.js`) and Lantern (`simulation/Constants.ts`, in Chrome DevTools) | The mobile and desktop screens, user agents, throttling and load cap | `openppc_online/siteaudit/lab/throttle.py`; `tests/test_lab.py` checks each value | Apache-2.0 (Lighthouse), BSD-3-Clause (Chrome DevTools) |
 
 ## Installed only on request
 

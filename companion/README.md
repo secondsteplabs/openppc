@@ -91,7 +91,8 @@ crawler, apply to it, so a site's owner can see it in their logs and turn it awa
 **`--render`** loads the home page and one page per section (5 by default) in Chromium, to see what only
 JavaScript shows: which tags fire before and after the consent banner is accepted, the events they send, links
 that appear only after JavaScript runs (which it then crawls), accessibility problems (axe-core, against WCAG A
-and AA), and lab Web Vitals on a simulated phone (the median of three loads of the home page). Without it, those
+and AA), and lab Web Vitals on a throttled phone (the median of three loads of the home page, set up as Lighthouse
+sets up its own tab; a rough estimate, since Lighthouse's own score simulates the slow phone instead). Without it, those
 checks say they need it instead of passing. It needs Playwright and Chromium:
 
 ```

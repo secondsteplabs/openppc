@@ -1,6 +1,6 @@
 """The browser pass (`openppc-online site --render`): a real browser loads a few pages to see what only JavaScript
 shows, namely which tags fire before and after consent, the accessibility problems axe-core finds, and lab Web
-Vitals on a simulated phone. The checks and the report read what it observes; without --render a scan has no
+Vitals on a throttled phone, set up as Lighthouse sets up its own (lab.throttle). The checks and the report read what it observes; without --render a scan has no
 Rendered, and its browser checks say so.
 
 The browser reaches the network only through net.GuardProxy, so a rendered page is held to the same rules as the
@@ -17,15 +17,17 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from .crawl import Crawl
+from .lab.throttle import LOAD_CAP_MS, MOBILE, Profile
 from .net import Guard, GuardProxy
 from .tags import CONSENT, consent_platform_of, events_of, vendor_of
 
 try:
     from playwright.sync_api import Error as PlaywrightError
+    from playwright.sync_api import TimeoutError as PlaywrightTimeout
     from playwright.sync_api import sync_playwright
 except ImportError:  # the `render` extra isn't installed; render() and preflight() say how to install it
     sync_playwright = None  # type: ignore[assignment]
-    PlaywrightError = Exception  # type: ignore[assignment,misc]
+    PlaywrightError = PlaywrightTimeout = Exception  # type: ignore[assignment,misc]
 
 RENDER_PAGES = 5             # pages rendered: the home page, then one per top-level section
 SETTLE_MS = 3000             # wait after load, and after the consent click, for late tags
@@ -33,15 +35,7 @@ LOAD_MS = 30_000
 VITALS_RUNS = 3              # the median of this many loads is reported
 VITALS_PAGES = 1             # pages measured, from the first rendered (the home page) on
 VITALS_SETTLE_MS = 5000
-# Lighthouse's mobile profile: a mid-range phone on a slow 4G connection
-VIEWPORT = {"width": 412, "height": 823}
-PHONE: dict[str, Any] = {"viewport": VIEWPORT, "device_scale_factor": 2.625, "is_mobile": True, "has_touch": True}
-CPU_SLOWDOWN = 4
-RTT_MS = 150
-DOWN_KBPS = 1638.4
-UP_KBPS = 750
-PROFILE = (f"lab, simulated phone ({VIEWPORT['width']}x{VIEWPORT['height']}), "
-           f"{CPU_SLOWDOWN}x slower CPU, {RTT_MS} ms round trips, {DOWN_KBPS / 1024:.1f} Mbps down")
+PROFILE = f"lab, {MOBILE.label}"
 AXE_TAGS = ("wcag2a", "wcag2aa", "wcag21a", "wcag21aa")
 AXE_VERSION = "4.10.3"
 METRICS = ("lcp", "cls", "tbt", "fcp", "ttfb")
@@ -130,6 +124,7 @@ class Vitals:
     runs: list[dict[str, float | None]] = field(default_factory=list)
     error: str = ""
     details: dict[str, Any] = field(default_factory=dict)  # from the first run: DETAILS
+    capped: int = 0            # loads still going at LOAD_CAP_MS, measured as they were then
 
     @property
     def median(self) -> dict[str, float | None]:
@@ -255,20 +250,24 @@ def _observe(browser: Any, url: str, consent_selector: str, screenshot: str = ""
     return o
 
 
-def _vitals_run(browser: Any, url: str) -> dict[str, Any]:
-    context = browser.new_context(service_workers="block", accept_downloads=False, **PHONE)
+def _vitals_run(browser: Any, url: str, profile: Profile = MOBILE) -> tuple[dict[str, Any], bool]:
+    """One measured load, and whether it was still loading at LOAD_CAP_MS (Lighthouse measures it anyway)."""
+    context = browser.new_context(service_workers="block", accept_downloads=False, **profile.context())
     try:
         page = context.new_page()
         page.add_init_script(VITALS_JS)
         cdp = context.new_cdp_session(page)
-        cdp.send("Emulation.setCPUThrottlingRate", {"rate": CPU_SLOWDOWN})
-        cdp.send("Network.enable")
-        cdp.send("Network.emulateNetworkConditions", {"offline": False, "latency": RTT_MS,
-                                                      "downloadThroughput": DOWN_KBPS * 1024 / 8,
-                                                      "uploadThroughput": UP_KBPS * 1024 / 8})
-        page.goto(url, wait_until="load", timeout=LOAD_MS * 2)
+        cdp.send("Emulation.setCPUThrottlingRate", {"rate": profile.cpu})
+        if network := profile.network():
+            cdp.send("Network.enable")
+            cdp.send("Network.emulateNetworkConditions", network)
+        capped = False
+        try:
+            page.goto(url, wait_until="load", timeout=LOAD_CAP_MS)
+        except PlaywrightTimeout:
+            capped = True
         page.wait_for_timeout(VITALS_SETTLE_MS)
-        return dict(page.evaluate("() => window.__openppcVitals()"))
+        return dict(page.evaluate("() => window.__openppcVitals()")), capped
     finally:
         context.close()
 
@@ -309,7 +308,9 @@ def render(c: Crawl, guard: Guard, pages: int = RENDER_PAGES, consent_selector: 
     already = len(guard.refused)
     with GuardProxy(guard) as proxy, sync_playwright() as pw:
         try:
-            # Playwright routes loopback through the proxy too, so localhost gets the same check
+            # Playwright routes loopback through the proxy too, so localhost gets the same check. The headless shell,
+            # not new headless (channel="chromium"): the full browser calls Google's update, sign-in and push hosts
+            # on its own, whatever the flags, and those aren't hosts this command declares.
             browser = pw.chromium.launch(proxy={"server": proxy.url}, args=[
                 "--disable-quic", "--force-webrtc-ip-handling-policy=disable_non_proxied_udp"])
         except PlaywrightError as e:
@@ -327,10 +328,11 @@ def render(c: Crawl, guard: Guard, pages: int = RENDER_PAGES, consent_selector: 
                     if progress:
                         progress(f"measuring Web Vitals on {url}, run {n + 1} of {VITALS_RUNS}")
                     try:
-                        run = _vitals_run(browser, url)
+                        run, capped = _vitals_run(browser, url)
                     except PlaywrightError as e:
                         v.error = str(e).splitlines()[0]
                         break  # a page that fails once fails again, a minute each
+                    v.capped += capped
                     details = {k: run.pop(k, None) for k in DETAILS}
                     v.details = v.details or details
                     v.runs.append(run)

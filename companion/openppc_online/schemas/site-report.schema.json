@@ -66,7 +66,9 @@
             "datalayer": {"type": "array", "items": {"type": "string"}}}}},
         "vitals": {"type": "array", "items": {
           "type": "object", "required": ["url", "profile", "runs", "median", "error", "details"],
-          "properties": {"median": {"type": "object", "additionalProperties": {"type": ["number", "null"]}}}}},
+          "properties": {"median": {"type": "object", "additionalProperties": {"type": ["number", "null"]}},
+                         "capped": {"description": "Loads still going after 45 seconds, measured as they were then.",
+                                    "type": "integer", "minimum": 0}}}},
         "refused": {"type": "array", "items": {"type": "string"}}}}]},
     "facts": {"type": "array", "items": {"$ref": "#/$defs/fact"}}
   },

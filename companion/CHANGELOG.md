@@ -6,6 +6,14 @@ Semantic versioning, as in OpenPPC. Each release names the `openppc` versions it
 
 ### Changed
 
+- **Lab Web Vitals load the page as Lighthouse loads its own tab** (`siteaudit/lab/throttle.py`): a Moto G Power
+  screen (412x823 at 1.75x, was 2.625x) with Lighthouse's mobile user agent, and its mobile throttling as DevTools
+  applies it: 562.5 ms latency, 1.44 Mbps down, 675 Kbps up, 4x CPU. The old 150 ms and 1.6 Mbps were the inputs of
+  Lighthouse's simulator, which made lab numbers look better than the phone they named. Expect slower numbers.
+- A load still going after 45 seconds is measured as it is then, as Lighthouse does, and the report says so; it
+  used to wait 60 seconds and then lose the measurement. The JSON's `vitals` items gain `capped`.
+- The report and README say "throttled phone (rough estimate)", not "simulated phone": Lighthouse's own score
+  simulates the slow phone, and this lab doesn't.
 - **`--crux` turns on real visitors' data, and `--crux-key KEY` gives the key** (and turns it on). `--crux` alone
   reads `OPENPPC_CRUX_KEY`. The old `--crux-key` with no key took the next argument, a URL included, as the key.
 - CrUX's requests go through the site check's guard, with its size and time limits, like every other connection.
