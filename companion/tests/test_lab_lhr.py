@@ -1,6 +1,7 @@
 """PageSpeed Insights (--psi), the Lighthouse report reader and its parity matrix, the one-page check (--single), and
 the report's speed score, real-visitor and Lighthouse audit sections. Nothing here reaches Google: PSI is a local
 server, and the fitness test maps the names it uses to a public address that connects to this computer."""
+import gzip
 import json
 from pathlib import Path
 
@@ -8,6 +9,7 @@ import jsonschema
 import pytest
 from sites import PSI_HOST, PUBLIC, by_id, local, page
 
+from openppc_online import site
 from openppc_online.cli import main
 from openppc_online.siteaudit import checks, crux, words
 from openppc_online.siteaudit.crawl import crawl
@@ -33,9 +35,11 @@ EXPERIENCE = {"overall_category": "AVERAGE", "metrics": {
     "EXPERIMENTAL_TIME_TO_FIRST_BYTE": {"percentile": 900, "distributions": _share(0.4, 0.4, 0.2)}}}
 
 
-def _answer(fallback=False):
-    return json.dumps({"lighthouseResult": LHR, "originLoadingExperience": EXPERIENCE,
+def psi_answer(fallback=False):
+    """PSI's answer as a route for `serve`, gzipped as Google sends it (and small enough for Windows loopback)."""
+    body = json.dumps({"lighthouseResult": LHR, "originLoadingExperience": EXPERIENCE,
                        "loadingExperience": {**EXPERIENCE, "origin_fallback": True} if fallback else EXPERIENCE})
+    return 200, {"Content-Type": "application/json", "Content-Encoding": "gzip"}, gzip.compress(body.encode())
 
 
 def test_the_parity_matrix_maps_every_audit_in_the_fixtures():
@@ -69,7 +73,7 @@ def test_the_core_web_vitals_assessment(p75, verdict):
 
 
 def test_psi_is_asked_through_the_guard_with_the_key_in_a_header(serve, monkeypatch):
-    api = serve(lambda b: {"/psi": (200, {"Content-Type": "application/json"}, _answer()),
+    api = serve(lambda b: {"/psi": psi_answer(),
                            "/quota": (429, {}, json.dumps({"error": {"message": "Quota exceeded"}})),
                            "/refused": (400, {}, json.dumps({"error": {"message": "API key not valid."}}))})
     monkeypatch.setattr(psi, "ENDPOINT", api + "/psi")
@@ -171,9 +175,26 @@ def test_the_page_is_shown_first_and_the_site_stands_in_when_it_has_too_few_visi
     assert passed and "Not enough real visitors yet" in markdown
 
 
+def test_psi_is_never_sent_a_page_robots_txt_keeps_openppc_out_of(serve, public, monkeypatch):
+    robots = "User-agent: *\nDisallow: /thanks\n"
+    site_ = serve(lambda b: {"/": (200, {}, page("Home")), "/thanks": (200, {}, page("Thanks")),
+                             "/robots.txt": (200, {"Content-Type": "text/plain"}, robots)})
+    api = serve(lambda b: {"/psi": psi_answer()})
+    monkeypatch.setattr(psi, "ENDPOINT", api.replace("127.0.0.1", PSI_HOST) + "/psi")
+    start = site_.replace("127.0.0.1", "shop.test") + "/"
+    result, _ = site.run(start, max_per_pattern=500, fast=True, psi_key="", single=True, render_url=["/thanks"])
+    asked = [path for path, _ in serve.heard if path.startswith("/psi")]
+    assert asked and not any("thanks" in path for path in asked) and result.passed
+    hidden = serve(lambda b: {"/": (200, {}, page("Home")),
+                              "/robots.txt": (200, {"Content-Type": "text/plain"}, "User-agent: *\nDisallow: /\n")})
+    before = len(serve.heard)
+    site.run(hidden.replace("127.0.0.1", "shop.test") + "/", max_per_pattern=500, psi_key="", single=True)
+    assert not any(path.startswith("/psi") for path, _ in serve.heard[before:])
+
+
 def test_psi_contacts_only_its_declared_host_and_the_key_never_shows(serve, public, tmp_path, capsys, monkeypatch):
     site = serve(lambda b: {"/": (200, {}, page("Home"))})
-    api = serve(lambda b: {"/psi": (200, {"Content-Type": "application/json"}, _answer(fallback=True))})
+    api = serve(lambda b: {"/psi": psi_answer(fallback=True)})
     monkeypatch.setattr(psi, "ENDPOINT", api.replace("127.0.0.1", PSI_HOST) + "/psi")
     start = site.replace("127.0.0.1", "shop.test") + "/"
     key = "SENTINEL-PSI-KEY-5b0e"

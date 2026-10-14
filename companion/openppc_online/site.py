@@ -123,11 +123,16 @@ def run(url: str, *, max_pages: int | None = None, max_seconds: float | None = N
     if rendered:
         preflight()
     pool = ThreadPoolExecutor(1)  # PageSpeed Insights takes a minute: it runs while the site is crawled
+    later: list[Future[list[Speed]]] = []
+
+    def start_psi(c: Crawl) -> None:  # once robots.txt is read: Google isn't sent a page it keeps OpenPPC out of
+        allowed = [u for u in measure if c.allowed(u)]
+        if allowed:
+            later.append(pool.submit(psi.measure, allowed, psi.key_from(psi_key), guard))
     try:
-        later = pool.submit(psi.measure, measure, psi.key_from(psi_key), guard) if psi_key is not None else None
         c = crawl(url, guard, max_pages, max_seconds, max_per_pattern, fast, external, progress, single,
-                  also if single else None)
-        speed = _speed(later, c, progress) if later else []
+                  also if single else None, ready=start_psi if psi_key is not None else None)
+        speed = _speed(later[0], c, progress) if later else []
     finally:
         pool.shutdown(wait=False, cancel_futures=True)
     r: Rendered | None = None

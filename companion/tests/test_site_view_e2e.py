@@ -2,7 +2,7 @@
 aside for the rest of the app, and fits a phone."""
 import pytest
 from sites import PSI_HOST, acme, page
-from test_lab_lhr import LHR, _answer
+from test_lab_lhr import LHR, psi_answer
 
 from openppc_online.siteaudit.lab import psi
 
@@ -88,7 +88,7 @@ def test_the_site_view_audits_downloads_stops_and_steps_aside(server, serve, tmp
 
 def test_the_quick_check_with_pagespeed_shows_its_score_on_the_summary(server, serve, public, monkeypatch):
     site = serve(lambda b: {"/": (200, {}, page("Home"))})
-    api = serve(lambda b: {"/psi": (200, {"Content-Type": "application/json"}, _answer())})
+    api = serve(lambda b: {"/psi": psi_answer()})
     monkeypatch.setattr(psi, "ENDPOINT", api.replace("127.0.0.1", PSI_HOST) + "/psi")
     score = round(LHR["categories"]["performance"]["score"] * 100)
     with sync_api.sync_playwright() as p:

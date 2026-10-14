@@ -18,7 +18,8 @@ Semantic versioning, as in OpenPPC. Each release names the `openppc` versions it
   what affects the ad click first, mapped to OpenPPC's own rules by a parity matrix
   (`siteaudit/lab/lighthouse-13.csv`). Pages PSI measured aren't measured again with `--render`. It needs no
   browser on this computer. Public pages only: `--allow-private`, private hosts and secret-looking addresses are
-  refused before anything is sent.
+  refused before anything is sent, and Google is asked only once robots.txt is read, for the pages it lets OpenPPC
+  fetch. A dropped connection to PSI is tried once more.
 - **`--single`: one page, not the whole site.** The start page and any `--render-url` pages, no sitemap, no links
   followed or checked; whole-site rules (shared titles, the sitemap, the missing-page probe, other sites' links)
   don't run, and the report says so. With `--render`, Web Vitals on a phone and a desktop.

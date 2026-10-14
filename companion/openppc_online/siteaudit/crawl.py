@@ -384,9 +384,12 @@ def _robots_rules(robots: Response) -> Robots | None:
 
 def crawl(start: str, guard: Guard, max_pages: int | None = None, max_seconds: float | None = None,
           max_per_pattern: int = MAX_PER_PATTERN, fast: bool = False, external: bool = True,
-          progress: Progress | None = None, single: bool = False, also: list[str] | None = None) -> Crawl:
+          progress: Progress | None = None, single: bool = False, also: list[str] | None = None,
+          ready: Callable[[Crawl], object] | None = None) -> Crawl:
     """The site from `start`; with `single`, the start page and the `also` pages only, with robots.txt, the
-    http:// check and the ad-parameter check, and none of the sitemap, the missing-page probe, llms.txt or other sites' links."""
+    http:// check and the ad-parameter check, and none of the sitemap, the missing-page probe, llms.txt or other sites' links.
+    ready(c) runs once robots.txt is read and the start page has answered, before the rest is crawled; not at all
+    when robots.txt keeps the crawl out, a bot wall answers, or the start page can't be fetched."""
     began = time.monotonic()
     start = start_url(start)
     limiter = _Limiter(0.0 if fast else POLITE_INTERVAL)
@@ -422,6 +425,8 @@ def crawl(start: str, guard: Guard, max_pages: int | None = None, max_seconds: f
             if delay:
                 limiter.interval = max(limiter.interval, min(delay, CRAWL_DELAY_MAX))
         crawler.record(start, 0, first)  # after robots.txt, so its rules apply to the start page's links
+        if ready and not c.robots_failed:
+            ready(c)
         if c.robots_failed:
             crawler.queue.clear()
             c.incomplete = "stopped after the first page: robots.txt couldn't be read, and until it can, " \
