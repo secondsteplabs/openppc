@@ -8,7 +8,7 @@ import pytest
 from test_fetch_google import SECRETS as GOOGLE_ENV
 from test_fetch_google import FakeGoogle
 from test_fetch_meta import ENV as META_ENV
-from test_fetch_meta import FakeGraph
+from test_fetch_meta import TODAY, FakeGraph
 from test_fetch_microsoft import SECRETS as MICROSOFT_ENV
 from test_fetch_microsoft import FakeMicrosoft
 
@@ -24,10 +24,13 @@ EXTRA = {"meta": ["--conversion", "lead"]}
 
 @pytest.fixture
 def platform_api(monkeypatch):
-    """Route the command's gate to a fake platform, and set its credentials."""
+    """Route the command's gate to a fake platform, and set its credentials. The fakes answer only for the date
+    windows ending on TODAY, so the command runs on that date."""
     def use(platform, fake=None):
         fake = fake or FAKES[platform]()
         monkeypatch.setattr(command, "Gate", lambda p, send=None: http.Gate(p, fake))
+        contents = command.contents
+        monkeypatch.setattr(command, "contents", lambda *a, **k: contents(*a, **{**k, "today": k.get("today") or TODAY}))
         for name in {*GOOGLE_ENV, *MICROSOFT_ENV, *META_ENV}:
             monkeypatch.delenv(name, raising=False)
         for name, value in ENVS[platform].items():

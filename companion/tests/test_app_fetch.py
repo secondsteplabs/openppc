@@ -6,7 +6,7 @@ import pytest
 from test_app_jobs import _job, _post
 from test_fetch_command import ACCOUNTS, ENVS, FAKES, _secrets
 from test_fetch_google import FakeGoogle
-from test_fetch_meta import FakeGraph
+from test_fetch_meta import TODAY, FakeGraph
 from test_fetch_microsoft import FakeMicrosoft
 
 from openppc_online import app
@@ -15,10 +15,13 @@ from openppc_online.fetch import command, http
 
 @pytest.fixture
 def platform_api(monkeypatch):
-    """Route the job's gate to a fake platform, with no credential in the environment: the request brings them."""
+    """Route the job's gate to a fake platform, with no credential in the environment: the request brings them. The
+    fakes answer only for the date windows ending on TODAY, so the job runs on that date."""
     def use(platform, fake=None):
         fake = fake or FAKES[platform]()
         monkeypatch.setattr(command, "Gate", lambda p, send=None: http.Gate(p, fake))
+        contents = command.contents
+        monkeypatch.setattr(command, "contents", lambda *a, **k: contents(*a, **{"today": TODAY, **k}))
         for env in ENVS.values():
             for name in env:
                 monkeypatch.delenv(name, raising=False)
