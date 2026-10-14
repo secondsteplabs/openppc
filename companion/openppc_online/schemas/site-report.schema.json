@@ -97,12 +97,25 @@
         "vitals": {"type": "array", "items": {
           "type": "object", "required": ["url", "profile", "runs", "median", "error", "details"],
           "properties": {"median": {"type": "object", "additionalProperties": {"type": ["number", "null"]}},
-                         "capped": {"description": "Loads still going after 45 seconds, measured as they were then.",
+                         "capped": {"description": "Loads still going, or not yet quiet, after 45 seconds, measured as they were then.",
                                     "type": "integer", "minimum": 0},
                          "hits_answered": {"description": "Tag hits the speed loads answered on this computer.",
                                            "type": "integer", "minimum": 0},
-                         "device": {"enum": ["mobile", "desktop"]}}}},
-        "refused": {"type": "array", "items": {"type": "string"}}}}]},
+                         "device": {"enum": ["mobile", "desktop"]},
+                         "representative": {"description": "The index in runs of the load shown (Lighthouse CI's median run), or null without loads.",
+                                            "type": ["integer", "null"], "minimum": 0},
+                         "shown": {"description": "The representative load's metrics.",
+                                   "type": "object", "additionalProperties": {"type": ["number", "null"]}},
+                         "range": {"description": "Each metric's lowest and highest value across the loads.",
+                                   "type": "object", "additionalProperties": {
+                                     "type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2}},
+                         "unstable": {"description": "Metrics the loads disagreed on, by Lighthouse CI's tolerance.",
+                                      "type": "array", "items": {"enum": ["fcp", "lcp", "tbt"]}},
+                         "no_tti": {"description": "Loads that never went quiet for Time to Interactive; their Total Blocking Time counts to the end of the load.",
+                                    "type": "integer", "minimum": 0}}}},
+        "refused": {"type": "array", "items": {"type": "string"}},
+        "browser_calls": {"description": "Hosts Chromium itself asked for (updates, sign-in, push), refused before they were resolved.",
+                          "type": "array", "items": {"type": "string"}}}}]},
     "facts": {"type": "array", "items": {"$ref": "#/$defs/fact"}}
   },
   "$defs": {

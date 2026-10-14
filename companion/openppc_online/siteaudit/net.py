@@ -76,6 +76,8 @@ class Guard:
     def addresses(self, host: str, port: int) -> list[str]:
         """The addresses to connect to. Every address the host resolves to must pass, so a name can't pair a public
         address with a private one."""
+        if host.rstrip(".").lower().split(".")[-1] == "invalid":
+            raise Refused(f"{host} is under .invalid, which never resolves (RFC 6761), so it isn't looked up")
         try:
             found = self.resolve(host, port)
         except OSError as e:
@@ -302,13 +304,31 @@ class _ProxyHandler(socketserver.BaseRequestHandler):
             _pipe(client, upstream)
 
 
+class _SinkHandler(socketserver.BaseRequestHandler):
+    server: "_ProxyServer"
+
+    def handle(self) -> None:
+        client: socket.socket = self.request
+        client.settimeout(TIMEOUT)
+        with contextlib.suppress(OSError, ValueError, IndexError):
+            first = client.recv(65536).decode("latin-1").split("\r\n", 1)[0]
+            target = first.split(" ")[1]
+            host = _hostport(target, 443)[0] if first.startswith("CONNECT ") else (urlsplit(target).hostname or "")
+            if host:
+                self.server.asked.append(host)
+            client.sendall(b"HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+
+
 class _ProxyServer(socketserver.ThreadingTCPServer):
     daemon_threads = True
     allow_reuse_address = True
+    guard: Guard              # the sink's server has none, and never uses it
 
-    def __init__(self, guard: Guard):
-        super().__init__(("127.0.0.1", 0), _ProxyHandler)
-        self.guard = guard
+    def __init__(self, guard: Guard | None, handler: type[socketserver.BaseRequestHandler] = _ProxyHandler):
+        super().__init__(("127.0.0.1", 0), handler)
+        if guard is not None:
+            self.guard = guard
+        self.asked: list[str] = []
 
     def handle_error(self, request: object, client_address: object) -> None:
         pass  # a browser dropping a connection mid-request is routine, not worth a traceback on the console
@@ -329,3 +349,20 @@ class GuardProxy:
     def __exit__(self, *exc: object) -> None:
         self._server.shutdown()
         self._server.server_close()
+
+
+class Sink(GuardProxy):
+    """A proxy that refuses everything, before any name is resolved, and notes the hosts asked for. The browser's own
+    traffic (update checks, sign-in, push) goes here, while each page's goes through its context's GuardProxy."""
+
+    def __init__(self) -> None:
+        self._server = _ProxyServer(None, _SinkHandler)
+        self.url = f"http://127.0.0.1:{self._server.server_address[1]}"
+
+    def __enter__(self) -> "Sink":
+        super().__enter__()
+        return self
+
+    @property
+    def asked(self) -> list[str]:
+        return sorted(set(self._server.asked))

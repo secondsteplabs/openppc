@@ -25,6 +25,7 @@ CLS_GOOD = 0.1
 CLS_POOR = 0.25
 TBT_GOOD_MS = 200            # Lighthouse's lines for Total Blocking Time, the lab stand-in for INP
 TBT_POOR_MS = 600
+NEAR_LINE = 1.2              # a page measured once is flagged only above the poor line or this far over the good one
 LHR_METRICS = {"largest-contentful-paint": "lcp", "cumulative-layout-shift": "cls", "total-blocking-time": "tbt"}
 UNVERIFIABLE = (401, 403, 429, 999)  # an external site refusing a bot, not a broken link
 SECURITY_HEADERS = ("strict-transport-security", "content-security-policy", "x-content-type-options",
@@ -410,29 +411,36 @@ def _rendered_findings(r: Rendered, add: Any) -> None:
             severity=AXE_SEVERITY.get(v["impact"] or "minor", "low"))
 
 
-def lab_values(r: Rendered | None, speed: list[Speed]) -> dict[str, dict[str, float | None]]:
+def lab_values(r: Rendered | None, speed: list[Speed]) -> dict[str, tuple[dict[str, float | None], bool]]:
     """Each page's lab LCP, CLS and TBT on a phone: Lighthouse's (PageSpeed Insights') where it measured the page,
-    else the median of this computer's loads."""
-    out: dict[str, dict[str, float | None]] = {}
+    else this computer's representative load; and whether that was a single load."""
+    out: dict[str, tuple[dict[str, float | None], bool]] = {}
     for s in speed:
         if s.device == "mobile" and s.metrics:
             got = {m.id: m.value for m in s.metrics}
-            out[s.url] = {key: got.get(audit) for audit, key in LHR_METRICS.items()}
+            out[s.url] = ({key: got.get(audit) for audit, key in LHR_METRICS.items()}, False)
     for v in r.vitals if r else []:
         if v.device == "mobile" and v.runs:
-            out.setdefault(v.url, v.median)
+            out.setdefault(v.url, (v.shown, len(v.runs) == 1))
     return out
 
 
-def _lab_findings(values: dict[str, dict[str, float | None]], add: Any) -> None:
+LAB_LINES = (("site-lcp-slow", "lcp", LCP_GOOD_MS, LCP_POOR_MS), ("site-cls-high", "cls", CLS_GOOD, CLS_POOR),
+             ("site-tbt-high", "tbt", TBT_GOOD_MS, TBT_POOR_MS))
+
+
+def near_line(value: float, good: float, bad: float) -> bool:
+    """Too close to the good line for one load to call: over it, but neither poor nor NEAR_LINE times it."""
+    return good < value <= bad and value <= good * NEAR_LINE
+
+
+def _lab_findings(values: dict[str, tuple[dict[str, float | None], bool]], add: Any) -> None:
     slow: dict[str, list[str]] = defaultdict(list)
     poor: dict[str, bool] = defaultdict(bool)
-    for url, m in values.items():
-        for rule, key, good, bad in (("site-lcp-slow", "lcp", LCP_GOOD_MS, LCP_POOR_MS),
-                                     ("site-cls-high", "cls", CLS_GOOD, CLS_POOR),
-                                     ("site-tbt-high", "tbt", TBT_GOOD_MS, TBT_POOR_MS)):
+    for url, (m, once) in values.items():
+        for rule, key, good, bad in LAB_LINES:
             value = m.get(key)
-            if value is not None and value > good:
+            if value is not None and value > good and not (once and near_line(value, good, bad)):
                 slow[rule].append(url)
                 poor[rule] |= value > bad
     for rule, urls in slow.items():

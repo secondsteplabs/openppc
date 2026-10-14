@@ -15,7 +15,8 @@ ALLOWED = {"http.server": {"app.py"},  # the app's server, bound to 127.0.0.1
            # the site check's guard, and the browser's proxy: every connection is checked before it is made
            "http.client": {"siteaudit/net.py"}, "ssl": {"siteaudit/net.py"}, "socket": {"siteaudit/net.py"},
            "socketserver": {"siteaudit/net.py"},
-           "playwright.sync_api": {"siteaudit/render.py"},  # the --render browser, pointed at the guard's proxy
+           # the --render browser, pointed at the guard's proxy, and the speed loads it runs in that browser
+           "playwright.sync_api": {"siteaudit/render.py", "siteaudit/lab/capture.py"},
            # fetch's one way out, behind its allowlists
            "urllib.request": {"fetch/http.py"}}
 # the core's stable API (ADR-2): what the companion may import from openppc, by module

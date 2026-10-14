@@ -23,7 +23,7 @@ from .siteaudit.crux import field_data, key_from
 from .siteaudit.lab import psi
 from .siteaudit.lab.lhr import Speed
 from .siteaudit.net import Guard
-from .siteaudit.render import RENDER_PAGES, VITALS_PAGES, Rendered, preflight, render
+from .siteaudit.render import RENDER_PAGES, VITALS_PAGES, VITALS_RUNS, Rendered, preflight, render
 from .siteaudit.report import Extras, data, report, sarif
 from .siteaudit.triage import Diff, compare, health, read_baseline, redact_text, suppress
 
@@ -100,7 +100,7 @@ def run(url: str, *, max_pages: int | None = None, max_seconds: float | None = N
         config: list[tuple[str, str]] | None = None, baseline: tuple[str, str] | None = None,
         post_to: str | None = None, rendered: bool = False, render_pages: int = RENDER_PAGES,
         vitals_pages: int = VITALS_PAGES, render_url: list[str] | None = None, consent_selector: str = "",
-        screenshots: str = "", progress: Progress | None = None) -> tuple[Result, Guard]:
+        screenshots: str = "", progress: Progress | None = None, runs: int = VITALS_RUNS) -> tuple[Result, Guard]:
     """Everything the command does short of writing the report and posting it. config and baseline: files as
     (name, text), already read. rendered: the --render pass. psi_key: None without --psi, "" for no key.
     progress may stop the run (crawl.Progress)."""
@@ -139,7 +139,7 @@ def run(url: str, *, max_pages: int | None = None, max_seconds: float | None = N
     if rendered and not c.blocked_by:
         try:
             r = render(c, guard, render_pages, consent_selector, vitals_pages, progress, screenshots, also,
-                       desktop=single, measured={s.url for s in speed if s.score is not None})
+                       desktop=single, measured={s.url for s in speed if s.score is not None}, runs=runs)
         except KeyboardInterrupt as e:
             c.incomplete = c.incomplete or f"{stopped(e)}, before the browser pass finished"
     if r and not c.incomplete and not single:

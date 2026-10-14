@@ -1,0 +1,12 @@
+{
+  "name": "openppc-calibration",
+  "private": true,
+  "description": "The pinned Lighthouse the calibration harness measures OpenPPC's lab against (SITE_AUDIT_PARITY_PLAN section 8). Never shipped: install with npm ci --ignore-scripts.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.19"
+  },
+  "dependencies": {
+    "lighthouse": "13.5.0"
+  }
+}

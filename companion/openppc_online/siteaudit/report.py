@@ -10,6 +10,7 @@ from .checks import (
     CATEGORIES,
     CLS_GOOD,
     CLS_POOR,
+    LAB_LINES,
     LCP_GOOD_MS,
     LCP_POOR_MS,
     RULES,
@@ -21,16 +22,18 @@ from .checks import (
     code,
     events,
     home,
+    near_line,
     tracking,
 )
 from .crawl import MAX_QUERY_VARIANTS, Crawl, dropped_ad_params
 from .crux import ALL_METRICS, NO_DATA, FieldData
 from .lab import lhr
 from .lab.lhr import Speed
-from .lab.score import BANDS
+from .lab.metrics import QUIET_WINDOW_MS
+from .lab.score import BANDS, CONTROL
 from .lab.throttle import DESKTOP, LOAD_CAP_MS, MOBILE
 from .net import ROBOTS_TOKEN
-from .render import AXE_VERSION, BLOCK_HITS, PROFILE, RENDER_FLAG, Rendered, Vitals
+from .render import AXE_VERSION, BLOCK_HITS, PROFILE, RENDER_FLAG, VITALS_RUNS, Rendered, Vitals
 from . import words
 from .tags import VENDORS
 from .tags import VERSION as SIGNATURES
@@ -57,9 +60,17 @@ LEVELS = ("high", "medium", "low", "info")
 NEEDS_BROWSER = [k for k, r in RULES.items()
                  if (r.category in ("accessibility", "performance") and not k.startswith("site-field-"))
                  or (r.category == "tracking" and k != "site-no-analytics") or k == "site-js-only-links"]
-VITALS = (("lcp", "Largest Contentful Paint", "ms", LCP_GOOD_MS, LCP_POOR_MS, 0),
+FCP_GOOD_MS, FCP_POOR_MS = 1800, 3000    # web.dev's lines, which are also Lighthouse's phone scoring points
+TTFB_GOOD_MS, TTFB_POOR_MS = 800, 1800  # web.dev's
+SI_GOOD_MS, SI_POOR_MS = CONTROL["mobile"]["speed-index"]  # Lighthouse's phone scoring points (no web.dev lines)
+# in PageSpeed's order
+VITALS = (("fcp", "First Contentful Paint", "ms", FCP_GOOD_MS, FCP_POOR_MS, 0),
+          ("lcp", "Largest Contentful Paint", "ms", LCP_GOOD_MS, LCP_POOR_MS, 0),
+          ("tbt", "Total Blocking Time", "ms", TBT_GOOD_MS, TBT_POOR_MS, 0),
           ("cls", "Cumulative Layout Shift", "", CLS_GOOD, CLS_POOR, 3),
-          ("tbt", "Total Blocking Time", "ms", TBT_GOOD_MS, TBT_POOR_MS, 0))
+          ("si", "Speed Index", "ms", SI_GOOD_MS, SI_POOR_MS, 0),
+          ("ttfb", "Time to First Byte", "ms", TTFB_GOOD_MS, TTFB_POOR_MS, 0))
+UNSTABLE_NAMES = {"fcp": "First Contentful Paint", "lcp": "Largest Contentful Paint", "tbt": "Total Blocking Time"}
 LAB_RULES = ("site-lcp-slow", "site-cls-high", "site-tbt-high")  # a Lighthouse result covers these
 FIELD_NAMES = {"lcp": ("Largest Contentful Paint", "ms", 0), "inp": ("Interaction to Next Paint", "ms", 0),
                "cls": ("Cumulative Layout Shift", "", 2), "fcp": ("First Contentful Paint", "ms", 0),
@@ -232,7 +243,7 @@ def _meanings(speed: list[Speed], r: Rendered | None, field_data: list[FieldData
     if any(s.metrics for s in speed):
         shown |= {"fcp", "lcp", "tbt", "cls", "si"}
     if r and any(v.runs for v in r.vitals):
-        shown |= {"lcp", "cls", "tbt"}
+        shown |= {"fcp", "lcp", "tbt", "cls", "si", "ttfb"}
     if any(d.p75 for d in field_data):
         shown |= {"fcp", "lcp", "inp", "cls", "ttfb"}
     if not shown:
@@ -384,9 +395,11 @@ def _vitals_tables(r: Rendered | None, book: FactBook, psi: bool = False) -> lis
     for label, setting in (("lab phone width", MOBILE.width), ("lab phone height", MOBILE.height),
                            ("lab latency ms", MOBILE.latency_ms), ("lab Mbps down", round(MOBILE.down_kbps / 1024, 2))):
         book.add(label, setting, "count", "rule")
-    out = ["", "## Web Vitals (lab)", "", f"{PROFILE[0].upper() + PROFILE[1:]}. Lab numbers show what to fix; real "
-           "visitors' numbers (from Chrome's field data) can differ. Interaction to Next Paint needs "
-           "real clicks, so it isn't measured; Total Blocking Time is its lab stand-in."]
+    out = ["", "## Web Vitals (lab)", "", f"{PROFILE[0].upper() + PROFILE[1:]}. Each load is traced and measured as "
+           "Lighthouse measures a throttled load, and waited out as it waits; these are OpenPPC's lab numbers, not "
+           "PageSpeed's. Lab numbers show what to fix; real visitors' numbers (from Chrome's field data) can differ. "
+           "Interaction to Next Paint needs real clicks, so it isn't measured; Total Blocking Time is its lab "
+           "stand-in."]
     if any(v.device == "desktop" for v in r.vitals):
         book.add("lab desktop width", DESKTOP.width, "count", "rule")
         book.add("lab desktop height", DESKTOP.height, "count", "rule")
@@ -407,24 +420,54 @@ def _vitals_one(v: Vitals, book: FactBook) -> list[str]:
     if not v.runs:
         return ["", f"{where} couldn't be measured: {code(v.error or 'no load finished')}"]
     on = f"{v.url} on {v.device}"
-    out = ["", f"### {where}", "", f"The median of {book.count(f'Web Vitals runs on {on}', len(v.runs))} loads."]
+    n = book.count
+    loads = len(v.runs)
+    if loads > 1:
+        out = ["", f"### {where}", "", f"The representative of {n(f'Web Vitals loads on {on}', loads)} loads: the one "
+               "nearest the middle First Contentful Paint and Time to Interactive, as Lighthouse CI picks it. The "
+               "range shows the lowest and highest of the loads."]
+    else:
+        out = ["", f"### {where}", "", "One load, so a number just over a line could go either way: it becomes a "
+               f"finding only when it is clearly over. Measure the page on its own with `--single` for "
+               f"{n('Web Vitals loads with --single', VITALS_RUNS, 'rule')} loads."]
     if v.error:
-        out += ["", f"A run failed: {code(v.error)}"]
+        out += ["", f"A load failed: {code(v.error)}"]
     if v.hits_answered:
-        out += ["", f"Tag hits answered on this computer: {book.count(f'tag hits answered on {on}', v.hits_answered)}."]
+        out += ["", f"Tag hits answered on this computer: {n(f'tag hits answered on {on}', v.hits_answered)}."]
     if v.capped:
-        out += ["", f"{book.count(f'loads still going at the cap on {on}', v.capped)} of them hadn't finished "
-                    f"loading after {book.count('load cap seconds', LOAD_CAP_MS / 1000, 'rule')} seconds, so they "
+        out += ["", f"{n(f'loads still going at the cap on {on}', v.capped)} of them hadn't finished loading, or "
+                    f"hadn't gone quiet, after {n('load cap seconds', LOAD_CAP_MS / 1000, 'rule')} seconds, so they "
                     "were measured as they were then, as Lighthouse does."]
-    out += ["", "| Measure | Median | Good up to | Poor above |", "|---|---|---|---|"]
-    median = v.median
+    if v.no_tti:
+        out += ["", f"{n(f'loads that never went quiet on {on}', v.no_tti)} of them never went "
+                    f"{n('quiet window seconds', QUIET_WINDOW_MS / 1000, 'rule')} seconds without long tasks and "
+                    "busy network, so their Total Blocking Time counts to the end of the load."]
+    if v.unstable:
+        out += ["", "The loads disagreed on " + ", ".join(UNSTABLE_NAMES[k] for k in v.unstable) + ", more than "
+                    "Lighthouse CI accepts: something on the page, or this computer, varies from load to load. "
+                    "Re-run, or measure more loads with `--runs`."]
+    shown, spread = v.shown, v.spread
+    out += ["", "| Measure | Value | Range | Good up to | Poor above |", "|---|---|---|---|---|"]
+    close: list[str] = []
     for key, name, unit, good, poor, dp in VITALS:
-        value = median[key]
-        cells = ["not measured" if value is None else book.count(f"median {name} (lab) on {on}", value, dp=dp),
-                 book.count(f"{name} good line", good, "rule", dp=dp),
-                 book.count(f"{name} poor line", poor, "rule", dp=dp)]
-        out.append(f"| {name} | " + " | ".join(f"{x} {unit}".strip() if x != "not measured" else x for x in cells)
-                   + " |")
+        value = shown.get(key)
+        label = f"{name} (lab) on {on}"
+
+        def cell(x: str) -> str:
+            return f"{x} {unit}".strip()
+
+        lo_hi = spread.get(key) if loads > 1 else None
+        cells = ["not measured" if value is None else cell(n(label, value, dp=dp)),
+                 "" if lo_hi is None else f"{n(f'lowest {label}', lo_hi[0], dp=dp)} to "
+                                          f"{cell(n(f'highest {label}', lo_hi[1], dp=dp))}",
+                 cell(n(f"{name} good line", good, "rule", dp=dp)), cell(n(f"{name} poor line", poor, "rule", dp=dp))]
+        out.append(f"| {name} | " + " | ".join(cells) + " |")
+        lines = next(((g, b) for _, k, g, b in LAB_LINES if k == key), None)
+        if loads == 1 and value is not None and lines and near_line(value, *lines):
+            close.append(name)
+    if close:
+        out += ["", "Just over the good line, too close for one load to call, so no finding: "
+                + ", ".join(close) + ". Re-check this page on its own with `--single`."]
     d = v.details
     slows = []
     if d.get("lcp_element"):
@@ -436,7 +479,7 @@ def _vitals_one(v: Vitals, book: FactBook) -> list[str]:
         slows.append("- The largest files: " + ", ".join(
             f"`{u}` ({book.count(f'size of {u} in KB', size / 1024)} KB)" for u, size in d["heavy"]) + ".")
     if slows:
-        out += ["", "What slows it down, from the first load:", ""] + slows
+        out += ["", "What slows it down, from the load shown:", ""] + slows
     return out
 
 
@@ -581,6 +624,10 @@ def _crawl_notes(c: Crawl, r: Rendered | None, book: FactBook) -> list[str]:
         if r.refused:
             out.append(f"- The browser was stopped from reaching {n('hosts refused to the browser', len(r.refused))} "
                        "hosts on private or local addresses: " + ", ".join(f"`{h}`" for h in r.refused) + ".")
+        if r.browser_calls:
+            out.append("- Chromium's own calls home (updates, sign-in, push messages), which no page made, were "
+                       "refused before their names were looked up: " + ", ".join(f"`{h}`" for h in r.browser_calls)
+                       + ".")
     out.append(f"- Finding ids and fingerprints (recipe `{FINGERPRINT}`) stay the same from run to run, for "
                "`--baseline` and suppressions. A finding that's wrong? Report it: " + WRONG_FINDING)
     return out
@@ -608,7 +655,9 @@ def report(c: Crawl, r: Rendered | None, findings: list[Finding],
 def _vitals_data(v: Vitals) -> dict[str, Any]:
     return {"url": v.url, "profile": PROFILE if v.device == "mobile" else f"lab, {DESKTOP.label}", "runs": v.runs,
             "median": v.median, "error": v.error, "details": v.details, "capped": v.capped,
-            "hits_answered": v.hits_answered, "device": v.device}
+            "hits_answered": v.hits_answered, "device": v.device, "representative": v.rep, "shown": v.shown,
+            "range": {k: list(lo_hi) for k, lo_hi in v.spread.items()}, "unstable": v.unstable,
+            "no_tti": v.no_tti}
 
 
 def _field_data(d: FieldData) -> dict[str, Any]:
@@ -654,7 +703,7 @@ def data(c: Crawl, r: Rendered | None, findings: list[Finding], extras: Extras |
                        "tcf": o.tcf, "consent_mode": o.consent_mode, "screenshot": o.screenshot,
                        "events": o.events, "datalayer": o.datalayer} for o in r.pages],
             "vitals": [_vitals_data(v) for v in r.vitals],
-            "refused": r.refused},
+            "refused": r.refused, "browser_calls": r.browser_calls},
     }
 
 

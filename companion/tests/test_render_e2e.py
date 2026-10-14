@@ -119,9 +119,14 @@ def test_the_browser_pass_sees_tags_consent_accessibility_and_vitals(shop, tmp_p
     assert "(WCAG `1.1.1`)" in findings["site-a11y:image-alt"].title
     assert findings["site-js-only-links"].items == [shop + "/spa/page"]
     v = r.vitals[0]
-    assert len(r.vitals) == 1 and len(v.runs) == 3 and v.median["lcp"] is not None
+    assert len(r.vitals) == 1 and len(v.runs) == 3 and v.rep is not None
+    assert all(v.shown[k] is not None for k in ("fcp", "lcp", "tbt", "cls", "si", "ttfb"))
+    assert all(run["tti"] is not None for run in v.runs) and v.no_tti == 0
     assert v.hits_answered == 6  # each speed load's GA4 and Adobe hits answered here, the tags still loaded
     assert v.details["lcp_element"] and isinstance(v.details["heavy"], list)
+    assert r.browser_calls  # Chromium's own calls home, refused before they were resolved, never in `asked`
+    # Playwright's own --disable-features carried over: Chrome reads only the last one
+    assert "BlockOriginHeaderModificationOnRedirect" in render_module._playwright_features
     markdown, _, passed = report(c, r, list(findings.values()))
     assert passed, markdown
     assert "What slows it down" in markdown and "### Check by hand" in markdown
@@ -151,13 +156,12 @@ def test_qa_site_30_takes_a_consent_selector(serve, tmp_path, monkeypatch, capsy
     assert "in Chromium for tags, consent" in markdown and "--render`" not in markdown
 
 
-def test_one_page_only_measures_a_phone_then_a_desktop_and_skips_what_psi_measured(shop, monkeypatch):
-    monkeypatch.setattr(render_module, "VITALS_RUNS", 1)
+def test_one_page_only_measures_a_phone_then_a_desktop_and_skips_what_psi_measured(shop):
     guard, _ = recording()
     c = crawl(shop, guard, fast=True, single=True)
-    r = render(c, guard, pages=1, desktop=True)
+    r = render(c, guard, pages=1, desktop=True, runs=1)
     assert [(v.url, v.device) for v in r.vitals] == [(shop + "/", "mobile"), (shop + "/", "desktop")]
-    assert all(len(v.runs) == 1 and v.median["lcp"] is not None for v in r.vitals)
+    assert all(len(v.runs) == 1 and v.shown["lcp"] is not None for v in r.vitals)
     markdown, _, passed = report(c, r, evaluate(c, r))
     assert passed and "on a desktop" in markdown and "On a desktop: desktop (rough estimate)" in markdown
     assert render(c, guard, pages=1, desktop=True, measured={shop + "/"}).vitals == []

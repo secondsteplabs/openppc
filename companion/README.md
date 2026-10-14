@@ -104,9 +104,12 @@ crawler, apply to it, so a site's owner can see it in their logs and turn it awa
 **`--render`** loads the home page and one page per section (5 by default) in Chromium, to see what only
 JavaScript shows: which tags fire before and after the consent banner is accepted, the events they send, links
 that appear only after JavaScript runs (which it then crawls), accessibility problems (axe-core, against WCAG A
-and AA), and lab Web Vitals on a throttled phone (the median of three loads of the home page, set up as Lighthouse
-sets up its own tab; a rough estimate, since Lighthouse's own score simulates the slow phone instead). Without it, those
-checks say they need it instead of passing. It needs Playwright and Chromium:
+and AA), and lab Web Vitals on a throttled phone: three loads of the home page (`--runs N` for more), set up as
+Lighthouse sets up its own tab, traced, and measured as Lighthouse measures a trace (First Contentful Paint, Largest
+Contentful Paint, Total Blocking Time, Cumulative Layout Shift, Speed Index, time to first byte), and the load
+Lighthouse CI would pick shown with the range of all of them. A rough estimate, since Lighthouse's own score simulates
+the slow phone instead; with one load, a number just over a line isn't made a finding. Without it, those checks say
+they need it instead of passing. It needs Playwright and Chromium:
 
 ```
 pip install "openppc-online[render]"
@@ -114,7 +117,9 @@ playwright install chromium
 ```
 
 The browser keeps no cookies between pages, runs no service workers, downloads nothing, and reaches the network
-only through the check's own guard, on 127.0.0.1, for as long as the pass runs. The Web Vitals loads answer tag
+only through the check's own guard, on 127.0.0.1, for as long as the pass runs. Chromium's own calls home (update
+checks, sign-in, Google's search preconnect) are refused before any name is looked up, and the report lists the hosts
+it tried. The Web Vitals loads answer tag
 hits themselves, so measuring a page sends no visits to its analytics or ad accounts; the tags and consent pass is
 a real visit.
 
@@ -140,7 +145,8 @@ measured on a phone and a desktop. `--single --psi` is the quick check of one la
 | `--max-per-pattern N` | Pages per URL pattern such as `/product/*` (default 500; 0 lifts the cap) |
 | `--no-external`, `--fast`, `--allow-private` | As above |
 | `--render` | The browser pass, as above |
-| `--render-pages N`, `--vitals-pages N` | With `--render`: pages to render (default 5), and how many of them to measure Web Vitals on (default 1, the home page; 0 skips them) |
+| `--render-pages N`, `--vitals-pages N` | With `--render`: pages to render (default 5), and how many of them to measure Web Vitals on (default 1, the home page; 0 skips them; pages after the first get one load each) |
+| `--runs N` | With `--render`: loads of the first measured page per device, 1 to 9 (default 3) |
 | `--render-url URL` | With `--render`, also render this page, such as a thank-you page no link leads to, to see which events its tags send; with `--psi`, also measure it (a path or a full address on the site; repeat for more) |
 | `--consent-selector CSS` | With `--render`, your consent banner's accept button, when it isn't one the check recognises |
 | `--screenshots DIR` | With `--render`, save each rendered page as first loaded there; they show whatever the page shows, so nothing is saved without it |

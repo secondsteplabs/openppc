@@ -36,6 +36,15 @@ def test_a_name_with_one_private_address_among_public_ones_is_refused():
     assert guard.refused == ["rebind.example"]
 
 
+def test_a_name_under_invalid_is_refused_without_a_lookup():
+    asked = []
+    guard = Guard(allow_private=True, resolve=lambda host, port: asked.append(host) or ["127.0.0.1"])
+    for host in ("google.invalid", "x.Google.INVALID.", "invalid"):
+        with pytest.raises(Refused, match="never resolves"):
+            guard.addresses(host, 80)
+    assert asked == [] and guard.refused == [] and guard.addresses("invalid.example", 80) == ["127.0.0.1"]
+
+
 def test_a_name_is_resolved_once_per_connection_and_connected_by_the_checked_address(serve):
     # DNS rebinding: a second lookup could answer with a private address after the first one passed
     base = serve(lambda b: {"/": (200, {}, page("Home"))})

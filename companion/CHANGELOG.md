@@ -51,6 +51,20 @@ Semantic versioning, as in OpenPPC. Each release names the `openppc` versions it
 
 ### Changed
 
+- **Lab Web Vitals are measured from a trace, as Lighthouse 13.5 measures one** (`siteaudit/lab/metrics.py`, ported
+  from Lighthouse, its trace engine and speedline): First Contentful Paint and Largest Contentful Paint of the main
+  frame, Total Blocking Time between First Contentful Paint and Time to Interactive, Cumulative Layout Shift over
+  the frame tree in session windows, time to first byte, and the new **Speed Index** from the trace's screenshots.
+  A load waits as Lighthouse's does: for the network and the main thread to go quiet, 45 seconds at most. The
+  report shows the load Lighthouse CI would pick (nearest the middle FCP and TTI) with the range of all loads, and
+  says when the loads disagree more than Lighthouse CI accepts. JSON `vitals` items gain `representative`, `shown`,
+  `range`, `unstable` and `no_tti`; `median` stays.
+- **`--runs N`** (1 to 9, default 3): loads of the first measured page per device; later pages get one each. With
+  one load, a lab number less than 20% over its good line isn't a finding; the report notes it instead.
+- Speed loads run in Chromium's new headless mode, which paints as a visitor's Chrome does, not the headless shell.
+  Its own calls home (update checks, sign-in, push, Google's search preconnect and AI Mode check) are refused before
+  any name is resolved, and the JSON's `rendered.browser_calls` lists the hosts it tried. The guard refuses names
+  under `.invalid` without looking them up.
 - **Lab Web Vitals load the page as Lighthouse loads its own tab** (`siteaudit/lab/throttle.py`): a Moto G Power
   screen (412x823 at 1.75x, was 2.625x) with Lighthouse's mobile user agent, and its mobile throttling as DevTools
   applies it: 562.5 ms latency, 1.44 Mbps down, 675 Kbps up, 4x CPU. The old 150 ms and 1.6 Mbps were the inputs of

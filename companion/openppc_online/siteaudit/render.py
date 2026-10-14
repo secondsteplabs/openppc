@@ -1,10 +1,13 @@
 """The browser pass (`openppc-online site --render`): a real browser loads a few pages to see what only JavaScript
 shows, namely which tags fire before and after consent, the accessibility problems axe-core finds, and lab Web
-Vitals on a throttled phone, set up as Lighthouse sets up its own (lab.throttle). The checks and the report read what it observes; without --render a scan has no
-Rendered, and its browser checks say so.
+Vitals on a throttled phone, set up as Lighthouse sets up its own (lab.throttle) and measured from a trace as
+Lighthouse measures it (lab.capture, lab.metrics). The checks and the report read what it observes; without --render a
+scan has no Rendered, and its browser checks say so.
 
-The browser reaches the network only through net.GuardProxy, so a rendered page is held to the same rules as the
-crawler: no private, link-local or metadata addresses unless --allow-private opens the private ones.
+Each page's traffic goes through net.GuardProxy (set per browser context), so a rendered page is held to the same
+rules as the crawler: no private, link-local or metadata addresses unless --allow-private opens the private ones. The
+browser's own traffic (update checks, sign-in, push) goes to net.Sink, which refuses it before resolving any name, and
+the calls to Google each context makes itself are turned off or sent to a name the guard refuses unresolved.
 """
 import contextlib
 import statistics
@@ -17,9 +20,11 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from .crawl import Crawl
-from .lab.throttle import DESKTOP, LOAD_CAP_MS, MOBILE, Profile
-from .net import Guard, GuardProxy
-from .tags import CONSENT, consent_platform_of, events_of, hit_patterns, is_hit, vendor_of
+from .lab import metrics
+from .lab.capture import capture
+from .lab.throttle import DESKTOP, MOBILE
+from .net import Guard, GuardProxy, Sink
+from .tags import CONSENT, consent_platform_of, events_of, vendor_of
 
 try:
     from playwright.sync_api import Error as PlaywrightError
@@ -32,17 +37,22 @@ except ImportError:  # the `render` extra isn't installed; render() and prefligh
 RENDER_PAGES = 5             # pages rendered: the home page, then one per top-level section
 SETTLE_MS = 3000             # wait after load, and after the consent click, for late tags
 LOAD_MS = 30_000
-VITALS_RUNS = 3              # the median of this many loads is reported
+VITALS_RUNS = 3              # loads of the first measured page per device; the others get one each
+MAX_RUNS = 9
 VITALS_PAGES = 1             # pages measured, from the first rendered (the home page) on
-VITALS_SETTLE_MS = 5000
 PROFILE = f"lab, {MOBILE.label}"
 # Speed loads answer tag hits themselves (204), so measuring a page sends no visits to its analytics or ad accounts;
 # the tag and consent load stays real. The owner's open question 1 (SITE_AUDIT_PARITY_PLAN.md) may turn it off.
 BLOCK_HITS = True
 AXE_TAGS = ("wcag2a", "wcag2aa", "wcag21a", "wcag21aa")
 AXE_VERSION = "4.10.3"
-METRICS = ("lcp", "cls", "tbt", "fcp", "ttfb")
+METRICS = ("lcp", "cls", "tbt", "fcp", "ttfb", "si")
 RENDER_FLAG = "`--render`"  # what a check that needs the browser asks for
+# Each browser context calls Google itself, through the page's proxy: an AI Mode check, sent to Chrome's Google base
+# URL, here a name the guard refuses before resolving it, and a preconnect to the default search engine, turned off
+GOOGLE_BASE = "http://google.invalid/"
+FEATURES_OFF = ("PreconnectToSearch",)
+_playwright_features: list[str] = []
 INSTALL = ('--render needs Playwright and Chromium: pip install "openppc-online[render]", '
            "then playwright install chromium")
 
@@ -63,43 +73,6 @@ SIGNALS = """() => ({
   datalayer: DATALAYER,
 })""".replace("DATALAYER", DATALAYER)
 BODY_CHARS = 16_384          # of a tag hit's POST body, read for the events batched in it
-HEAVY_FILES = 5              # the largest files listed under a Web Vitals measurement
-DETAILS = ("lcp_element", "lcp_url", "blocking", "heavy")
-# LCP, CLS by session windows (as Chrome counts it), and Total Blocking Time from FCP on; INP needs a real visitor's
-# clicks, so a lab run can't measure it
-VITALS_JS = """(() => {
-  const v = {lcp: null, cls: 0, tbt: null, fcp: null, ttfb: null};
-  const tasks = [];
-  let win = 0, first = 0, last = 0, lcpEl = null;
-  const watch = (type, cb) => {
-    try { new PerformanceObserver(l => l.getEntries().forEach(cb)).observe({type, buffered: true}); } catch (e) {}
-  };
-  watch('largest-contentful-paint', e => { v.lcp = e.startTime; lcpEl = e.element; v.lcp_url = e.url || ''; });
-  watch('paint', e => { if (e.name === 'first-contentful-paint') v.fcp = e.startTime; });
-  watch('longtask', e => tasks.push([e.startTime, e.duration]));
-  watch('layout-shift', e => {
-    if (e.hadRecentInput) return;
-    if (win && e.startTime - last < 1000 && e.startTime - first < 5000) { win += e.value; }
-    else { win = e.value; first = e.startTime; }
-    last = e.startTime;
-    v.cls = Math.max(v.cls, win);
-  });
-  window.__openppcVitals = () => {
-    const nav = performance.getEntriesByType('navigation')[0];
-    v.ttfb = nav ? nav.responseStart : null;
-    if (v.fcp !== null) v.tbt = tasks.filter(([s]) => s >= v.fcp).reduce((t, [, d]) => t + Math.max(0, d - 50), 0);
-    const cls = lcpEl && typeof lcpEl.className === 'string' ? lcpEl.className.trim().split(/\\s+/).slice(0, 2) : [];
-    v.lcp_element = lcpEl ? lcpEl.tagName.toLowerCase() + (lcpEl.id ? '#' + lcpEl.id : '')
-                            + cls.filter(Boolean).map(c => '.' + c).join('') : '';
-    v.lcp_url = v.lcp_url || '';
-    const files = performance.getEntriesByType('resource');
-    v.blocking = files.filter(f => f.renderBlockingStatus === 'blocking').map(f => f.name);
-    v.heavy = files.filter(f => f.transferSize > 0).sort((a, b) => b.transferSize - a.transferSize)
-                   .slice(0, HEAVY_FILES).map(f => [f.name, f.transferSize]);
-    return v;
-  };
-})();""".replace("HEAVY_FILES", str(HEAVY_FILES))
-
 Progress = Callable[[str], object]
 
 
@@ -124,10 +97,10 @@ class Observation:
 @dataclass
 class Vitals:
     url: str
-    runs: list[dict[str, float | None]] = field(default_factory=list)
+    runs: list[dict[str, float | None]] = field(default_factory=list)  # lab.metrics.measure, one per load
     error: str = ""
-    details: dict[str, Any] = field(default_factory=dict)  # from the first run: DETAILS
-    capped: int = 0            # loads still going at LOAD_CAP_MS, measured as they were then
+    details: dict[str, Any] = field(default_factory=dict)  # the representative load's (lab.capture.DETAILS_JS)
+    capped: int = 0            # loads still going, or not yet quiet, at the load cap, measured as they were then
     hits_answered: int = 0     # tag hits the speed loads answered themselves (BLOCK_HITS)
     device: str = "mobile"     # the lab.throttle profile's
 
@@ -139,12 +112,37 @@ class Vitals:
             out[k] = float(statistics.median(values)) if values else None
         return out
 
+    @property
+    def rep(self) -> int | None:
+        """The representative load (Lighthouse CI's median run)."""
+        return metrics.representative(self.runs)
+
+    @property
+    def shown(self) -> dict[str, float | None]:
+        """The representative load's metrics: what the report shows and the checks judge."""
+        i = self.rep
+        return {k: None for k in METRICS} if i is None else {k: self.runs[i].get(k) for k in METRICS}
+
+    @property
+    def spread(self) -> dict[str, tuple[float, float]]:
+        return metrics.spread(self.runs)
+
+    @property
+    def unstable(self) -> list[str]:
+        return metrics.unstable(self.runs)
+
+    @property
+    def no_tti(self) -> int:
+        """Loads that never went quiet for Time to Interactive's 5 s window: their TBT runs to the end of the load."""
+        return sum(1 for r in self.runs if r.get("fcp") is not None and r.get("tti") is None)
+
 
 @dataclass
 class Rendered:
     pages: list[Observation] = field(default_factory=list)
     vitals: list[Vitals] = field(default_factory=list)
     refused: list[str] = field(default_factory=list)  # hosts the browser was stopped from reaching
+    browser_calls: list[str] = field(default_factory=list)  # hosts the browser itself asked for, refused (net.Sink)
 
 
 def pick(c: Crawl, n: int = RENDER_PAGES) -> list[str]:
@@ -197,9 +195,10 @@ def _unique(names: list[str]) -> list[str]:
     return list(dict.fromkeys(names))
 
 
-def _observe(browser: Any, url: str, consent_selector: str, screenshot: str = "") -> Observation:
+def _observe(browser: Any, url: str, consent_selector: str, screenshot: str = "", proxy: str = "") -> Observation:
     o = Observation(url)
-    context = browser.new_context(service_workers="block", accept_downloads=False)
+    context = browser.new_context(service_workers="block", accept_downloads=False,
+                                  **({"proxy": {"server": proxy}} if proxy else {}))
     requests: list[str] = []
     bodies: dict[int, str] = {}
 
@@ -255,50 +254,6 @@ def _observe(browser: Any, url: str, consent_selector: str, screenshot: str = ""
     return o
 
 
-def _answer_hits(cdp: Any, answered: list[str]) -> None:
-    """Tag hits get an empty 204 from here; everything else, and anything that goes wrong, continues to the network.
-    CDP's Fetch, not page.route, which would turn the HTTP cache off and send every request through Python."""
-    def paused(event: dict[str, Any]) -> None:
-        url, request = event["request"]["url"], {"requestId": event["requestId"]}
-        try:
-            if event.get("resourceType") != "Document" and is_hit(url):
-                cdp.send("Fetch.fulfillRequest", {**request, "responseCode": 204})
-                answered.append(url)
-                return
-        except PlaywrightError:
-            pass
-        with contextlib.suppress(PlaywrightError):  # the page may have gone, with its request
-            cdp.send("Fetch.continueRequest", request)
-    cdp.on("Fetch.requestPaused", paused)
-    cdp.send("Fetch.enable", {"patterns": [{"urlPattern": p, "requestStage": "Request"} for p in hit_patterns()]})
-
-
-def _vitals_run(browser: Any, url: str, profile: Profile = MOBILE) -> tuple[dict[str, Any], bool, int]:
-    """One measured load, whether it was still loading at LOAD_CAP_MS (Lighthouse measures it anyway), and the tag
-    hits it answered."""
-    context = browser.new_context(service_workers="block", accept_downloads=False, **profile.context())
-    answered: list[str] = []
-    try:
-        page = context.new_page()
-        page.add_init_script(VITALS_JS)
-        cdp = context.new_cdp_session(page)
-        if BLOCK_HITS:
-            _answer_hits(cdp, answered)
-        cdp.send("Emulation.setCPUThrottlingRate", {"rate": profile.cpu})
-        if network := profile.network():
-            cdp.send("Network.enable")
-            cdp.send("Network.emulateNetworkConditions", network)
-        capped = False
-        try:
-            page.goto(url, wait_until="load", timeout=LOAD_CAP_MS)
-        except PlaywrightTimeout:
-            capped = True
-        page.wait_for_timeout(VITALS_SETTLE_MS)
-        return dict(page.evaluate("() => window.__openppcVitals()")), capped, len(answered)
-    finally:
-        context.close()
-
-
 def installed() -> bool:
     """Whether the `render` extra is here (Chromium itself is checked by preflight)."""
     return sync_playwright is not None
@@ -308,11 +263,36 @@ def preflight() -> None:
     """Fails before a long crawl, not after it, when the browser can't start."""
     if sync_playwright is None:
         raise ValueError(INSTALL)
-    with sync_playwright() as pw:
+    with Sink() as sink, sync_playwright() as pw:
         try:
-            pw.chromium.launch().close()
+            _launch(pw, sink.url).close()
         except PlaywrightError as e:
             raise ValueError(f"{INSTALL} ({str(e).splitlines()[0]})") from e
+
+
+def _launch(pw: Any, sink: str) -> Any:
+    """New headless, which paints as a visitor's Chrome does (the headless shell skips most screenshots a trace needs
+    for Speed Index). Its own update, sign-in and push calls go to the sink; each context brings its page's proxy.
+    Playwright routes loopback through the proxies too, so localhost gets the same check."""
+    args = ["--disable-quic", "--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
+            f"--google-base-url={GOOGLE_BASE}"]
+    if not _playwright_features:
+        _playwright_features.extend(_features_off(pw, sink, args))
+    off = ",".join(dict.fromkeys([*_playwright_features, *FEATURES_OFF]))
+    return pw.chromium.launch(channel="chromium", proxy={"server": sink}, args=[*args, f"--disable-features={off}"])
+
+
+def _features_off(pw: Any, sink: str, args: list[str]) -> list[str]:
+    """The features Playwright turns off. Chrome reads only the last --disable-features, so turning one more off means
+    repeating Playwright's, read from the browser's own chrome://version page."""
+    browser = pw.chromium.launch(channel="chromium", proxy={"server": sink}, args=args)
+    try:
+        page = browser.new_page()
+        page.goto("chrome://version")
+        line = page.locator("#command_line").inner_text()
+    finally:
+        browser.close()
+    return [f for a in line.split() if a.startswith("--disable-features=") for f in a.split("=", 1)[1].split(",") if f]
 
 
 def _shot_name(folder: str, n: int, url: str) -> str:
@@ -320,12 +300,37 @@ def _shot_name(folder: str, n: int, url: str) -> str:
     return str(Path(folder) / f"{n:02d}-{slug}.png")
 
 
+def _measure(browser: Any, v: Vitals, runs: int, proxy: str, progress: Progress | None) -> None:
+    """`runs` loads of v.url, one after another (loads side by side would share the CPU and corrupt TBT)."""
+    profile = DESKTOP if v.device == "desktop" else MOBILE
+    details: list[dict[str, Any]] = []
+    for n in range(runs):
+        if progress:
+            progress(f"measuring Web Vitals ({v.device}) on {v.url}, load {n + 1} of {runs}")
+        try:
+            run = capture(browser, v.url, profile, proxy, BLOCK_HITS)
+            measured = metrics.measure(run.events, run.trace_end, run.frames)
+        except PlaywrightError as e:
+            v.error = str(e).splitlines()[0]
+            break  # a page that fails once fails again, a minute each
+        except metrics.NoNavigation as e:
+            v.error = str(e)
+            break
+        v.capped += run.capped
+        v.hits_answered += run.hits_answered
+        details.append(run.details)
+        v.runs.append(measured)
+    if (i := v.rep) is not None and i < len(details):
+        v.details = details[i]
+
+
 def render(c: Crawl, guard: Guard, pages: int = RENDER_PAGES, consent_selector: str = "",
            vitals: int = VITALS_PAGES, progress: Progress | None = None, screenshots: str = "",
-           also: list[str] | None = None, desktop: bool = False, measured: set[str] | None = None) -> Rendered:
+           also: list[str] | None = None, desktop: bool = False, measured: set[str] | None = None,
+           runs: int = VITALS_RUNS) -> Rendered:
     """Renders `pages` pages, then the `also` pages (a thank-you page no link leads to), and measures Web Vitals on
     the first `vitals` of them that aren't `measured` already (by PageSpeed Insights): on a phone, then with
-    `desktop` on a desktop too."""
+    `desktop` on a desktop too. The first page measured gets `runs` loads per device, the others one each."""
     if sync_playwright is None:
         raise ValueError(INSTALL)
     targets = pick(c, pages)
@@ -334,13 +339,9 @@ def render(c: Crawl, guard: Guard, pages: int = RENDER_PAGES, consent_selector: 
         Path(screenshots).mkdir(parents=True, exist_ok=True)
     out = Rendered()
     already = len(guard.refused)
-    with GuardProxy(guard) as proxy, sync_playwright() as pw:
+    with GuardProxy(guard) as proxy, Sink() as sink, sync_playwright() as pw:
         try:
-            # Playwright routes loopback through the proxy too, so localhost gets the same check. The headless shell,
-            # not new headless (channel="chromium"): the full browser calls Google's update, sign-in and push hosts
-            # on its own, whatever the flags, and those aren't hosts this command declares.
-            browser = pw.chromium.launch(proxy={"server": proxy.url}, args=[
-                "--disable-quic", "--force-webrtc-ip-handling-policy=disable_non_proxied_udp"])
+            browser = _launch(pw, sink.url)
         except PlaywrightError as e:
             raise ValueError(f"{INSTALL} ({str(e).splitlines()[0]})") from e
         try:
@@ -348,25 +349,16 @@ def render(c: Crawl, guard: Guard, pages: int = RENDER_PAGES, consent_selector: 
                 if progress:
                     progress(f"rendering {n} of {len(targets)}: {url}")
                 out.pages.append(_observe(browser, url, consent_selector,
-                                          _shot_name(screenshots, n, url) if screenshots else ""))
+                                          _shot_name(screenshots, n, url) if screenshots else "", proxy.url))
             profiles = (MOBILE, DESKTOP) if desktop else (MOBILE,)
-            for url, profile in [(u, p) for u in targets[:vitals] if u not in (measured or set()) for p in profiles]:
-                v = Vitals(url, device=profile.device)
-                out.vitals.append(v)
-                for n in range(VITALS_RUNS):
-                    if progress:
-                        progress(f"measuring Web Vitals ({profile.device}) on {url}, run {n + 1} of {VITALS_RUNS}")
-                    try:
-                        run, capped, answered = _vitals_run(browser, url, profile)
-                    except PlaywrightError as e:
-                        v.error = str(e).splitlines()[0]
-                        break  # a page that fails once fails again, a minute each
-                    v.capped += capped
-                    v.hits_answered += answered
-                    details = {k: run.pop(k, None) for k in DETAILS}
-                    v.details = v.details or details
-                    v.runs.append(run)
+            pending = [u for u in targets[:vitals] if u not in (measured or set())]
+            for i, url in enumerate(pending):
+                for profile in profiles:
+                    v = Vitals(url, device=profile.device)
+                    out.vitals.append(v)
+                    _measure(browser, v, runs if i == 0 else 1, proxy.url, progress)
         finally:
             browser.close()
+        out.browser_calls = sink.asked
     out.refused = sorted(set(guard.refused[already:]))
     return out

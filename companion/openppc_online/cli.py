@@ -29,7 +29,7 @@ from .fetch.files import DAYS
 from .siteaudit.crawl import FAST_WORKERS, MAX_PER_PATTERN
 from .siteaudit.crux import KEY_ENV
 from .siteaudit.lab.psi import KEY_ENV as PSI_KEY_ENV
-from .siteaudit.render import RENDER_PAGES, VITALS_PAGES
+from .siteaudit.render import MAX_RUNS, RENDER_PAGES, VITALS_PAGES, VITALS_RUNS
 
 
 class _Parser(argparse.ArgumentParser):
@@ -51,6 +51,13 @@ def _at_least(kind: Callable[[str], float], low: float, strict: bool = False) ->
             raise argparse.ArgumentTypeError(f"must be {'more than' if strict else 'at least'} {low}, not {text}")
         return value
     return parse
+
+
+def _runs(text: str) -> int:
+    value = int(_at_least(int, 1)(text))
+    if value > MAX_RUNS:
+        raise argparse.ArgumentTypeError(f"must be at most {MAX_RUNS}, not {text}")
+    return value
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -81,7 +88,11 @@ def _parser() -> argparse.ArgumentParser:
     s.add_argument("--render-pages", type=_at_least(int, 1), default=RENDER_PAGES,
                    help=f"pages to render (default {RENDER_PAGES}: the home page and one per section)")
     s.add_argument("--vitals-pages", type=_at_least(int, 0), default=VITALS_PAGES,
-                   help=f"rendered pages to measure Web Vitals on (default {VITALS_PAGES}: the home page)")
+                   help=f"rendered pages to measure Web Vitals on (default {VITALS_PAGES}: the home page); pages after "
+                        "the first get one load each")
+    s.add_argument("--runs", type=_runs, default=VITALS_RUNS,
+                   help=f"loads of the first measured page per device, the representative one shown (default "
+                        f"{VITALS_RUNS}, at most {MAX_RUNS})")
     s.add_argument("--render-url", action="append", default=[], metavar="URL",
                    help="with --render, also render this page of the site, e.g. a thank-you page no link leads to, "
                         "to see which events its tags send; with --psi, also measure it; a path or a full address; "
@@ -179,7 +190,7 @@ def _site(args: argparse.Namespace) -> int:
                              allow_private=args.allow_private, crux_key=crux_key, psi_key=psi_key,
                              single=args.single, config=config,
                              baseline=baseline, post_to=args.post_to, rendered=args.render,
-                             render_pages=args.render_pages, vitals_pages=args.vitals_pages,
+                             render_pages=args.render_pages, vitals_pages=args.vitals_pages, runs=args.runs,
                              render_url=args.render_url, consent_selector=args.consent_selector,
                              screenshots=args.screenshots, progress=progress)
     if progress:

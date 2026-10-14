@@ -102,8 +102,8 @@ def test_the_vitals_section_without_a_measurement(serve):
     base = serve(lambda b: {"/": (200, {}, page("Home"))})
     c = crawl(base, local(), fast=True, external=False)
     markdown, _, passed = report(c, Rendered(vitals=[Vitals(base + "/", error="timed out")]), [])
-    assert passed and "couldn't be measured" in markdown and "median of" not in markdown
-    run = dict.fromkeys(("lcp", "cls", "tbt", "fcp", "ttfb"), 1.0)
+    assert passed and "couldn't be measured" in markdown and "representative of" not in markdown
+    run = dict.fromkeys(("lcp", "cls", "tbt", "fcp", "ttfb", "si", "tti"), 1.0)
     details = {"lcp_element": "img#hero.big", "lcp_url": base + "/hero.jpg", "blocking": [base + "/app.css"],
                "heavy": [[base + "/hero.jpg", 251_904], [base + "/app.js", 90_112]]}
     markdown, _, passed = report(c, Rendered(vitals=[Vitals(base + "/", runs=[run], details=details),
@@ -111,9 +111,23 @@ def test_the_vitals_section_without_a_measurement(serve):
                                                             hits_answered=14)]), [])
     assert passed, markdown
     assert "Lab, throttled phone (rough estimate): 412x823 screen" in markdown and "562.5 ms latency" in markdown
-    assert "### `" + base + "/b`" in markdown and "hadn't finished loading after 45 seconds" in markdown
+    assert "### `" + base + "/b`" in markdown and "hadn't gone quiet, after 45 seconds" in markdown
     assert "sends no visits to the site's analytics" in markdown and "answered on this computer: 14." in markdown
     assert "`img#hero.big`" in markdown and "(246 KB)" in markdown and "block the first paint" in markdown
+    assert "One load, so a number just over a line" in markdown and "The representative of 2 loads" in markdown
+    assert "| Speed Index | 1 ms | 1 to 1 ms |" in markdown and "## Glossary" in markdown
+
+
+def test_one_load_just_over_a_line_is_no_finding_but_a_note(serve):
+    base = serve(lambda b: {"/": (200, {}, page("Home"))})
+    c = crawl(base, local(), fast=True, external=False)
+    near = {"fcp": 900.0, "lcp": 2800.0, "tbt": 150.0, "cls": 0.0, "ttfb": 100.0, "si": 1000.0, "tti": 2000.0}
+    clear = near | {"lcp": 3100.0}  # 24% over the good line
+    for runs, finding in (([near], False), ([clear], True), ([near, near], True)):
+        r = Rendered(vitals=[Vitals(base + "/", runs=runs)])
+        assert ("site-lcp-slow" in by_id(checks.evaluate(c, r))) is finding
+    markdown, _, passed = report(c, Rendered(vitals=[Vitals(base + "/", runs=[near])]), [])
+    assert passed and "too close for one load to call, so no finding: Largest Contentful Paint" in markdown
 
 
 def test_what_a_browser_pass_saw_becomes_findings(serve):
