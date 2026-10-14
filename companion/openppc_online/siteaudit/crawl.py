@@ -37,6 +37,10 @@ PROBE_PREFIX = "/openppc-missing-page"
 PROBE = PROBE_PREFIX + "-0d1f4a"  # the same every run, so a soft-404 finding keeps its fingerprint
 TRACKING_PARAMS = ("utm_", "gclid", "gbraid", "wbraid", "dclid", "fbclid", "msclkid", "mc_cid", "mc_eid",
                    "_ga", "_gl", "yclid", "igshid", "ttclid", "twclid", "li_fat_id", "srsltid")
+# set on the start page, to see whether a server redirect keeps them; the site's logs and CRM may record the value
+AD_PARAMS = ("gclid", "gbraid", "wbraid", "msclkid", "fbclid", "utm_source", "utm_medium", "utm_campaign",
+             "utm_term", "utm_content")
+AD_TEST_VALUE = "OPENPPC-TEST"
 AI_BOTS = ("GPTBot", "OAI-SearchBot", "ChatGPT-User", "ClaudeBot", "Claude-SearchBot", "Claude-User",
            "PerplexityBot", "Perplexity-User", "Google-Extended", "Applebot-Extended", "CCBot", "Bytespider",
            "Amazonbot", "meta-externalagent")
@@ -187,6 +191,7 @@ class Crawl:
     skipped: Counter[str] = field(default_factory=Counter)    # pattern -> URLs a cap left out
     probe: Response | None = None        # a made-up URL, to see how the site answers a missing page
     plain_http: Response | None = None   # the home page over http://, to see whether it moves to https
+    ad_params: Response | None = None    # the start page with AD_PARAMS set, to see whether its redirects keep them
     llms_txt: bool = False
     blocked_by: str = ""
     incomplete: str = ""                 # why the crawl stopped early, or ""
@@ -351,6 +356,26 @@ def start_url(start: str) -> str:
     return normalize(start)
 
 
+def with_ad_params(url: str) -> str:
+    parts = urlsplit(url)
+    query = urlencode([*parse_qsl(parts.query, keep_blank_values=True), *((p, AD_TEST_VALUE) for p in AD_PARAMS)])
+    return urlunsplit(parts._replace(query=query))
+
+
+def dropped_ad_params(resp: Response | None) -> list[str]:
+    """The AD_PARAMS a server redirect lost or changed on the way from the start page; none without a redirect."""
+    if not resp or not resp.status or not resp.hops:
+        return []
+    kept = dict(parse_qsl(urlsplit(resp.final_url).query, keep_blank_values=True))
+    return [p for p in AD_PARAMS if kept.get(p) != AD_TEST_VALUE]
+
+
+def _check_ad_params(c: Crawl, guard: Guard, limiter: _Limiter) -> None:
+    url = with_ad_params(c.start)
+    if c.allowed(url):
+        c.ad_params = _get(url, guard, limiter, max_bytes=LLMS_BYTES)
+
+
 def _robots_rules(robots: Response) -> Robots | None:
     if robots.status != 200:
         return None
@@ -360,8 +385,8 @@ def _robots_rules(robots: Response) -> Robots | None:
 def crawl(start: str, guard: Guard, max_pages: int | None = None, max_seconds: float | None = None,
           max_per_pattern: int = MAX_PER_PATTERN, fast: bool = False, external: bool = True,
           progress: Progress | None = None, single: bool = False, also: list[str] | None = None) -> Crawl:
-    """The site from `start`; with `single`, the start page and the `also` pages only, with robots.txt and the
-    http:// check, and none of the sitemap, the missing-page probe, llms.txt or other sites' links."""
+    """The site from `start`; with `single`, the start page and the `also` pages only, with robots.txt, the
+    http:// check and the ad-parameter check, and none of the sitemap, the missing-page probe, llms.txt or other sites' links."""
     began = time.monotonic()
     start = start_url(start)
     limiter = _Limiter(0.0 if fast else POLITE_INTERVAL)
@@ -406,6 +431,7 @@ def crawl(start: str, guard: Guard, max_pages: int | None = None, max_seconds: f
                 crawler.offer(url, 0, "")
             if final.scheme == "https" and c.allowed(c.origin + "/"):
                 c.plain_http = _get(f"http://{final.netloc}/", guard, limiter, method="HEAD")
+            _check_ad_params(c, guard, limiter)
             _crawl_pages(c, crawler, POLITE_WORKERS, max_pages, max_seconds, began, progress)
         else:
             _read_sitemaps(c, guard, limiter, crawler)
@@ -417,6 +443,7 @@ def crawl(start: str, guard: Guard, max_pages: int | None = None, max_seconds: f
                     and not llms.body.lstrip()[:15].lower().startswith((b"<!doctype", b"<html"))
             if final.scheme == "https" and c.allowed(c.origin + "/"):
                 c.plain_http = _get(f"http://{final.netloc}/", guard, limiter, method="HEAD")
+            _check_ad_params(c, guard, limiter)
             _crawl_pages(c, crawler, FAST_WORKERS if fast else POLITE_WORKERS, max_pages, max_seconds, began,
                          progress)
             if external:

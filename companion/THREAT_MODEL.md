@@ -128,6 +128,9 @@ browser runs their JavaScript. The tests are in `tests/test_net.py`, `tests/test
 - **`--allow-private` trusts the names you check.** With it, a public site's link or redirect may reach your own
   network; use it only on hosts you trust.
 - **`--fast` ignores the polite pace,** not robots.txt. It is for your own site.
+- **The ad-parameter check looks like an ad click to the server.** The start page is asked for once with `gclid`
+  and the other click IDs set to `OPENPPC-TEST`, so the site's logs, and a CRM that reads them on the server, may
+  record that value. No browser runs it, so no tag fires and no ad platform sees it.
 - **The CrUX key goes to Google,** as the API needs. Use a key restricted to the Chrome UX Report API.
 - **`--psi` tells Google which pages you measure,** and Google loads them from its servers, as pagespeed.web.dev
   does; their tag hits are real visits from Google's machines, which this check can't answer for it. A PSI key

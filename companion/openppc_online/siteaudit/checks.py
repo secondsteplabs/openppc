@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urlsplit
 
-from .crawl import AI_BOTS, Crawl, Page, normalize
+from .crawl import AI_BOTS, Crawl, Page, dropped_ad_params, normalize
 from .crux import METRICS as CRUX_METRICS
 from .crux import FieldData
 from .lab.lhr import Speed
@@ -180,6 +180,10 @@ RULES: dict[str, Rule] = {
     "site-consent-mode-missing": R("tracking", "low", "Google tags run with no Consent Mode default", "pages",
                                    "Set a default (`gtag('consent', 'default', ...)`) before the tags load, so Google "
                                    "can model the conversions of visitors who decline."),
+    "site-ad-params-dropped": R("tracking", "high", "Ad click IDs that a server redirect drops", "pages",
+                                "Make the redirect keep the query string, or use the page it ends on as the ad's "
+                                "final URL. Without the click ID, the ad platform can't tie a sale or lead to the "
+                                "click that brought it."),
     "site-unknown-third-party": R("tracking", "info", "Third-party hosts this scan doesn't recognise", "hosts",
                                   "Check you know what each one is: any of them could be a tracker."),
     # accessibility (AUD-08): one finding per axe rule, titled with axe's own words
@@ -559,6 +563,11 @@ def evaluate(c: Crawl, r: Rendered | None = None, field_data: list[FieldData] | 
         add("site-no-https", [c.origin + "/"])
     elif c.plain_http and c.plain_http.status and not c.plain_http.final_url.startswith("https://"):
         add("site-http-not-redirected", [c.plain_http.url])
+    dropped = dropped_ad_params(c.ad_params)
+    if c.ad_params and dropped:
+        lost = ", ".join(f"`{p}`" for p in dropped)
+        add("site-ad-params-dropped", [c.start], {c.start: f"loses {lost} on the way to "
+                                                           f"{code(c.ad_params.final_url)} (server redirects only)"})
     mixed = {u: f"loads `{next(s for s in i.subresources if s.startswith('http://'))}`" for u, i in info.items()
              if u.startswith("https://") and any(s.startswith("http://") for s in i.subresources)}
     add("site-mixed-content", list(mixed), mixed)

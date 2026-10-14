@@ -26,6 +26,10 @@ Semantic versioning, as in OpenPPC. Each release names the `openppc` versions it
   INP, CLS, FCP and TTFB; the Core Web Vitals assessment (passed, failed or none); phones and desktops; the page's
   data first and the whole site's when the page has too few visitors. From PSI with `--psi`, or from the CrUX API
   with `--crux`, which now asks for desktops, histograms, FCP and TTFB too.
+- **Ad click IDs through server redirects** (`site-ad-params-dropped`): the start page is asked for once more with
+  `gclid`, `gbraid`, `wbraid`, `msclkid`, `fbclid` and the five `utm_` parameters set to `OPENPPC-TEST`, and a
+  redirect that loses or changes any of them is a high finding. Server redirects only, for now: a redirect in
+  JavaScript, or a script that rewrites the address, isn't seen. The site's logs and CRM may record the test value.
 - The app's Site form gains "One page only", "Measure with PageSpeed Insights" and a PSI key field.
 - JSON: a top-level `speed` list (each Lighthouse result, its metrics, categories and audits, and its real-visitor
   data), `single`, `scores.<area>.method`, and `device`, `shares`, `verdict` and `source` on `field_data` items and

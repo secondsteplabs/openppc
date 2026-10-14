@@ -4,7 +4,9 @@ import pytest
 from sites import acme, local, page
 
 from openppc_online.siteaudit import crawl as crawl_module
-from openppc_online.siteaudit.crawl import PROBE, Robots, crawl, follow, normalize, pattern
+from openppc_online.siteaudit.checks import evaluate
+from openppc_online.siteaudit.crawl import (AD_PARAMS, PROBE, Robots, crawl, dropped_ad_params, follow, normalize,
+                                            pattern, with_ad_params)
 from openppc_online.siteaudit.net import Guard
 from openppc_online.siteaudit.page import read
 
@@ -150,6 +152,28 @@ def test_where_a_crawl_may_start(serve):
         crawl(" ", local())
     with pytest.raises(ValueError, match="--allow-private"):
         crawl(base, Guard())
+
+
+def test_ad_click_ids_a_server_redirect_drops_are_found(serve):
+    tagged = with_ad_params("/")
+    assert "gclid=OPENPPC-TEST" in tagged and "utm_content=OPENPPC-TEST" in tagged
+    base = serve(lambda b: {"/": (302, {"Location": "/en/"}, ""), "/en/": (200, {}, page("Home"))})
+    c = crawl(base, local(), fast=True, external=False)
+    assert c.ad_params is not None and c.ad_params.url == base + tagged
+    assert dropped_ad_params(c.ad_params) == list(AD_PARAMS)
+    note = next(f for f in evaluate(c) if f.rule == "site-ad-params-dropped").notes[base + "/"]
+    assert "`gclid`" in note and f"`{base}/en/`" in note and "server redirects only" in note
+    kept = with_ad_params("/en/").replace("gclid=OPENPPC-TEST", "gclid=openppc-test")
+    base = serve(lambda b: {tagged: (301, {"Location": with_ad_params("/en/")}, ""),
+                            "/": (301, {"Location": "/en/"}, ""), "/en/": (200, {}, page("Home"))})
+    c = crawl(base, local(), fast=True, external=False)
+    assert c.ad_params is not None and not dropped_ad_params(c.ad_params)
+    assert not any(f.rule == "site-ad-params-dropped" for f in evaluate(c))
+    base = serve(lambda b: {tagged: (301, {"Location": kept}, ""), "/en/": (200, {}, page("Home"))})
+    assert dropped_ad_params(crawl(base, local(), fast=True, external=False).ad_params) == ["gclid"]
+    base = serve(lambda b: {"/": (200, {}, page("Home"))})
+    c = crawl(base, local(), fast=True, external=False, single=True)
+    assert c.ad_params is not None and c.ad_params.status == 200 and not dropped_ad_params(c.ad_params)
 
 
 def test_microdata_items_are_read_with_their_properties():

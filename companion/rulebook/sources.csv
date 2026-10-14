@@ -30,3 +30,4 @@ src-openai-bots,Overview of OpenAI crawlers,OpenAI,https://platform.openai.com/d
 src-llmstxt,The /llms.txt file,llmstxt.org,https://llmstxt.org/,industry-publication,2026-10-05
 src-psi-api,About PageSpeed Insights,Google for Developers,https://developers.google.com/speed/docs/insights/v5/about,tool-docs,2026-10-14
 src-lighthouse-scoring,Lighthouse performance scoring,Chrome for Developers,https://developer.chrome.com/docs/lighthouse/performance/performance-scoring,tool-docs,2026-10-14
+src-google-ads-autotagging,About auto-tagging,Google Ads Help,https://support.google.com/google-ads/answer/3095550,google-help-center,2026-10-14

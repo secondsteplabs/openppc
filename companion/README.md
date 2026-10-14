@@ -77,6 +77,12 @@ number in it is traced, as in an `openppc` audit.
 It reads robots.txt first and obeys it, Crawl-delay included, and asks two pages at a time, half a second apart
 (`--fast` asks eight at a time with no pause, for your own site). It keeps no cookies and fills in no forms.
 
+To see whether the ad click survives the landing page's redirects, it asks for the start page once more with the ad
+platforms' click IDs (`gclid`, `gbraid`, `wbraid`, `msclkid`, `fbclid`) and the five `utm_` parameters set to
+`OPENPPC-TEST`, and checks the address it ends on still has them. That request looks like an ad click to the
+server, so the site's logs, and a CRM that reads those parameters on the server, may record `OPENPPC-TEST`; no tag
+fires, since no browser runs it. Only server redirects are checked for now.
+
 Check only sites you own or have permission to check. It names itself in every request, as
 `OpenPPC-SiteAudit/<version> (+https://openppc.si)` in its user agent. robots.txt rules for `OpenPPC`, or for every
 crawler, apply to it, so a site's owner can see it in their logs and turn it away.
