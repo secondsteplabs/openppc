@@ -3,9 +3,12 @@
     python -m calibration.harness --device mobile --runs 9 --lighthouse ../calibration --out mobile.json
 
 Each fixture is loaded `runs` times by OpenPPC's lab and by Lighthouse (devtools throttling), alternating, in the
-same browser through the same guard proxy; the gate (gate.py) compares the medians. --proxy-gate also times one
-fixture with and without the guard's proxy, and --simulate records one Lighthouse run with simulated throttling per
-fixture (PSI's method, never gated). Offline: only the fixtures' names resolve.
+same browser through the same guard proxy, over HTTPS with HTTP/2 (an HTTP/1.1-only host beside them; --plain for
+plain HTTP); the gate (gate.py) compares the medians. The tag pages stay out of the gate, since Lighthouse's loads
+send their hits and OpenPPC's answer them: there OpenPPC's lab also loads them with the hits sent, and the three are
+published side by side. --proxy-gate also times one fixture with and without the guard's proxy, and --simulate
+records one Lighthouse run with simulated throttling per fixture (PSI's method, never gated). Needs Node (Lighthouse,
+and the HTTPS front) and cryptography. Offline: only the fixtures' names resolve.
 """
 import argparse
 import json
@@ -26,8 +29,8 @@ from openppc_online.siteaudit.lab.throttle import DESKTOP, MOBILE, Profile
 from openppc_online.siteaudit.net import Guard, GuardProxy, Sink
 
 from . import gate
-from .bypass import launch_unguarded
-from .fixtures import HOST, OTHER_HOSTS, Server, url
+from .bypass import launch_unguarded, trusting
+from .fixtures import HOST, OTHER_HOSTS, TAG_FIXTURES, Server, url
 
 LOCAL = {HOST, *OTHER_HOSTS}
 PROXY_FIXTURE = "hero"
@@ -53,9 +56,9 @@ def lab_score(m: dict[str, float | None], device: str) -> int | None:
     return performance({k: float(v) for k, v in values.items() if v is not None}, device)
 
 
-def ours(browser: Any, target: str, profile: Profile, proxy: str) -> dict[str, Any]:
+def ours(browser: Any, target: str, profile: Profile, proxy: str, answer: bool = render.BLOCK_HITS) -> dict[str, Any]:
     try:
-        run = capture(browser, target, profile, proxy, render.BLOCK_HITS)
+        run = capture(browser, target, profile, proxy, answer)
         m = metrics.measure(run.events, run.trace_end, run.frames)
     except (PlaywrightError, metrics.NoNavigation) as e:
         return {"metrics": {}, "score": None, "error": str(e).splitlines()[0]}
@@ -100,13 +103,23 @@ def summary(out: dict[str, Any]) -> str:
     text = [gate.table(rows), "", "| Fixture | OpenPPC lab | Lighthouse (devtools) | Lighthouse (simulate) |",
             "|---|---|---|---|"]
     scores = {r.fixture: r for r in rows if r.metric == "score"}
+    tagged = {name: f for name, f in out["fixtures"].items() if "sent" in f}
     for name, f in out["fixtures"].items():
+        if name in tagged:
+            continue
         s = scores.get(name)
         simulated = (f.get("simulate") or {}).get("score")
         text.append(f"| {name} | {gate.cell('score', s.ours if s else None)} | "
                     f"{gate.cell('score', s.reference if s else None)} | {gate.cell('score', simulated)} |")
+    if tagged:
+        text += ["", "Tag pages, not gated (Lighthouse's loads send the hits; OpenPPC's lab answers them):", "",
+                 gate.tag_table({name: {"answered": [r["metrics"] for r in f["ours"]],
+                                        "sent": [r["metrics"] for r in f["sent"]],
+                                        "reference": [r["metrics"] for r in f["reference"]]}
+                                 for name, f in tagged.items()})]
     text.append("")
-    text.append(f"Benchmark index {out.get('benchmark')}, {out.get('chromium', '')}, {out['runs']} loads a side.")
+    text.append(f"Benchmark index {out.get('benchmark')}, {out.get('chromium', '')}, {out['runs']} loads a side, "
+                f"{out.get('transport', 'plain HTTP')}.")
     if "proxy" in out:
         p = out["proxy"]
         text.append(f"\nProxy gate ({p['fixture']}): LCP {p['lcp'][0]} with the guard, {p['lcp'][1]} without; "
@@ -123,6 +136,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--only", default="", help="fixtures to run, comma-separated (all by default)")
     ap.add_argument("--proxy-gate", action="store_true")
     ap.add_argument("--simulate", action="store_true")
+    ap.add_argument("--plain", action="store_true", help="plain HTTP instead of HTTPS with HTTP/2")
     ap.add_argument("--out", default="")
     a = ap.parse_args(argv)
     if a.saved:
@@ -136,22 +150,26 @@ def main(argv: list[str] | None = None) -> int:
     guard = Guard(allow_private=True, resolve=resolve)
     rows: list[gate.Row] = []
     out: dict[str, Any] = {"device": a.device, "runs": a.runs, "started": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                           "transport": "plain HTTP" if a.plain else "HTTPS, HTTP/2 and one HTTP/1.1 host",
                            "fixtures": {}}
-    with Server() as server, GuardProxy(guard) as proxy, Sink() as sink, sync_playwright() as pw:
-        browser = render._launch(pw, sink.url, devtools=True)
+    with Server(tls=not a.plain) as server, GuardProxy(guard) as proxy, Sink() as sink, sync_playwright() as pw:
+        browser = render._launch(trusting(pw, server.tls), sink.url, devtools=True)
         try:
             address = lighthouse.attach(browser, guard)
             out["chromium"] = browser.version
             out["benchmark"] = benchmark(browser)
             names = [n for n in server.pages if not a.only or n in a.only.split(",")]
             for name in names:
-                target = url(name, server.port)
+                target = url(name, server.on)
                 mine: list[dict[str, Any]] = []
                 theirs: list[dict[str, Any]] = []
+                sent: list[dict[str, Any]] = []
                 for i in range(a.runs):
                     say(f"{name} ({a.device}), load {i + 1} of {a.runs}")
                     sides = [(mine, lambda: ours(browser, target, profile, proxy.url)),
                              (theirs, lambda: reference(browser, address, lh, target, a.device, proxy.url))]
+                    if name in TAG_FIXTURES:
+                        sides.append((sent, lambda: ours(browser, target, profile, proxy.url, answer=False)))
                     for into, load in sides if i % 2 == 0 else reversed(sides):
                         into.append(load())
                 result: dict[str, Any] = {"url": target, "ours": mine, "reference": theirs}
@@ -159,12 +177,15 @@ def main(argv: list[str] | None = None) -> int:
                     say(f"{name} ({a.device}), simulated")
                     result["simulate"] = reference(browser, address, lh, target, a.device, proxy.url, "simulate")
                 out["fixtures"][name] = result
+                if name in TAG_FIXTURES:
+                    result["sent"] = sent
+                    continue
                 rows += gate.compare(name, a.device, [r["metrics"] for r in mine], [r["metrics"] for r in theirs],
                                      [r["score"] for r in mine], [r["score"] for r in theirs])
             if a.proxy_gate:
-                unguarded = launch_unguarded(pw)
+                unguarded = launch_unguarded(pw, server.tls)
                 try:
-                    out["proxy"] = proxy_gate(browser, unguarded, url(PROXY_FIXTURE, server.port), profile,
+                    out["proxy"] = proxy_gate(browser, unguarded, url(PROXY_FIXTURE, server.on), profile,
                                               proxy.url)
                 finally:
                     unguarded.close()

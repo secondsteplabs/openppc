@@ -130,7 +130,7 @@ def main(argv: list[str] | None = None) -> int:
             address = lighthouse.attach(browser, guard)
             out["chromium"] = browser.version
             for name in [n for n in server.pages if not a.only or n in a.only.split(",")]:
-                target = url(name, server.port)
+                target = url(name, server.on)
                 say(f"{name} ({a.device})")
                 mine = ours(browser, target, a.device, proxy.url, a.debug)
                 theirs = reference(browser, address, lh, target, a.device, proxy.url, a.debug)

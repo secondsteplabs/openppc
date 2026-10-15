@@ -161,6 +161,15 @@ def test_a_load_s_metrics_come_from_its_trace():
     assert got["cls"] == pytest.approx(0.06) and got["si"] == 800 + 700 * 0.4
 
 
+def test_the_input_flag_is_forgiven_from_the_page_s_viewport_event_not_about_blank_s():
+    # a web font swapped in 300 ms after the page's viewport is set, which Chrome flags as recent input
+    viewport = {"name": "viewport", "ph": "I", "pid": 1, "tid": 10, "args": {"frame": "F", "data": {}}}
+    events = [e for e in trace_events() if e["name"] != "LayoutShift"] + [
+        viewport | {"ts": ORIGIN - 30_000}, viewport | {"ts": at(500)}, shift(800, 0.3, recent=True)]
+    events[-1]["args"]["data"]["frame"] = "F"
+    assert metrics.measure(events, at(20_000))["cls"] == pytest.approx(0.3)
+
+
 def test_without_a_quiet_window_tbt_counts_to_the_end_of_the_trace():
     events = trace_events() + [{"name": "RunTask", "ph": "X", "pid": 1, "tid": 10, "ts": at(t), "dur": 80_000}
                                for t in range(4000, 9000, 1000)]

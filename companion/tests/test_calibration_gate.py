@@ -1,9 +1,14 @@
 """The calibration gate (calibration/gate.py), on made-up runs: the plan's tolerances, the score's band rule, and the
 one miss allowed; and the trace-engine spike's comparison (calibration/insights.py). The harness and the spike need
 Chromium and Lighthouse; the harness runs in the scheduled workflow."""
+import re
+import struct
+
 import pytest
 from calibration import gate, insights
-from calibration.fixtures import fixtures, png, url
+from calibration.fixtures import TAG_FIXTURES, _sum, fixtures, font, plain, png, tls, url
+
+from openppc_online.siteaudit import tags
 
 
 def run(fcp=1000.0, lcp=2000.0, si=1500.0, tbt=100.0, cls=0.05, ttfb=100.0, tti=3000.0):
@@ -36,6 +41,13 @@ def test_one_miss_passes_and_two_fail():
     assert "| a | mobile | fcp | 1200 | 1000 | 200 | 150 | miss |" in gate.table(rows)
 
 
+def test_the_tag_pages_are_published_side_by_side_not_gated():
+    text = gate.tag_table({"tags": {"answered": [run(tbt=100), run(tbt=140)], "sent": [run(tbt=300)],
+                                    "reference": [run(tbt=310), run(tbt=290), run(tbt=330)]}})
+    assert "| tags | tbt | 120 | 300 | 310 |" in text and "| tags | cls | 0.050 | 0.050 | 0.050 |" in text
+    assert "Gate" not in text
+
+
 def test_a_metric_one_side_lacks_is_a_miss_and_both_lacking_it_is_not():
     rows = gate.compare("x", "desktop", [run(lcp=None)], [run()], [None], [90])
     assert {r.metric for r in gate.misses(rows)} == {"lcp", "score"}
@@ -53,11 +65,35 @@ def test_the_score_rule(ours, reference, ok):
 
 
 def test_every_fixture_has_a_page_and_a_url():
-    pages = fixtures(8000)
-    assert len(pages) >= 17
+    pages = fixtures(plain(8000))
+    assert len(pages) >= 21 and set(TAG_FIXTURES) <= set(pages)
     for name, html in pages.items():
-        assert url(name, 8000).startswith("http://site.test:8000/")
+        assert url(name, plain(8000)).startswith("http://site.test:8000/")
         assert name == "redirect" or html.startswith("<!doctype html>")
+    secure = fixtures(tls(8443, 8444))
+    assert url("text", tls(8443, 8444)) == "https://site.test:8443/f/text"
+    assert "https://old.test:8444/r/img" in secure["http1-host"] and "https://t1.test:8443/g/collect" in secure["tags"]
+
+
+def test_the_tag_pages_send_hits_openppc_answers():
+    page = fixtures(plain(8000))
+    hits = re.findall(r"'(http://[^']+/(?:g/collect|b/ss/)[^']*)'", page["tags"] + page["tags-chained"])
+    assert len(hits) >= 2 and all(tags.is_hit(h) for h in hits)
+
+
+def test_the_font_is_a_truetype_file_whose_checksums_add_up():
+    data = font()
+    version, count = struct.unpack(">IH", data[:6])
+    assert version == 0x10000 and count == 10
+    tables = {}
+    for i in range(count):
+        tag, checksum, offset, length = struct.unpack(">4sIII", data[12 + 16 * i:28 + 16 * i])
+        tables[tag.decode()] = (checksum, offset, length)
+    assert list(tables) == sorted(tables)
+    for tag, (checksum, offset, length) in tables.items():
+        if tag != "head":  # its checksum is taken with checkSumAdjustment as 0
+            assert _sum(data[offset:offset + length]) == checksum, tag
+    assert _sum(data) == 0xB1B0AFBA
 
 
 def insight(state, **savings):

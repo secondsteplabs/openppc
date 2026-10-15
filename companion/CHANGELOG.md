@@ -99,11 +99,14 @@ Semantic versioning, as in OpenPPC. Each release names the `openppc` versions it
   slow-CPU warning at 1000 or below. JSON: `score` and `score_label` on `vitals` items, `rendered.benchmark_index`.
   The app's summary shows the score and all six measures for lab loads.
 - **The lab is checked against Lighthouse itself:** a calibration harness (`tests/calibration`, the scheduled
-  `calibration` workflow) loads 17 local pages with OpenPPC's lab and with Lighthouse 13.5 (devtools throttling),
+  `calibration` workflow) loads 19 local pages with OpenPPC's lab and with Lighthouse 13.5 (devtools throttling),
   alternating, in the same browser through the same guard, and gates the medians on the plan's tolerances; it also
   times the guard's proxy and records Lighthouse's simulated numbers. Lighthouse attaches over a DevTools port on
   127.0.0.1 to a page OpenPPC opened (`siteaudit/lab/lighthouse.py`), and the guard refuses that port to every page.
-  The lab score stays labelled uncalibrated until the gate passes.
+  The lab score stays labelled uncalibrated until the gate passes. The pages are served over HTTPS and HTTP/2 as
+  real sites are (`--plain` for the old HTTP/1.1), with one host on HTTP/1.1 only and a page whose web font swaps
+  in late; two more pages fire GA4 and Adobe hits, chained pixel included, and their numbers are published three
+  ways, not gated: OpenPPC answering the hits itself (as it measures), OpenPPC sending them, and Lighthouse.
 - **`--runs N`** (1 to 9, default 3): loads of the first measured page per device; later pages get one each. With
   one load, a lab number less than 20% over its good line isn't a finding; the report notes it instead.
 - Speed loads run in Chromium's new headless mode, which paints as a visitor's Chrome does, not the headless shell.
@@ -138,6 +141,10 @@ Semantic versioning, as in OpenPPC. Each release names the `openppc` versions it
   proxy (`ERR_CONNECTION_RESET` or `ERR_CONTENT_LENGTH_MISMATCH`), so its paint never counted: Windows dropped what
   the proxy had buffered when the connection closed. The proxy's sends to the browser now finish only once the
   browser has the bytes. Found by the calibration's heavy-image page.
+- Layout shift on a phone could read 0 where Lighthouse counted the shift, a web font swapping in for one. Chrome
+  marks shifts soon after the screen size is set as following input, and Lighthouse forgives that for 500 ms from the
+  page's first screen-size event; OpenPPC counted from the blank page before it, so the 500 ms had run out before the
+  page loaded. Found by the calibration's web-font page.
 
 ## Unreleased (0.5.0)
 

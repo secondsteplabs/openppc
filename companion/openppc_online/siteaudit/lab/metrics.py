@@ -371,7 +371,8 @@ def measure(events: Sequence[Event], trace_end: float,
 
     fcp, dcl = first("firstContentfulPaint"), first("domContentLoadedEventEnd")
     lcp_event = _lcp(frame_events, origin)
-    viewport = next((e["ts"] for e in frame_events if e["name"] == "viewport"), origin)
+    # Lighthouse's trace starts after its about:blank, ours takes it in: the blank page's viewport event is not the one
+    viewport = next((e["ts"] for e in frame_events if e["name"] == "viewport" and e["ts"] >= origin), origin)
     tree_events = [e for e in events if frame_id(e) in tree]
     end = (trace_end - origin) / 1000
     tasks = top_level_tasks(events, threads, origin)

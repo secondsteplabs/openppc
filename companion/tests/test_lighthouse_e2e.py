@@ -47,7 +47,7 @@ def test_lighthouse_measures_through_the_guard_and_the_devtools_port_stays_shut(
         try:
             address = lighthouse.attach(browser, guard)
             port = int(address.split(":")[2].split("/")[0])
-            lhr = lighthouse.run(browser, address, lh, url("hero", server.port), "mobile", proxy.url)
+            lhr = lighthouse.run(browser, address, lh, url("hero", server.on), "mobile", proxy.url)
             context = browser.new_context(proxy={"server": proxy.url})
             page = context.new_page()
             try:

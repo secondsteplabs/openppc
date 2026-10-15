@@ -98,6 +98,17 @@ def cell(metric: str, v: float | None) -> str:
     return f"{v:.3f}" if metric == "cls" else f"{v:.0f}"
 
 
+def tag_table(fixtures: dict[str, dict[str, Runs]]) -> str:
+    """The tag pages, kept out of the gate: each metric's median from OpenPPC's lab with the hits answered (as it
+    measures), with them sent, and from Lighthouse (which sends them), so the cost of answering them is published."""
+    out = ["| Fixture | Metric | OpenPPC, hits answered | OpenPPC, hits sent | Lighthouse |", "|---|---|---|---|---|"]
+    for name, sides in fixtures.items():
+        for m in ORDER:
+            out.append(f"| {name} | {m} | {cell(m, median(sides['answered'], m))} | "
+                       f"{cell(m, median(sides['sent'], m))} | {cell(m, median(sides['reference'], m))} |")
+    return "\n".join(out)
+
+
 def table(rows: Sequence[Row]) -> str:
     """The rows as a Markdown table, misses marked."""
     out = ["| Fixture | Device | Metric | OpenPPC | Lighthouse | Difference | Allowed | Result |",

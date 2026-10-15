@@ -24,7 +24,7 @@ Repository = "https://github.com/secondsteplabs/openppc/tree/main/companion"
 Issues = "https://github.com/secondsteplabs/openppc/issues"
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "ruff>=0.6", "jsonschema>=4"]
+dev = ["pytest>=8", "ruff>=0.6", "jsonschema>=4", "cryptography>=42"]  # cryptography: the calibration's TLS fixtures
 e2e = ["playwright>=1.45"]
 render = ["playwright>=1.45"]  # openppc-online site --render; then: playwright install chromium
 
