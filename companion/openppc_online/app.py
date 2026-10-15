@@ -50,6 +50,7 @@ TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=u
          ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml"}
 TOKEN_HEADER = "X-OpenPPC-Token"
 MAX_BODY = 20 * 1024 * 1024  # bytes of JSON a POST may carry: rule packs and a baseline from a large crawl
+LINGER = 2  # seconds a closing connection waits for what the client is still sending, which is thrown away
 KEEP_JOBS = 4                # finished jobs kept, in memory only, for the page to fetch
 STOPPED = "stopped with the Stop button"
 STOP_CHECK = 0.25  # seconds between looks at the Stop button while a platform builds a report
@@ -288,6 +289,22 @@ class Server(ThreadingHTTPServer):
         job.thread.start()
         return job, True
 
+    def close_request(self, request: Any) -> None:
+        """Closes a connection once the client has stopped sending (at most MAX_BODY bytes or LINGER seconds, thrown
+        away unread): closing with bytes unread resets the connection, and the client can lose the answer, such as a
+        refused POST's, whose body is never read. The answer is all sent by now (shutdown_request shut writing)."""
+        deadline, left = time.monotonic() + LINGER, MAX_BODY
+        try:
+            while left > 0 and (wait := deadline - time.monotonic()) > 0:
+                request.settimeout(wait)
+                chunk = request.recv(min(left, 65_536))
+                if not chunk:
+                    break
+                left -= len(chunk)
+        except OSError:
+            pass
+        super().close_request(request)
+
 
 class Handler(BaseHTTPRequestHandler):
     server: Server
@@ -315,7 +332,7 @@ class Handler(BaseHTTPRequestHandler):
         self._send(code, text.encode("utf-8"), "text/plain; charset=utf-8")
 
     def _refuse(self, code: int, error: str) -> None:
-        """An answer that leaves the request's body unread, so the connection closes after it."""
+        """An answer that leaves the request's body unread, so the connection closes after it (Server.close_request)."""
         self.close_connection = True
         self._json(code, {"ok": False, "error": error})
 

@@ -141,6 +141,9 @@ Semantic versioning, as in OpenPPC. Each release names the `openppc` versions it
   proxy (`ERR_CONNECTION_RESET` or `ERR_CONTENT_LENGTH_MISMATCH`), so its paint never counted: Windows dropped what
   the proxy had buffered when the connection closed. The proxy's sends to the browser now finish only once the
   browser has the bytes. Found by the calibration's heavy-image page.
+- The app: a refused request (another site's, a wrong token, not JSON) could get a connection reset instead of its
+  answer on Windows, since the app closed without reading what was sent. It now waits up to 2 seconds for the
+  client to finish sending, throws that away and then closes.
 - Layout shift on a phone could read 0 where Lighthouse counted the shift, a web font swapping in for one. Chrome
   marks shifts soon after the screen size is set as following input, and Lighthouse forgives that for 500 ms from the
   page's first screen-size event; OpenPPC counted from the blank page before it, so the 500 ms had run out before the
