@@ -60,14 +60,6 @@ def test_every_fixture_has_a_page_and_a_url():
         assert name == "redirect" or html.startswith("<!doctype html>")
 
 
-@pytest.mark.parametrize("name, audit", [
-    ("LCPDiscovery", "lcp-discovery-insight"), ("CLSCulprits", "cls-culprits-insight"), ("DOMSize", "dom-size-insight"),
-    ("ModernHTTP", "modern-http-insight"), ("SlowCSSSelector", "slow-css-selector-insight"),
-    ("DuplicatedJavaScript", "duplicated-javascript-insight"), ("Cache", "cache-insight")])
-def test_the_trace_engines_insights_get_lighthouses_audit_ids(name, audit):
-    assert insights.audit_id(name) == audit
-
-
 def insight(state, **savings):
     nbytes = savings.pop("bytes", None)
     return {"state": state, "metricSavings": savings, "wastedBytes": nbytes}

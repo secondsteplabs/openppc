@@ -1,7 +1,7 @@
 """The site audit report. Like every OpenPPC report, each number in it is registered as a fact first,
 and the finished markdown is run through the number check before anyone sees it."""
 import re
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from openppc.engine.trace import trace
@@ -28,6 +28,7 @@ from .checks import (
 from .crawl import MAX_QUERY_VARIANTS, Crawl, dropped_ad_params
 from .crux import ALL_METRICS, NO_DATA, FieldData
 from .lab import lhr
+from .lab.insights import ENGINE_VERSION
 from .lab.lhr import Speed
 from .lab.metrics import QUIET_WINDOW_MS
 from .lab.score import BANDS, CONTROL, LAB_SCORE, SLOW_HOST, band
@@ -71,6 +72,8 @@ VITALS = (("fcp", "First Contentful Paint", "ms", FCP_GOOD_MS, FCP_POOR_MS, 0),
           ("si", "Speed Index", "ms", SI_GOOD_MS, SI_POOR_MS, 0),
           ("ttfb", "Time to First Byte", "ms", TTFB_GOOD_MS, TTFB_POOR_MS, 0))
 UNSTABLE_NAMES = {"fcp": "First Contentful Paint", "lcp": "Largest Contentful Paint", "tbt": "Total Blocking Time"}
+SAVED = {"FCP": "First Contentful Paint", "LCP": "Largest Contentful Paint", "TBT": "Total Blocking Time",
+         "INP": "Interaction to Next Paint", "CLS": "Cumulative Layout Shift"}  # the insights' savings, by metric
 LAB_RULES = ("site-lcp-slow", "site-cls-high", "site-tbt-high")  # a Lighthouse result covers these
 FIELD_NAMES = {"lcp": ("Largest Contentful Paint", "ms", 0), "inp": ("Interaction to Next Paint", "ms", 0),
                "cls": ("Cumulative Layout Shift", "", 2), "fcp": ("First Contentful Paint", "ms", 0),
@@ -492,6 +495,41 @@ def _vitals_one(v: Vitals, book: FactBook) -> list[str]:
             f"`{u}` ({book.count(f'size of {u} in KB', size / 1024)} KB)" for u, size in d["heavy"]) + ".")
     if slows:
         out += ["", "What slows it down, from the load shown:", ""] + slows
+    return out + _insight_lines(v, book, on)
+
+
+def _insight_lines(v: Vitals, book: FactBook, on: str) -> list[str]:
+    """The failing insights, each with what fixing it would save; the others counted."""
+    if v.insights_error:
+        return ["", f"Lighthouse's insights couldn't be worked out: {code(v.insights_error)}"]
+    if not v.insights:
+        return []
+    n = book.count
+    out = ["", f"Lighthouse's insights, worked out as Lighthouse works them out (the DevTools trace engine "
+               f"`{ENGINE_VERSION}`) from one more load at full speed, with the {DEVICE.get(v.device, v.device)} "
+               "simulated. What each would save is Lighthouse's estimate, rounded as it rounds them:", ""]
+    for i in (i for i in v.insights if i.state == "fail"):
+        _text_numbers(book, i.title, f"Lighthouse insight title {i.id}")
+        saves = [f"{n(f'{i.id} saving of {m} on {on}', x, dp=3)} of {SAVED[m]}" if m == "CLS" else
+                 f"{n(f'{i.id} saving of {m} on {on}', x)} ms of {SAVED.get(m, m)}" for m, x in i.savings.items()]
+        if i.bytes:
+            saves.append(f"{n(f'{i.id} saving in KB on {on}', i.bytes / 1024)} KB")
+        parts = [f"- **{_clean(i.title)}** (`{i.id}`)" + (": could save about " + " and ".join(saves) if saves else "")]
+        for text in i.failed:
+            _text_numbers(book, text, f"Lighthouse insight check {i.id}")
+        if i.failed:
+            parts.append("Failed: " + "; ".join(_clean(t) for t in i.failed))
+        if plain := words.AUDITS.get(i.id):
+            parts.append(f"In plain words: {plain.rstrip('.')}")
+        if i.items:
+            parts.append("About: " + ", ".join(f"`{x}`" for x in i.items))
+        out.append(". ".join(parts) + ".")
+    failing = sum(i.state == "fail" for i in v.insights)
+    if not failing:
+        out.append("- None of them found anything to fix.")
+    out.append(f"- Passed: {n(f'Lighthouse insights passed on {on}', sum(i.state == 'pass' for i in v.insights))}; "
+               f"to look at, with nothing to fix: "
+               f"{n(f'Lighthouse insights informative on {on}', sum(i.state == 'informative' for i in v.insights))}.")
     return out
 
 
@@ -669,7 +707,9 @@ def _vitals_data(v: Vitals) -> dict[str, Any]:
             "median": v.median, "error": v.error, "details": v.details, "capped": v.capped,
             "hits_answered": v.hits_answered, "device": v.device, "representative": v.rep, "shown": v.shown,
             "range": {k: list(lo_hi) for k, lo_hi in v.spread.items()}, "unstable": v.unstable,
-            "no_tti": v.no_tti, "score": v.score, "score_label": LAB_SCORE}
+            "no_tti": v.no_tti, "score": v.score, "score_label": LAB_SCORE,
+            "insights": [asdict(i) for i in v.insights], "insights_error": v.insights_error or None,
+            "trace_engine": ENGINE_VERSION}
 
 
 def _field_data(d: FieldData) -> dict[str, Any]:

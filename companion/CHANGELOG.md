@@ -42,6 +42,13 @@ Semantic versioning, as in OpenPPC. Each release names the `openppc` versions it
   glossary, an agency name and a print layout for a one-page PDF. A quick check of one page offers "Check with Google
   PageSpeed" and "Check on this computer only" as equal buttons, chosen each run. "Loads fast on phones" comes only
   from PageSpeed or real visitors; Performance shows no gauge when it is the rough estimate.
+- **Lighthouse's insights on each measured page,** with what fixing each would save: render-blocking files, image
+  delivery, the main image found late, document latency, layout shift culprits, cache lifetimes, third parties and
+  the rest of Lighthouse 13.5's insight audits. One more load at full speed per page and device is traced, and the
+  DevTools trace engine Lighthouse pins (`@paulirish/trace_engine` 0.0.65, vendored as
+  `siteaudit/vendor/trace-engine.js` with its licences) simulates the slow phone or desktop on it as Lighthouse
+  does, in a blank page of the same browser. On the calibration pages its results match Lighthouse's with simulated
+  throttling. JSON: `vitals` items gain `insights`, `insights_error` and `trace_engine`.
 - JSON: `who` on findings (developer, hosting, tag manager) and `ad_params` (the redirect check's result).
 - The app's Site form gains "One page only", "Measure with PageSpeed Insights" and a PSI key field.
 - JSON: a top-level `speed` list (each Lighthouse result, its metrics, categories and audits, and its real-visitor

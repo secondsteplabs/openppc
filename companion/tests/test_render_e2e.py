@@ -123,14 +123,19 @@ def test_the_browser_pass_sees_tags_consent_accessibility_and_vitals(shop, tmp_p
     assert all(v.shown[k] is not None for k in ("fcp", "lcp", "tbt", "cls", "si", "ttfb"))
     assert all(run["tti"] is not None for run in v.runs) and v.no_tti == 0
     assert v.score is not None and 0 <= v.score <= 100 and r.benchmark and r.benchmark > 0
-    assert v.hits_answered == 6  # each speed load's GA4 and Adobe hits answered here, the tags still loaded
+    # each speed load's GA4 and Adobe hits answered here, the insights' load's too; the tags still loaded
+    assert v.hits_answered == 8
     assert v.details["lcp_element"] and isinstance(v.details["heavy"], list)
+    assert not v.insights_error and len(v.insights) >= 15  # Lighthouse 13.5 runs 18; some don't apply to a page
+    assert {"render-blocking-insight", "document-latency-insight", "lcp-breakdown-insight"} <= {i.id for i in v.insights}
+    assert all(i.state in ("fail", "pass", "informative") and i.title for i in v.insights)
     assert r.browser_calls  # Chromium's own calls home, refused before they were resolved, never in `asked`
     # Playwright's own --disable-features carried over: Chrome reads only the last one
     assert "BlockOriginHeaderModificationOnRedirect" in render_module._playwright_features
     markdown, _, passed = report(c, r, list(findings.values()))
     assert passed, markdown
     assert "What slows it down" in markdown and "### Check by hand" in markdown
+    assert "Lighthouse's insights, worked out as Lighthouse works them out" in markdown
     assert "<img src=x onerror=alert(1)>'<b>" in markdown  # the event, in a code span its backtick can't close
     assert "<img" not in re.sub(r"`[^`\n]*`", "", markdown)
     assert "<img src=x" not in to_html(markdown, "Site audit")
@@ -144,6 +149,7 @@ def test_qa_site_29_screenshots_a_page_no_link_leads_to_and_measures_two_pages(s
     doc = json.loads(out.read_text(encoding="utf-8"))
     rendered = doc["rendered"]
     assert bad + "final" in [p["url"] for p in rendered["pages"]] and len(rendered["vitals"]) == 2
+    assert all(v["insights"] and v["trace_engine"] == "0.0.65" for v in rendered["vitals"])
     assert sorted(p.name for p in shots.iterdir()) == [Path(p["screenshot"]).name for p in rendered["pages"]]
     assert doc["passed"] and doc["scores"]["accessibility"]["not_scored"] is None
 

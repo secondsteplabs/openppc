@@ -7,6 +7,7 @@ from sites import acme, by_id, local, page
 
 from openppc_online.siteaudit import checks, crux, packs, tags, words
 from openppc_online.siteaudit.crawl import crawl
+from openppc_online.siteaudit.lab.insights import Insight
 from openppc_online.siteaudit.page import read
 from openppc_online.siteaudit.render import Observation, Rendered, Vitals
 from openppc_online.siteaudit.report import Extras, report, sarif
@@ -125,6 +126,34 @@ def test_the_vitals_section_without_a_measurement(serve):
     slow = run | {"fcp": 3000.0, "si": 5800.0, "lcp": 4000.0, "tbt": 600.0, "cls": 0.25}  # each at its median
     assert Vitals(base + "/", runs=[slow]).score == 50 and Vitals(base + "/", runs=[slow], device="desktop").score < 50
     assert Vitals(base + "/", runs=[run | {"si": None}]).score is None
+
+
+def test_lighthouses_insights_are_listed_with_their_savings_and_traced(serve):
+    base = serve(lambda b: {"/": (200, {}, page("Home"))})
+    c = crawl(base, local(), fast=True, external=False)
+    run = dict.fromkeys(("lcp", "cls", "tbt", "fcp", "ttfb", "si", "tti"), 1.0)
+    found = [Insight("render-blocking-insight", "Render blocking requests", "fail", {"FCP": 900, "LCP": 850},
+                     items=[base + "/app.css"]),
+             Insight("image-delivery-insight", "Improve image delivery", "fail", {"LCP": 1650}, 353_009),
+             Insight("document-latency-insight", "Document request latency", "fail", {},
+                     failed=["Server responded slowly (observed 812 ms)"]),
+             Insight("cls-culprits-insight", "Layout shift culprits", "fail", {"CLS": 0.124}),
+             Insight("cache-insight", "Use efficient cache lifetimes", "pass"),
+             Insight("lcp-breakdown-insight", "LCP breakdown", "informative")]
+    markdown, _, passed = report(c, Rendered(vitals=[Vitals(base + "/", runs=[run], insights=found)]), [])
+    assert passed, markdown
+    assert "the DevTools trace engine `0.0.65`) from one more load at full speed, with the phone simulated" in markdown
+    assert ("- **Render blocking requests** (`render-blocking-insight`): could save about 900 ms of First Contentful "
+            "Paint and 850 ms of Largest Contentful Paint. In plain words: files the browser must fetch") in markdown
+    assert "About: `" + base + "/app.css`." in markdown
+    assert "1,650 ms of Largest Contentful Paint and 345 KB." in markdown
+    assert "(`document-latency-insight`). Failed: Server responded slowly (observed 812 ms). In plain" in markdown
+    assert "could save about 0.124 of Cumulative Layout Shift" in markdown
+    assert "- Passed: 1; to look at, with nothing to fix: 1." in markdown
+    markdown, _, passed = report(c, Rendered(vitals=[Vitals(base + "/", runs=[run], insights=found[4:])]), [])
+    assert passed and "- None of them found anything to fix." in markdown
+    markdown, _, passed = report(c, Rendered(vitals=[Vitals(base + "/", runs=[run], insights_error="no load")]), [])
+    assert passed and "Lighthouse's insights couldn't be worked out: `no load`" in markdown
 
 
 def test_one_load_just_over_a_line_is_no_finding_but_a_note(serve):

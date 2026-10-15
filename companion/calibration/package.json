@@ -1,9 +1,10 @@
 {
   "name": "openppc-calibration",
   "private": true,
-  "description": "The pinned Lighthouse the calibration harness measures OpenPPC's lab against (SITE_AUDIT_PARITY_PLAN section 8), and the trace engine's bundle for the R3 spike (npm run build). Never shipped: install with npm ci --ignore-scripts.",
+  "description": "The pinned Lighthouse the calibration harness measures OpenPPC's lab against (SITE_AUDIT_PARITY_PLAN section 8), and the source of the trace engine's bundle openppc-online ships (npm run vendor). Never shipped itself: install with npm ci --ignore-scripts.",
   "scripts": {
-    "build": "esbuild trace-engine.mjs --bundle --format=iife --minify --target=chrome120 --outfile=build/trace-engine.js"
+    "build": "node build.mjs",
+    "vendor": "node build.mjs vendor"
   },
   "license": "MIT",
   "engines": {

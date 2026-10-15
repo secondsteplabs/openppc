@@ -110,7 +110,10 @@ Contentful Paint, Total Blocking Time, Cumulative Layout Shift, Speed Index, tim
 Lighthouse CI would pick shown with the range of all of them, and an OpenPPC lab score from Lighthouse's formula,
 labelled uncalibrated and kept out of the Performance score. A rough estimate, since Lighthouse's own score simulates
 the slow phone instead (the report explains the difference, and gives this computer's benchmark index); with one
-load, a number just over a line isn't made a finding. Without it, those checks say
+load, a number just over a line isn't made a finding. Each measured page then gets one more load at full speed, for
+Lighthouse's insights (render-blocking files, image delivery, the main image found late, document latency, layout
+shift culprits and the rest), worked out by the DevTools trace engine Lighthouse itself uses, with the slow phone
+simulated as Lighthouse simulates it, and listed with what fixing each would save. Without it, those checks say
 they need it instead of passing. It needs Playwright and Chromium:
 
 ```

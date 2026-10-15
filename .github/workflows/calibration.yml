@@ -37,6 +37,9 @@ jobs:
       - run: playwright install --with-deps chromium
       - working-directory: companion/calibration
         run: npm ci --ignore-scripts
+      - name: The vendored trace engine is the build of the lockfile's packages
+        working-directory: companion/calibration
+        run: npm run vendor && git diff --exit-code -- ../openppc_online/siteaudit/vendor/trace-engine.js
       - working-directory: companion/tests
         shell: bash  # with pipefail, so the gate's exit code survives tee
         env:

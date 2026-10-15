@@ -1,8 +1,26 @@
 // The DevTools trace engine Lighthouse 13.5 runs (@paulirish/trace_engine, BSD-3), as one script a blank page can
-// run: `npm run build` writes build/trace-engine.js, which sets globalThis.openppcTraceEngine. Its insights(events,
-// lanternSettings, hostDPR) runs the engine as Lighthouse's core/computed/trace-engine-result.js does and returns,
-// for the load's navigation, each insight's state, metric savings and byte savings, as plain JSON.
+// run: `npm run vendor` writes openppc_online/siteaudit/vendor/trace-engine.js (`npm run build`, build/ for trying it),
+// which sets globalThis.openppcTraceEngine. Its insights(events, lanternSettings, hostDPR) runs the engine as
+// Lighthouse's core/computed/trace-engine-result.js does and returns, for the load's navigation, each insight's state,
+// savings, English title, the checks it failed and up to ITEMS of what it blames, as plain JSON.
 import * as TraceEngine from '@paulirish/trace_engine';
+
+const ITEMS = 5;
+const url = (request) => request?.args?.data?.url;
+// What each insight blames: files, or for third parties the companies
+const BLAMES = {
+  RenderBlocking: (m) => m.renderBlockingRequests?.map(url),
+  ImageDelivery: (m) => m.optimizableImages?.map((i) => url(i.request)),
+  LCPDiscovery: (m) => [url(m.lcpRequest)],
+  LCPBreakdown: (m) => [url(m.lcpRequest)],
+  Cache: (m) => m.requests?.map((r) => url(r.request)),
+  ModernHTTP: (m) => m.http1Requests?.map(url),
+  FontDisplay: (m) => m.fonts?.map((f) => url(f.request)),
+  DuplicatedJavaScript: (m) => m.scriptsWithDuplication?.map((s) => s.url),
+  LegacyJavaScript: (m) => [...(m.legacyJavaScriptResults?.keys() ?? [])].map((s) => s.url),
+  ThirdParties: (m) => m.entitySummaries?.filter((e) => e.entity !== m.firstPartyEntity).map((e) => e.entity?.name),
+};
+const english = (s) => (typeof s === 'string' ? s : s?.formattedDefault ?? '');
 
 // A failing insight's model, cut to `depth` levels, without trace events' own fields, for reading why it failed
 function trimmed(value, depth = 4, seen = new Set()) {
@@ -33,7 +51,12 @@ async function insights(events, lanternSettings, hostDPR, debug = false) {
     for (const [metric, value] of Object.entries(model.metricSavings ?? {})) {
       if (Number.isFinite(value)) savings[metric] = value;
     }
-    out[name] = { state: model.state, metricSavings: savings, wastedBytes: model.wastedBytes ?? null };
+    const checks = model.checklist ?? model.data?.checklist ?? {};
+    out[name] = {
+      state: model.state, title: english(model.title), metricSavings: savings, wastedBytes: model.wastedBytes ?? null,
+      failed: Object.values(checks).filter((c) => c && c.value === false).map((c) => english(c.label)),
+      items: [...new Set((BLAMES[name]?.(model) ?? []).filter(Boolean))].slice(0, ITEMS),
+    };
     if (debug && model.state === 'fail') out[name].model = trimmed(model);
   }
   for (const [name, error] of Object.entries(set.modelErrors)) out[name] = { error: String(error) };

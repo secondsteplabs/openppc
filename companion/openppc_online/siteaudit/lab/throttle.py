@@ -7,7 +7,7 @@ credited in THIRD_PARTY_LICENSES.md); tests/test_lab.py checks each value. Lante
 simulator's inputs: applied as they are, they would make a load faster than the phone they describe, so DevTools
 throttling scales latency by 3.75 and throughput by 0.9.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 LOAD_CAP_MS = 45_000  # Lighthouse's maxWaitForLoad: a page still loading then is measured as it is, and flagged
@@ -45,6 +45,10 @@ class Profile:
             return None
         return {"offline": False, "latency": self.latency_ms, "downloadThroughput": self.down_kbps * 1024 / 8,
                 "uploadThroughput": self.up_kbps * 1024 / 8}
+
+    def unthrottled(self) -> "Profile":
+        """The same screen and user agent, at full speed: the load Lighthouse's simulator (Lantern) starts from."""
+        return replace(self, cpu=1, latency_ms=0, down_kbps=0, up_kbps=0)
 
     @property
     def label(self) -> str:

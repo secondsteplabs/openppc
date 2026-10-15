@@ -1,8 +1,9 @@
 """The browser pass (`openppc-online site --render`): a real browser loads a few pages to see what only JavaScript
 shows, namely which tags fire before and after consent, the accessibility problems axe-core finds, and lab Web
 Vitals on a throttled phone, set up as Lighthouse sets up its own (lab.throttle) and measured from a trace as
-Lighthouse measures it (lab.capture, lab.metrics). The checks and the report read what it observes; without --render a
-scan has no Rendered, and its browser checks say so.
+Lighthouse measures it (lab.capture, lab.metrics), with Lighthouse's insights from one more load at full speed
+(lab.insights). The checks and the report read what it observes; without --render a scan has no Rendered, and its
+browser checks say so.
 
 Each page's traffic goes through net.GuardProxy (set per browser context), so a rendered page is held to the same
 rules as the crawler: no private, link-local or metadata addresses unless --allow-private opens the private ones. The
@@ -20,8 +21,9 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from .crawl import Crawl
-from .lab import metrics
+from .lab import insights, metrics
 from .lab.capture import benchmark, capture
+from .lab.insights import Insight
 from .lab.score import performance
 from .lab.throttle import DESKTOP, MOBILE
 from .net import Guard, GuardProxy, Sink
@@ -107,6 +109,8 @@ class Vitals:
     capped: int = 0            # loads still going, or not yet quiet, at the load cap, measured as they were then
     hits_answered: int = 0     # tag hits the speed loads answered themselves (BLOCK_HITS)
     device: str = "mobile"     # the lab.throttle profile's
+    insights: list[Insight] = field(default_factory=list)  # lab.insights, from one more load at full speed
+    insights_error: str = ""   # why there are none
 
     @property
     def median(self) -> dict[str, float | None]:
@@ -318,7 +322,8 @@ def _shot_name(folder: str, n: int, url: str) -> str:
 
 
 def _measure(browser: Any, v: Vitals, runs: int, proxy: str, progress: Progress | None) -> None:
-    """`runs` loads of v.url, one after another (loads side by side would share the CPU and corrupt TBT)."""
+    """`runs` loads of v.url, one after another (loads side by side would share the CPU and corrupt TBT), then one
+    at full speed for Lighthouse's insights."""
     profile = DESKTOP if v.device == "desktop" else MOBILE
     details: list[dict[str, Any]] = []
     for n in range(runs):
@@ -339,6 +344,17 @@ def _measure(browser: Any, v: Vitals, runs: int, proxy: str, progress: Progress 
         v.runs.append(measured)
     if (i := v.rep) is not None and i < len(details):
         v.details = details[i]
+    if not v.runs:
+        return
+    if progress:
+        progress(f"finding Lighthouse's insights ({v.device}) on {v.url}")
+    raw: list[metrics.Event] = []
+    try:
+        run = capture(browser, v.url, profile.unthrottled(), proxy, BLOCK_HITS, raw)
+        v.hits_answered += run.hits_answered
+        v.insights = insights.run(browser, raw, v.device)
+    except (PlaywrightError, ValueError) as e:
+        v.insights_error = str(e).splitlines()[0]
 
 
 def render(c: Crawl, guard: Guard, pages: int = RENDER_PAGES, consent_selector: str = "",
