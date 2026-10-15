@@ -165,6 +165,16 @@ def test_the_speed_score_is_the_performance_area_and_the_report_traces(serve):
     assert [s["device"] for s in doc["speed"]] == ["mobile", "desktop"] and doc["speed"][0]["metrics"]
 
 
+def test_failed_speed_calls_still_leave_web_vitals_to_the_browser(serve):
+    base = serve(lambda b: {"/": (200, {}, page("Home"))})
+    c = crawl(base, local(), fast=True, external=False, single=True)
+    failed = [lhr.Speed(c.start, device, psi.SOURCE, error="PageSpeed Insights answered 500")
+              for device in ("mobile", "desktop")]
+    markdown, _, passed = report(c, None, checks.evaluate(c, None, [], failed), Extras(speed=failed))
+    assert passed, markdown
+    assert "Web Vitals) need a browser" in markdown
+
+
 def test_the_page_is_shown_first_and_the_site_stands_in_when_it_has_too_few_visitors(serve):
     base = serve(lambda b: {"/": (200, {}, page("Home"))})
     c = crawl(base, local(), fast=True, external=False, single=True)

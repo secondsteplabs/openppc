@@ -177,9 +177,10 @@ def _markdown(c: Crawl, r: Rendered | None, findings: list[Finding], extras: Ext
         out += ["", f"Rendered {_units(n('pages rendered', len(r.pages)), 'pages')} in Chromium for tags, consent, "
                     "accessibility and Web Vitals."]
     else:
-        needs = [k for k in NEEDS_BROWSER if not (extras.speed and k in LAB_RULES)]
+        measured = any(s.metrics for s in extras.speed)
+        needs = [k for k in NEEDS_BROWSER if not (measured and k in LAB_RULES)]
         out += ["", f"{n('checks that need a browser', len(needs))} checks (tags firing, consent, accessibility"
-                    f"{'' if extras.speed else ', Web Vitals'}) need a browser: run again with {RENDER_FLAG}."]
+                    f"{'' if measured else ', Web Vitals'}) need a browser: run again with {RENDER_FLAG}."]
 
     graded = {} if sick else scores(findings, r is not None, start)
     out += _scores(graded, book, start)
