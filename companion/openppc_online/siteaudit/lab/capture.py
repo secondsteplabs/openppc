@@ -272,9 +272,10 @@ def histograms(browser: Any, shots: list[str]) -> list[list[int]]:
         page.context.close()
 
 
-def capture(browser: Any, url: str, profile: Profile, proxy: str = "", block_hits: bool = True) -> LabRun:
-    """One throttled load of url, traced, through `proxy` (net.GuardProxy's address). Raises PlaywrightError when
-    the page can't be loaded at all."""
+def capture(browser: Any, url: str, profile: Profile, proxy: str = "", block_hits: bool = True,
+            raw: list[Event] | None = None) -> LabRun:
+    """One throttled load of url, traced, through `proxy` (net.GuardProxy's address); every trace event but the
+    screenshots is added to `raw` when it's given. Raises PlaywrightError when the page can't be loaded at all."""
     context = browser.new_context(service_workers="block", accept_downloads=False, **profile.context(),
                                   **({"proxy": {"server": proxy}} if proxy else {}))
     answered: list[str] = []
@@ -306,7 +307,7 @@ def capture(browser: Any, url: str, profile: Profile, proxy: str = "", block_hit
             run.capped = not _wait_quiet(page, net, lambda: fcp[0] if fcp else None, time.monotonic(), started)
         except PlaywrightTimeout:
             run.capped = True
-        raw = browser.stop_tracing()
+        data = browser.stop_tracing()
         tracing = False
         with contextlib.suppress(PlaywrightError):  # a page that navigated away mid-read keeps no details
             run.details = dict(page.evaluate(DETAILS_JS))
@@ -315,7 +316,11 @@ def capture(browser: Any, url: str, profile: Profile, proxy: str = "", block_hit
             with contextlib.suppress(PlaywrightError):
                 browser.stop_tracing()
         context.close()
-    run.events, run.trace_end, shots = slim(json.loads(raw))
+    trace = json.loads(data)
+    if raw is not None:
+        events = trace.get("traceEvents", trace) if isinstance(trace, dict) else trace
+        raw.extend(e for e in events if e.get("name") != "Screenshot")
+    run.events, run.trace_end, shots = slim(trace)
     run.frames = list(zip([ts for ts, _ in shots], histograms(browser, [s for _, s in shots])))
     run.hits_answered = len(answered)
     return run

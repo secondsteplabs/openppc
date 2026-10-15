@@ -1,7 +1,8 @@
 """The calibration gate (calibration/gate.py), on made-up runs: the plan's tolerances, the score's band rule, and the
-one miss allowed. The harness itself needs Chromium and Lighthouse and runs in the scheduled workflow."""
+one miss allowed; and the trace-engine spike's comparison (calibration/insights.py). The harness and the spike need
+Chromium and Lighthouse; the harness runs in the scheduled workflow."""
 import pytest
-from calibration import gate
+from calibration import gate, insights
 from calibration.fixtures import fixtures, png, url
 
 
@@ -57,6 +58,41 @@ def test_every_fixture_has_a_page_and_a_url():
     for name, html in pages.items():
         assert url(name, 8000).startswith("http://site.test:8000/")
         assert name == "redirect" or html.startswith("<!doctype html>")
+
+
+@pytest.mark.parametrize("name, audit", [
+    ("LCPDiscovery", "lcp-discovery-insight"), ("CLSCulprits", "cls-culprits-insight"), ("DOMSize", "dom-size-insight"),
+    ("ModernHTTP", "modern-http-insight"), ("SlowCSSSelector", "slow-css-selector-insight"),
+    ("DuplicatedJavaScript", "duplicated-javascript-insight"), ("Cache", "cache-insight")])
+def test_the_trace_engines_insights_get_lighthouses_audit_ids(name, audit):
+    assert insights.audit_id(name) == audit
+
+
+def insight(state, **savings):
+    nbytes = savings.pop("bytes", None)
+    return {"state": state, "metricSavings": savings, "wastedBytes": nbytes}
+
+
+def test_the_spike_compares_failing_insights_and_their_savings():
+    mine = {"insights": {"render-blocking-insight": insight("fail", FCP=950, LCP=950),
+                         "image-delivery-insight": insight("fail", LCP=300, bytes=1000), "cache-insight": insight("pass")}}
+    theirs = {"insights": {"render-blocking-insight": insight("fail", FCP=900, LCP=900),
+                           "image-delivery-insight": insight("fail", LCP=350, bytes=1050),
+                           "cache-insight": insight("not applicable")}}
+    c = insights.compare(mine, theirs)
+    assert c["same_failing"] and not c["passed"]
+    assert [(s["insight"], s["metric"], s["ok"]) for s in c["savings"]] == [
+        ("image-delivery-insight", "LCP", False), ("image-delivery-insight", "bytes", True),
+        ("render-blocking-insight", "FCP", True), ("render-blocking-insight", "LCP", True)]
+    theirs["insights"]["image-delivery-insight"] = insight("pass")
+    assert not insights.compare(mine, theirs)["same_failing"]
+
+
+def test_a_fixture_with_nothing_failing_or_an_error_does_not_count():
+    assert not insights.compare({"insights": {}}, {"insights": {}})["passed"]
+    failing = {"insights": {"cache-insight": insight("fail")}}
+    assert insights.compare(failing, failing)["passed"]
+    assert not insights.compare({**failing, "error": "no page"}, failing)["passed"]
 
 
 def test_the_fixture_image_is_a_png_its_size_says():
