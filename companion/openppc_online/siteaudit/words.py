@@ -48,6 +48,99 @@ AUDITS = {
     "cls-culprits-insight": "what makes the page jump: images without a size, late banners, fonts swapping.",
 }
 
+# who usually makes a fix (checks.WHO), as the app's summary names them to a client
+WHO = {"developer": "your web developer", "hosting": "your hosting company",
+       "tag manager": "whoever sets up your tracking tags (often your ad agency)",
+       "developer or hosting": "your web developer or hosting company"}
+
+# findings whose report wording is for a developer or the command line, as the app's summary puts them to a client
+FINDINGS = {
+    "site-lcp-slow": ("Speed: the main content shows slowly on a phone (test load)",
+                      "Ask for the biggest image or heading to load sooner: smaller images, fewer scripts before it."),
+    "site-tbt-high": ("Speed: the page is too busy running scripts to answer taps while it loads (test load)",
+                      "Ask for fewer scripts at load: tags, chat widgets and sliders that aren't needed straight away "
+                      "can wait."),
+    "site-cls-high": ("Speed: the page jumps around as it loads (test load)",
+                      "Ask for space to be kept for images, ads and banners, so nothing moves."),
+    "site-no-consent-banner": ("Consent: tags send data and no consent banner was recognised",
+                               "If you have visitors where consent is required (the EU, the UK and others), add a "
+                               "banner. If you have one, check again with its accept button named in Consent banner "
+                               "accept button."),
+    "site-consent-mode-missing": ("Consent: Google's tags load before they're told what the visitor chose",
+                                  "Ask for a Consent Mode default to be set before the tags load, so Google can model "
+                                  "the conversions of visitors who decline."),
+}
+
+# the accessibility (axe-core) rules landing pages fail most, by id: what a visitor meets, and what to ask for
+A11Y = {
+    "color-contrast": ("some text is too faint against its background to read easily",
+                       "Darken the text or lighten its background until it reads clearly."),
+    "link-in-text-block": ("links in text look like the words around them",
+                           "Underline links, or make them stand out by more than their colour."),
+    "image-alt": ("images have no description for people who can't see them",
+                  "Give each image a short text description (alt text); decorative ones get an empty one."),
+    "role-img-alt": ("some pictures have no description for people who can't see them",
+                     "Give each one a short text description."),
+    "svg-img-alt": ("some icons and drawings have no description for people who can't see them",
+                    "Give each one a short text description."),
+    "input-image-alt": ("image buttons have no description, so a screen reader can't say what they do",
+                        "Give each image button a short text description."),
+    "link-name": ("some links have no words, so a screen reader can't say where they go",
+                  "Give every link text, or a label, that says where it goes."),
+    "button-name": ("some buttons have no words, so a screen reader can't say what they do",
+                    "Give every button text, or a label, that says what it does."),
+    "label": ("form fields have no label, so some visitors can't tell what to type",
+              "Give every form field a visible label."),
+    "select-name": ("drop-down lists have no label", "Give every drop-down list a visible label."),
+    "frame-title": ("embedded content (videos, maps, chat) has no name for screen readers",
+                    "Give each embedded frame a short title."),
+    "html-has-lang": ("the page doesn't say what language it's in, so screen readers may read it wrongly",
+                      "Set the page's language in its code."),
+    "html-lang-valid": ("the page names a language that doesn't exist",
+                        "Set the page's language to a real language code."),
+    "document-title": ("the page has no title for the browser tab", "Give the page a title."),
+    "meta-viewport": ("visitors can't zoom in on a phone", "Let visitors zoom: remove the setting that stops it."),
+    "meta-refresh": ("the page reloads or moves on by itself after a while",
+                     "Stop the automatic reload, or let visitors control it."),
+    "list": ("lists are built in a way screen readers can't follow", "Build lists from list items only."),
+    "listitem": ("list items sit outside a list, so screen readers can't follow them",
+                 "Put each list item inside a list."),
+    "heading-order": ("headings skip levels, which makes the page harder to scan with a screen reader",
+                      "Use heading levels in order (a main heading, then subheadings)."),
+    "empty-heading": ("some headings are empty", "Remove empty headings or give them words."),
+    "page-has-heading-one": ("the page has no main heading", "Give the page one main heading."),
+    "region": ("some content sits outside the page's marked areas, so screen reader users can skip past it",
+               "Put all content inside the page's header, main, footer or navigation areas."),
+    "landmark-one-main": ("the page doesn't mark its main content", "Mark the main content area."),
+    "duplicate-id-aria": ("two parts of the page share a name that labels need to be unique",
+                          "Give each labelled part its own name."),
+    "aria-hidden-focus": ("hidden parts of the page can still be reached with the keyboard",
+                          "Make hidden parts unreachable by keyboard too."),
+    "nested-interactive": ("buttons or links sit inside other buttons or links, which confuses screen readers",
+                           "Don't put one clickable thing inside another."),
+    "scrollable-region-focusable": ("some scrolling boxes can't be scrolled with the keyboard",
+                                    "Let keyboard users reach and scroll them."),
+    "target-size": ("some buttons or links are too small to tap easily on a phone",
+                    "Make tap targets bigger, or space them further apart."),
+    "aria-allowed-attr": ("some parts carry screen reader settings that don't apply to them",
+                          "Remove the settings that don't belong."),
+    "aria-valid-attr-value": ("some screen reader settings have wrong values", "Correct the values."),
+    "aria-required-children": ("some menus or lists are missing the parts screen readers expect",
+                               "Add the missing parts, or remove the role that needs them."),
+    "aria-required-parent": ("some parts sit outside the menu or list they belong to",
+                             "Put them inside the right container."),
+    "aria-prohibited-attr": ("some parts are labelled in a way screen readers ignore",
+                             "Label them with visible text instead."),
+    "aria-input-field-name": ("some custom form fields have no label, so some visitors can't tell what to type",
+                              "Give every form field a label."),
+    "aria-toggle-field-name": ("some switches and checkboxes have no label", "Give each one a label."),
+    "aria-command-name": ("some custom buttons and links have no words, so a screen reader can't say what they do",
+                          "Give each one text, or a label."),
+    "aria-dialog-name": ("some pop-ups have no name for screen readers", "Give each pop-up a title."),
+    "aria-progressbar-name": ("some progress bars have no name for screen readers", "Give each one a label."),
+    "aria-tooltip-name": ("some tooltips have no words for screen readers", "Give each tooltip text."),
+}
+
 # terms a report may use, with the words that show it does
 GLOSSARY = (
     ("Lighthouse", ("Lighthouse",), "Google's free tool that loads a page as a slow phone or a desktop would and "

@@ -206,7 +206,9 @@ def site_job(p: dict[str, Any]) -> Callable[[Job], dict[str, Any]]:
         result, _ = site.run(url, progress=job.tick, **args)
         return {"origin": result.origin, "passed": result.passed, "inconclusive": result.inconclusive,
                 "findings": len(result.findings), "high": sum(f.level == "high" for f in result.findings),
-                "texts": result.texts, "words": {"why": words.WHY, "measures": words.MEASURES, "areas": CATEGORIES,
+                "texts": result.texts, "words": {"why": words.WHY, "differs": words.DIFFERS, "measures": words.MEASURES,
+                                                 "findings": words.FINDINGS, "a11y": words.A11Y, "who": words.WHO,
+                                                 "areas": CATEGORIES,
                                                  "glossary": [(term, line) for term, _, line in words.GLOSSARY]}}
     return work
 

@@ -1,9 +1,12 @@
 """The Site view in Chromium: it audits a site served on 127.0.0.1, downloads the report, stops a run, steps
 aside for the rest of the app, and fits a phone."""
+import json
+
 import pytest
 from sites import PSI_HOST, acme, page
 from test_lab_lhr import LHR, psi_answer
 
+from openppc_online.siteaudit import words
 from openppc_online.siteaudit.lab import psi
 
 sync_api = pytest.importorskip("playwright.sync_api", reason='needs pip install -e "companion[e2e]"')
@@ -100,6 +103,51 @@ def test_the_site_view_audits_downloads_stops_and_steps_aside(server, serve, tmp
         assert page.evaluate("document.querySelector('.rail').scrollWidth <= window.innerWidth")
         browser.close()
     assert blocked == []
+
+
+def test_a_lab_only_summary_answers_from_the_lab_and_in_plain_words(server, serve):
+    base = serve(lambda b: {"/": (200, {}, page("Home"))})
+    lab = {"device": "mobile", "runs": 3, "score": 31, "score_label": "OpenPPC lab score (uncalibrated)",
+           "shown": {"fcp": 3419.4, "lcp": 9120.0, "tbt": 18545.0, "cls": 0.25219433902868693, "si": 7004.0}}
+    contrast = {"id": "site-a11y:color-contrast", "rule": "site-a11y", "category": "accessibility", "severity": "high",
+                "effort": "low", "who": "developer", "unit": "page", "items": ["/"], "notes": {},
+                "title": "`color-contrast`: Elements must meet minimum color contrast ratio thresholds (WCAG 1.4.3)",
+                "fix": "See the axe rule's page for how to fix it; automated checks find only some problems."}
+
+    def doctored(route):  # the lab loads and axe need Chromium on a public page: the finished job gets them instead
+        response = route.fetch()
+        job = response.json()
+        if job.get("state") == "done":
+            doc = json.loads(job["result"]["texts"]["json"])
+            doc["rendered"] = {"vitals": [lab]}
+            doc["findings"][:0] = [contrast, {**contrast, "id": "site-tbt-high", "rule": "site-tbt-high",
+                                              "category": "performance", "title": "Main thread blocked while loading (lab)"}]
+            job["result"]["texts"]["json"] = json.dumps(doc)
+        route.fulfill(response=response, json=job)
+
+    with sync_api.sync_playwright() as p:
+        browser = p.chromium.launch()
+        page_ = browser.new_page()
+        page_.route("**/api/jobs/*", doctored)
+        page_.goto(f"http://127.0.0.1:{server.port}/#check")
+        page_.locator(".rail [data-local-view='site']").click(timeout=WAIT)
+        _audit(page_, base)
+        summary = page_.locator("#site .site-summary")
+        sync_api.expect(summary).to_be_visible(timeout=WAIT)
+        sync_api.expect(summary.locator(".site-verdict")).to_have_text("Overall: Needs work. Start with the fixes below.")
+        sync_api.expect(summary.locator(".site-answer", has_text="Loads fast on phones")).to_contain_text(
+            "Rough estimate on this computer: 31 of 100 on a phone (poor)")
+        first = summary.locator(".site-fixes li").first
+        sync_api.expect(first).to_contain_text(f"Accessibility: {words.A11Y['color-contrast'][0]}")
+        sync_api.expect(first).to_contain_text(words.A11Y["color-contrast"][1])
+        sync_api.expect(first).not_to_contain_text("WCAG")
+        sync_api.expect(first).to_contain_text("Importance: high \u00b7 Who fixes it: your web developer \u00b7 Effort: low")
+        sync_api.expect(summary.locator(".site-fixes")).to_contain_text(words.FINDINGS["site-tbt-high"][0])
+        sync_api.expect(summary.locator(".site-fixes")).not_to_contain_text("Main thread")
+        sync_api.expect(summary.locator(".site-measures")).to_contain_text("Cumulative Layout Shift 0.252")
+        sync_api.expect(summary.locator(".site-measures")).not_to_contain_text("0.2521")
+        sync_api.expect(summary).to_contain_text(words.DIFFERS)
+        browser.close()
 
 
 def test_the_quick_check_with_pagespeed_shows_its_score_on_the_summary(server, serve, public, monkeypatch):

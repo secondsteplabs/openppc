@@ -36,12 +36,14 @@ Semantic versioning, as in OpenPPC. Each release names the `openppc` versions it
   clicked an ad), a line in plain words on the ten Lighthouse audits that fail most on landing pages, and a glossary
   of the terms the report uses (`siteaudit/words.py`).
 - **A summary a client can read, in the app's Site view,** above the full report: pass, warn or fail answers to
-  four questions (loads fast on phones, the tags fire, consent works, ad click IDs survive redirects), score gauges in
-  PageSpeed's colours with their source, the real-visitor verdict, phone and desktop measures in plain words, the
-  top three fixes with who usually makes each, one next step, Re-check (this result becomes the baseline), a
-  glossary, an agency name and a print layout for a one-page PDF. A quick check of one page offers "Check with Google
-  PageSpeed" and "Check on this computer only" as equal buttons, chosen each run. "Loads fast on phones" comes only
-  from PageSpeed or real visitors; Performance shows no gauge when it is the rough estimate.
+  four questions (loads fast on phones, the tags fire, consent works, ad click IDs survive redirects) under one
+  overall line (needs work, mostly fine, or in good shape), score gauges in PageSpeed's colours with their source,
+  the real-visitor verdict, phone and desktop measures in plain words, the top three fixes with who usually makes
+  each (accessibility ones in plain words: what a visitor meets and what to ask for), one next step, Re-check (this
+  result becomes the baseline), a glossary, an agency name and a print layout for a one-page PDF. A quick check of
+  one page offers "Check with Google PageSpeed" and "Check on this computer only" as equal buttons, chosen each run.
+  "Loads fast on phones" comes from PageSpeed, then real visitors, then the lab score, said to be a rough estimate;
+  Performance shows no gauge when it is the rough estimate, and lab measures say why they differ from PageSpeed's.
 - **Lighthouse's insights on each measured page,** with what fixing each would save: render-blocking files, image
   delivery, the main image found late, document latency, layout shift culprits, cache lifetimes, third parties and
   the rest of Lighthouse 13.5's insight audits. One more load at full speed per page and device is traced, and the

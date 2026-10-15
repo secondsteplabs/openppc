@@ -274,6 +274,7 @@
     const start = (doc.speed || []).find((s) => s.device === 'mobile' && s.url === doc.start && s.score !== null);
     const phones = (doc.field_data || []).filter((d) => d.device === 'phone' && d.verdict);
     const visitors = phones.find((d) => !d.origin) || phones[0];
+    const lab = (doc.rendered?.vitals || []).find((v) => v.device === 'mobile' && v.runs && typeof v.score === 'number');
     if (start) {
       const [line, name] = band(start.score);
       out.push(['Loads fast on phones', line >= 90 ? 'pass' : line >= 50 ? 'warn' : 'fail',
@@ -281,6 +282,10 @@
     } else if (visitors) {
       out.push(['Loads fast on phones', visitors.verdict === 'passed' ? 'pass' : 'fail',
         `Real phone visitors: Core Web Vitals ${visitors.verdict}${visitors.origin ? ', for the whole site' : ''}.`]);
+    } else if (lab) {
+      const [line, name] = band(lab.score);
+      out.push(['Loads fast on phones', line >= 90 ? 'pass' : line >= 50 ? 'warn' : 'fail',
+        `Rough estimate on this computer: ${lab.score} of 100 on a phone (${name}). PageSpeed\u2019s own score may differ.`]);
     } else {
       out.push(['Loads fast on phones', 'unknown', 'Check with PageSpeed: a lab load on this computer is only a rough estimate.']);
     }
@@ -302,7 +307,7 @@
     const js = doc.rendered && doc.rendered.ad_params && !doc.rendered.ad_params.error ? doc.rendered.ad_params : null;
     const scope = js ? ' and the page\u2019s scripts keep them' : ' (server redirects only)';
     out.push(['Ad click IDs survive redirects', !ad ? 'unknown' : ad.dropped.length || (js && js.dropped.length) ? 'fail' : 'pass',
-      !ad ? 'Not checked: the start page wasn\u2019t fetched with them.'
+      !ad ? 'Not checked: the site\u2019s robots.txt ruled out a test visit with them, or the site didn\u2019t answer one.'
         : ad.dropped.length ? `A redirect drops ${ad.dropped.join(', ')}.`
           : js && js.dropped.length ? `The page\u2019s scripts take out ${js.dropped.join(', ')}.`
             : ad.redirects ? `Kept through ${plural(ad.redirects, 'redirect')}${scope}.`
@@ -326,7 +331,7 @@
 
   function measureValue(key, value, seconds = true) {  // as the report shows it: PSI's in seconds, lab loads' in ms
     if (value === null || value === undefined) return 'not measured';
-    if (key === 'cls') return seconds ? value.toFixed(3) : String(value);
+    if (key === 'cls') return value.toFixed(3);
     if (key === 'tbt' || !seconds) return `${num(Math.round(value))} ms`;
     return `${(value / 1000).toFixed(1)} s`;
   }
@@ -355,9 +360,30 @@
       }
       const scored = typeof lab.score === 'number' ? `${lab.score_label}: ${lab.score} of 100, from ` : 'From ';
       return h('div', { class: 'stack' }, h('p', { class: 'small' }, `${scored}lab loads on this computer: a rough estimate, not PageSpeed\u2019s score.`),
-        h('ul', { class: 'site-measures' }, rows));
+        h('ul', { class: 'site-measures' }, rows), h('p', { class: 'small hint' }, words.differs));
     }
     return h('p', { class: 'small' }, `Not measured on a ${device === 'mobile' ? 'phone' : 'desktop'}.`);
+  }
+
+  // some findings are worded for developers (accessibility ones in axe's words): a client reads what a visitor meets
+  function plainFinding(x, words) {
+    const said = (words.findings || {})[x.rule];
+    if (said) return said;
+    const axe = x.rule === 'site-a11y' ? x.id.slice(x.id.indexOf(':') + 1) : '';
+    if (!axe) return [plain(x.title), plain(x.fix)];
+    const known = (words.a11y || {})[axe];
+    if (known) return [`Accessibility: ${known[0]}`, known[1]];
+    return [`Accessibility: ${plain(x.title).replace(/^[\w-]+: /, '').replace(/ \(WCAG [^)]*\)$/, '')}`,
+      `A developer finds the details under Accessibility in the full report below (rule ${axe}).`];
+  }
+
+  function verdict(asked, top) {
+    if (asked.some(([, state]) => state === 'fail') || top.some((x) => x.severity === 'high')) {
+      return ['fail', 'Needs work.', 'Start with the fixes below.'];
+    }
+    if (asked.some(([, state]) => state === 'warn') || top.length) return ['warn', 'Mostly fine.', 'A few things are worth checking below.'];
+    if (asked.some(([, state]) => state === 'unknown')) return ['warn', 'Nothing wrong found so far.', 'Some checks didn\u2019t run; see below.'];
+    return ['pass', 'In good shape.', 'Nothing important to fix.'];
   }
 
   function summary(r, doc) {
@@ -365,7 +391,8 @@
     const host = new URL(doc.site).host;
     const agency = agencyName();
     const icons = { pass: ['check', 'Pass'], warn: ['alert', 'Check'], fail: ['x', 'Fail'], unknown: ['alert', 'Not checked'] };
-    const row = h('div', { class: 'site-answers' }, answers(doc).map(([q, state, why]) =>
+    const asked = answers(doc);
+    const row = h('div', { class: 'site-answers' }, asked.map(([q, state, why]) =>
       h('div', { class: `site-answer site-${state}` }, h('span', { class: 'site-state' }, icon(icons[state][0], 14, 3), icons[state][1]),
         h('b', {}, q), h('span', { class: 'small' }, why))));
     // Performance as a gauge only when it is a Lighthouse speed score: points from lab loads here are a rough estimate
@@ -395,8 +422,14 @@
     const top = doc.findings.filter((x) => x.severity !== 'info')
       .sort((a, b) => RANK[b.severity] - RANK[a.severity] || b.items.length - a.items.length).slice(0, 3);
     const fixes = top.length ? h('div', { class: 'stack' }, h('span', { class: 'card-title' }, 'Fix these first'),
-      h('ol', { class: 'site-fixes' }, top.map((x) => h('li', {}, h('b', {}, plain(x.title)),
-        h('span', { class: 'hint' }, ` ${x.severity}; who: ${x.who || 'developer'}; effort: ${x.effort}`), h('div', { class: 'small' }, plain(x.fix)))))) : null;
+      h('ol', { class: 'site-fixes' }, top.map((x) => {
+        const [title, fix] = plainFinding(x, words);
+        return h('li', {}, h('b', {}, title),
+          h('span', { class: 'hint' }, ` Importance: ${x.severity} \u00b7 Who fixes it: ${(words.who || {})[x.who] || x.who || 'your web developer'} \u00b7 Effort: ${x.effort}`),
+          h('div', { class: 'small' }, fix));
+      }))) : null;
+    const [state, said, then] = verdict(asked, top);
+    const overall = h('p', { class: `site-verdict site-${state}` }, h('b', {}, `Overall: ${said}`), ` ${then}`);
     let next;
     if (!speedScored) {
       next = ['Check with PageSpeed to compare: Google measures the page as pagespeed.web.dev does.',
@@ -416,7 +449,7 @@
         h('div', { class: 'stack', style: 'gap:4px' }, h('h2', { class: 'site-summary-title' }, `Landing page check: ${host}`),
           h('span', { class: 'hint' }, `${doc.start} \u00b7 ${new Date().toLocaleDateString()}${agency ? ` \u00b7 prepared by ${agency}` : ''}`)),
         h('button', { type: 'button', class: 'btn site-print', onclick: () => window.print() }, icon('print'), 'Print or save as PDF')),
-      row, gauges, banner, tabs, fixes,
+      overall, row, gauges, banner, tabs, fixes,
       r.passed ? h('p', { class: 'small' }, icon('check', 13, 3), ' Every number here is from the report below, and every number in it was checked against the crawl.') : null,
       h('div', { class: 'site-next' }, h('b', {}, 'Next step: '), next[0], ' ',
         next[1] ? h('button', { type: 'button', class: 'btn btn-dark', onclick: () => rerun(next[2]) }, next[1]) : null, ' ', recheck),

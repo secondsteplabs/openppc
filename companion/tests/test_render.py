@@ -6,6 +6,7 @@ import pytest
 from sites import local, page
 
 from openppc_online.siteaudit import render as render_module
+from openppc_online.siteaudit import words
 from openppc_online.siteaudit.crawl import crawl
 from openppc_online.siteaudit.render import AXE_VERSION, INSTALL, axe_source, pick, preflight, render
 
@@ -17,6 +18,11 @@ def test_the_vendored_axe_core_is_the_published_file_with_its_license():
     source = axe_source()
     assert hashlib.sha256(source.encode("utf-8")).hexdigest() == AXE_SHA256
     assert source.startswith(f"/*! axe v{AXE_VERSION}\n") and "Mozilla Public" in source[:400]
+
+
+def test_every_plain_worded_accessibility_rule_is_one_axe_runs():
+    source = axe_source()
+    assert [rule for rule in words.A11Y if f'id:"{rule}"' not in source] == []
 
 
 def test_the_home_page_then_one_page_per_section_is_rendered(serve):

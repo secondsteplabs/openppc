@@ -284,3 +284,8 @@ def test_sarif_has_a_result_per_page_with_stable_fingerprints(serve):
     assert hit["level"] == "error" and hit["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] == \
         base + "/broken"
     assert hit["partialFingerprints"]["openppcSite/fp1"] == fingerprint("site-broken-internal", base + "/broken")
+
+
+def test_the_summary_s_plain_words_are_for_rules_that_exist():
+    assert set(words.FINDINGS) <= set(checks.RULES)
+    assert set(words.WHO) == {*checks.WHO.values(), *checks.WHO_RULE.values()}
