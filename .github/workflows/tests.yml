@@ -65,7 +65,7 @@ jobs:
           need = {f"openppc_online/web/{f}" for f in ("index.html", "app.js", "engine.js", "engine-worker.js", "style.css")}
           need |= {"openppc_online/local/local.js", "openppc_online/local/site.js", "openppc_online/local/site.css",
                    "openppc_online/siteaudit/signatures.json",
-                   "openppc_online/siteaudit/vendor/axe.min.js"}
+                   "openppc_online/siteaudit/vendor/axe.min.js", "openppc_online/siteaudit/lab/lighthouse.mjs"}
           need |= {f"openppc_online/schemas/site-{f}.schema.json" for f in ("config", "report")}
           missing = need - names
           assert not missing, missing

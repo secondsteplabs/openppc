@@ -4,6 +4,9 @@ addresses too, and never more than its byte and time limits; the browser's proxy
 import gzip
 import ipaddress
 import socket
+import sys
+import threading
+import time
 
 import pytest
 from sites import local, page
@@ -43,6 +46,20 @@ def test_a_name_under_invalid_is_refused_without_a_lookup():
         with pytest.raises(Refused, match="never resolves"):
             guard.addresses(host, 80)
     assert asked == [] and guard.refused == [] and guard.addresses("invalid.example", 80) == ["127.0.0.1"]
+
+
+@pytest.mark.parametrize("address", ["127.0.0.1", "127.8.9.10", "::1", "::ffff:127.0.0.1"])
+def test_a_closed_port_is_refused_on_loopback_even_with_allow_private(address):
+    guard = Guard(allow_private=True, resolve=lambda host, port: [address], closed={9222})
+    with pytest.raises(Refused, match="DevTools port"):
+        guard.addresses("localhost", 9222)
+    assert guard.refused == ["localhost"]
+    assert guard.addresses("localhost", 9223) == [address]
+
+
+def test_a_closed_port_elsewhere_is_only_refused_for_what_it_is():
+    guard = Guard(allow_private=True, resolve=lambda host, port: ["192.168.1.5"], closed={9222})
+    assert guard.addresses("nas.local", 9222) == ["192.168.1.5"]
 
 
 def test_a_name_is_resolved_once_per_connection_and_connected_by_the_checked_address(serve):
@@ -140,6 +157,32 @@ def test_the_browsers_proxy_applies_the_same_rules(serve):
         tunnel = _ask_proxy(proxy, connect, "GET / HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n")
         assert tunnel[0].startswith("HTTP/1.1 200 Connection Established") and " 200 " in tunnel[1].split("\r\n")[0]
         assert _ask_proxy(proxy, "GET / HTTP/1.1\r\nHost: x\r\n\r\n")[0].startswith("HTTP/1.1 502")  # not a proxy request
+
+
+def test_a_slow_browser_gets_all_of_a_large_answer_through_the_proxy():
+    """A browser that reads late still gets the whole answer after the server and the proxy are done. (What made
+    Windows cut off large files, a throttled Chrome reading the proxy, isn't reproduced here: the calibration's
+    big-image page checks it.)"""
+    body = bytes(range(256)) * (8_000_000 // 256)
+    listener = socket.create_server(("127.0.0.1", 0))
+
+    def server():  # one that closes only once the proxy has every byte, as the proxy now does for the browser
+        conn, _ = listener.accept()
+        with conn:
+            if sys.platform == "win32":
+                conn.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 0)
+            conn.recv(65536)
+            conn.sendall(b"HTTP/1.1 200 OK\r\nContent-Length: %d\r\nConnection: close\r\n\r\n" % len(body) + body)
+    threading.Thread(target=server, daemon=True).start()
+    with GuardProxy(Guard(allow_private=True)) as proxy, listener:
+        host, proxy_port = proxy.url.rsplit("/", 1)[1].split(":")
+        with socket.create_connection((host, int(proxy_port)), timeout=10) as s:
+            s.sendall(f"GET http://127.0.0.1:{listener.getsockname()[1]}/big HTTP/1.1\r\nHost: x\r\n\r\n".encode())
+            time.sleep(1)  # reading late, so the proxy finishes with bytes still on their way here
+            got = b""
+            while chunk := s.recv(65536):
+                got += chunk
+    assert got.startswith(b"HTTP/1.1 200 OK") and got.endswith(body)
 
 
 def test_the_browsers_proxy_never_opens_the_metadata_address():

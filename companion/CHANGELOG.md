@@ -66,6 +66,12 @@ Semantic versioning, as in OpenPPC. Each release names the `openppc` versions it
   why lab numbers differ from PageSpeed's, and this computer's Lighthouse benchmark index, with Lighthouse's
   slow-CPU warning at 1000 or below. JSON: `score` and `score_label` on `vitals` items, `rendered.benchmark_index`.
   The app's summary shows the score and all six measures for lab loads.
+- **The lab is checked against Lighthouse itself:** a calibration harness (`tests/calibration`, the scheduled
+  `calibration` workflow) loads 17 local pages with OpenPPC's lab and with Lighthouse 13.5 (devtools throttling),
+  alternating, in the same browser through the same guard, and gates the medians on the plan's tolerances; it also
+  times the guard's proxy and records Lighthouse's simulated numbers. Lighthouse attaches over a DevTools port on
+  127.0.0.1 to a page OpenPPC opened (`siteaudit/lab/lighthouse.py`), and the guard refuses that port to every page.
+  The lab score stays labelled uncalibrated until the gate passes.
 - **`--runs N`** (1 to 9, default 3): loads of the first measured page per device; later pages get one each. With
   one load, a lab number less than 20% over its good line isn't a finding; the report notes it instead.
 - Speed loads run in Chromium's new headless mode, which paints as a visitor's Chrome does, not the headless shell.
@@ -96,6 +102,10 @@ Semantic versioning, as in OpenPPC. Each release names the `openppc` versions it
   PageSpeed's score.
 - The ad click ID check is sent only when robots.txt allows it on the start page's host as well as where the start
   page moved to.
+- On Windows, a large file a throttled speed load was still reading could arrive cut short through the browser's
+  proxy (`ERR_CONNECTION_RESET` or `ERR_CONTENT_LENGTH_MISMATCH`), so its paint never counted: Windows dropped what
+  the proxy had buffered when the connection closed. The proxy's sends to the browser now finish only once the
+  browser has the bytes. Found by the calibration's heavy-image page.
 
 ## Unreleased (0.5.0)
 

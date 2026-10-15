@@ -268,4 +268,14 @@ pytest -m e2e companion   # in Chromium: pip install -e "companion[e2e]", then p
 WordPress's coding standards for the plugin, with Composer: `composer install` and `vendor/bin/phpcs` in
 `companion/wordpress/`.
 
+The lab's calibration against Lighthouse 13 (hours; the scheduled `calibration` workflow runs it), offline on 17
+local pages, OpenPPC's loads and Lighthouse's alternating in the same browser through the same guard:
+
+```
+cd companion/calibration && npm ci --ignore-scripts && cd ../tests
+python -m calibration.harness --device mobile --runs 9 --lighthouse ../calibration --proxy-gate --simulate
+```
+
+The lab score says "uncalibrated" until this gate passes on both devices.
+
 MIT license, like OpenPPC.

@@ -284,16 +284,19 @@ def preflight() -> None:
             raise ValueError(f"{INSTALL} ({str(e).splitlines()[0]})") from e
 
 
-def _launch(pw: Any, sink: str) -> Any:
+def _launch(pw: Any, sink: str, devtools: bool = False) -> Any:
     """New headless, which paints as a visitor's Chrome does (the headless shell skips most screenshots a trace needs
     for Speed Index). Its own update, sign-in and push calls go to the sink; each context brings its page's proxy.
-    Playwright routes loopback through the proxies too, so localhost gets the same check."""
+    Playwright routes loopback through the proxies too, so localhost gets the same check. `devtools` opens a DevTools
+    port on 127.0.0.1 (a free one, Chrome's pick) for Lighthouse to attach to (lab.lighthouse)."""
     args = ["--disable-quic", "--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
             f"--google-base-url={GOOGLE_BASE}"]
     if not _playwright_features:
         _playwright_features.extend(_features_off(pw, sink, args))
     off = ",".join(dict.fromkeys([*_playwright_features, *FEATURES_OFF]))
-    return pw.chromium.launch(channel="chromium", proxy={"server": sink}, args=[*args, f"--disable-features={off}"])
+    port = ["--remote-debugging-port=0"] if devtools else []
+    return pw.chromium.launch(channel="chromium", proxy={"server": sink},
+                              args=[*args, f"--disable-features={off}", *port])
 
 
 def _features_off(pw: Any, sink: str, args: list[str]) -> list[str]:

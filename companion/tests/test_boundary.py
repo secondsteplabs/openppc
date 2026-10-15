@@ -8,7 +8,7 @@ from conftest import ask
 
 PACKAGE = Path(__file__).resolve().parent.parent / "openppc_online"
 CLIENTS = {"urllib.request", "http.client", "ssl", "socket", "urllib3", "requests", "httpx", "aiohttp", "ftplib",
-           "smtplib", "poplib", "imaplib", "telnetlib", "xmlrpc", "asyncio", "playwright"}
+           "smtplib", "poplib", "imaplib", "telnetlib", "xmlrpc", "asyncio", "playwright", "subprocess"}
 # which files may import each part of the network stack, and why
 ALLOWED = {"http.server": {"app.py"},  # the app's server, bound to 127.0.0.1
            "webbrowser": {"app.py"},   # opens the app's own address
@@ -17,6 +17,8 @@ ALLOWED = {"http.server": {"app.py"},  # the app's server, bound to 127.0.0.1
            "socketserver": {"siteaudit/net.py"},
            # the --render browser, pointed at the guard's proxy, and the speed loads it runs in that browser
            "playwright.sync_api": {"siteaudit/render.py", "siteaudit/lab/capture.py"},
+           # Node running Lighthouse, attached to a page whose traffic goes through the guard's proxy
+           "subprocess": {"siteaudit/lab/lighthouse.py"},
            # fetch's one way out, behind its allowlists
            "urllib.request": {"fetch/http.py"}}
 # the core's stable API (ADR-2): what the companion may import from openppc, by module
@@ -58,6 +60,16 @@ def test_only_the_named_modules_touch_the_network():
                 continue
             if name in ALLOWED or any(name == c or name.startswith(c + ".") for c in CLIENTS):
                 found.append(f"{where} imports {name}")
+    assert found == []
+
+
+def test_the_calibrations_way_around_the_guard_stays_in_the_tests():
+    """Its browser without a proxy maps names itself, and no OpenPPC browser lets a page's origin use DevTools."""
+    found = [f"{p.relative_to(PACKAGE).as_posix()}: {flag}" for p in sorted(PACKAGE.rglob("*")) if p.is_file()
+             and p.suffix in (".py", ".js", ".mjs")
+             for flag in ("host-resolver-rules", "ignore-certificate-errors", "remote-allow-origins",
+                          "remote-debugging-address")
+             if flag in p.read_text(encoding="utf-8", errors="replace")]
     assert found == []
 
 

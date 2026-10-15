@@ -13,6 +13,7 @@ import selectors
 import socket
 import socketserver
 import ssl
+import sys
 import threading
 import time
 import zlib
@@ -72,6 +73,7 @@ class Guard:
     allow_private: bool = False
     resolve: Callable[[str, int], list[str]] = _getaddrinfo
     refused: list[str] = field(default_factory=list)  # each refusal, for the report
+    closed: set[int] = field(default_factory=set)     # loopback ports never connected to (a browser's DevTools port)
 
     def addresses(self, host: str, port: int) -> list[str]:
         """The addresses to connect to. Every address the host resolves to must pass, so a name can't pair a public
@@ -85,7 +87,11 @@ class Guard:
         if not found:
             raise OSError(f"{host} doesn't resolve")
         for a in found:
-            why = refusal(ipaddress.ip_address(a.split("%")[0]), self.allow_private)
+            ip = ipaddress.ip_address(a.split("%")[0])
+            why = refusal(ip, self.allow_private)
+            mapped = ip.ipv4_mapped if isinstance(ip, ipaddress.IPv6Address) else None
+            if not why and port in self.closed and (mapped or ip).is_loopback:
+                why = "the browser's DevTools port, which no page may reach"
             if why:
                 self.refused.append(host)
                 raise Refused(f"{host} resolves to {a}, {why}")
@@ -267,6 +273,10 @@ class _ProxyHandler(socketserver.BaseRequestHandler):
     def handle(self) -> None:
         client: socket.socket = self.request
         client.settimeout(TIMEOUT)
+        if sys.platform == "win32":
+            # A send returns once the browser has the bytes, not once Windows has buffered them: Windows loses what
+            # is still buffered when the connection is closed, or ended, while a throttled browser reads slowly
+            client.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 0)
         head = b""
         while b"\r\n\r\n" not in head:
             chunk = client.recv(65536)
