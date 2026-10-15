@@ -1,4 +1,4 @@
-"""Lighthouse itself, on a page OpenPPC opens: the calibration's reference, and later `--lighthouse`.
+"""Lighthouse itself, on a page OpenPPC opens: the calibration's reference, and `--lighthouse`.
 
 Node runs a Lighthouse 13 installed with npm, started directly (a .cmd shim would hand its arguments to cmd.exe,
 which re-reads them). It attaches over the browser's DevTools port to a page in a context whose traffic goes
@@ -23,6 +23,8 @@ ATTACH = "lighthouse.mjs"
 RUN_S = 300                  # Lighthouse's 45 s load cap, its quiet waits and its audits, with room to spare
 PORT_WAIT_S = 5.0            # for Chrome to write its DevToolsActivePort file after starting
 METHODS = ("devtools", "simulate")
+CATEGORIES = ("performance", "accessibility", "best-practices", "seo")  # PageSpeed Insights' four
+SOURCE = "Lighthouse"
 # The metrics audit's names for lab.metrics.measure's
 METRICS = {"fcp": "firstContentfulPaint", "lcp": "largestContentfulPaint", "tbt": "totalBlockingTime",
            "cls": "cumulativeLayoutShift", "si": "speedIndex", "ttfb": "timeToFirstByte", "tti": "interactive"}
@@ -86,17 +88,19 @@ def attach(browser: Any, guard: Guard) -> str:
 
 
 def run(browser: Any, address: str, lighthouse: Path, url: str, device: str, proxy: str,
-        method: str = "devtools") -> dict[str, Any]:
-    """One Lighthouse run of url on `device` with `method` throttling, in a new context of `browser` whose traffic
-    goes through `proxy` (net.GuardProxy's address). Returns the report (LHR); raises Failed when there's none."""
-    if method not in METHODS or device not in ("mobile", "desktop"):
-        raise ValueError(f"no Lighthouse run for {device} with {method} throttling")
+        method: str = "devtools", categories: tuple[str, ...] = ("performance",)) -> dict[str, Any]:
+    """One Lighthouse run of url on `device` with `method` throttling, for `categories`, in a new context of `browser`
+    whose traffic goes through `proxy` (net.GuardProxy's address). Returns the report (LHR); raises Failed when there's
+    none."""
+    if method not in METHODS or device not in ("mobile", "desktop") or not set(categories) <= set(CATEGORIES):
+        raise ValueError(f"no Lighthouse run for {device} with {method} throttling and {categories}")
     context = browser.new_context(service_workers="block", accept_downloads=False, proxy={"server": proxy})
     marker = f"about:blank#openppc-{secrets.token_hex(8)}"
     try:
         context.new_page().goto(marker)
         with as_file(files(__package__) / ATTACH) as script:
-            done = subprocess.run([node(), str(script), str(lighthouse), address, marker, url, device, method],
+            done = subprocess.run([node(), str(script), str(lighthouse), address, marker, url, device, method,
+                                   ",".join(categories)],
                                   capture_output=True, text=True, encoding="utf-8", errors="replace",
                                   timeout=RUN_S, check=False)
     except subprocess.TimeoutExpired as e:

@@ -220,6 +220,24 @@ def test_bad_input_fails_before_the_crawl(args, monkeypatch, capsys, tmp_path):
         assert 'pip install "openppc-online[render]"' in output
 
 
+@pytest.mark.parametrize("args, said", [
+    (["--lighthouse", "missing"], "no Lighthouse in missing: install it there with npm install lighthouse@13"),
+    (["--psi", "--lighthouse", "lh"], "--psi and --lighthouse both measure with Lighthouse: pick one"),
+    (["--lighthouse", "lh/node_modules/lighthouse", *(a for i in range(5) for a in ("--render-url", f"/p{i}"))],
+     "--lighthouse measures at most 5 pages: the start page and up to 4 --render-url pages"),
+])
+def test_lighthouse_needs_its_folder_and_isnt_mixed_with_psi(args, said, monkeypatch, capsys, tmp_path):
+    monkeypatch.setattr(site, "crawl", lambda *a, **kw: pytest.fail("crawled"))
+    monkeypatch.setattr(site.lighthouse, "node", lambda: "node")
+    monkeypatch.chdir(tmp_path)
+    found = tmp_path / "lh" / "node_modules" / "lighthouse"
+    (found / "core").mkdir(parents=True)
+    (found / "core" / "index.js").write_text("", encoding="utf-8")
+    (found / "package.json").write_text('{"name": "lighthouse", "version": "13.0.1"}', encoding="utf-8")
+    code, output = _run(["site", "https://example.invalid", *args], capsys)
+    assert code == 1 and said in output, output
+
+
 HOSTILE = "<img src=x onerror=alert(1)>`<script>alert(2)</script>"
 
 

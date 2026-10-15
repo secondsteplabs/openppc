@@ -1,4 +1,5 @@
-"""Rule packs: checks, suppressions and tag signatures written as data (`openppc-online site --config FILE`).
+"""Rule packs: checks, speed budgets, suppressions and tag signatures written as data (`openppc-online site --config
+FILE`).
 
 A pack and a project's own config file are the same JSON format, specified in
 openppc_online/schemas/site-config.schema.json:
@@ -7,6 +8,8 @@ openppc_online/schemas/site-config.schema.json:
      "rules": [{"id": "gtm-everywhere", "category": "tracking", "severity": "high",
                 "title": "Pages without our tag manager", "fix": "Add the GTM snippet to the page template.",
                 "require": {"field": "source", "contains": "GTM-ABC123"}}],
+     "budgets": [{"id": "landing-speed", "severity": "high", "pages": "/lp/*",
+                  "max": {"lcp": 2500, "tbt": 200, "script-kb": 400}, "min": {"speed-score": 80}}],
      "suppress": [{"rule": "site-noindex", "match": "/thank-you*", "reason": "Kept out of search on purpose."}],
      "signatures": [{"id": "our-collector", "name": "Our server-side tag", "kind": "analytics",
                      "hit": [{"host": "t.example.com", "path": "/collect"}]}]}
@@ -23,6 +26,7 @@ from urllib.parse import urlsplit
 
 from .checks import CATEGORIES, SEVERITY_RANK, Finding, Rule, code, events, tracking
 from .crawl import Crawl, Page
+from .lab.lhr import Speed
 from .render import RENDER_FLAG, Rendered
 from .tags import EVENT_CHARS, VENDORS, add_vendors
 
@@ -38,6 +42,16 @@ NUMBER_OPS = {"min": (int, float), "max": (int, float), "equals": (int, float)}
 VENDOR_KINDS = ("analytics", "ads", "tag manager")
 NOTE_CHARS = 80  # of a field's value quoted in a finding
 TEXT_LIMIT = 1000  # longest literal a rule may compare with
+# A budget's lines: timings by Lighthouse's audit id (Time to First Byte is OpenPPC's lab only), sizes by
+# Lighthouse's resource-summary type (Lighthouse only), and the speed score (Lighthouse only, never the uncalibrated
+# lab score)
+BUDGET_TIMES = {"fcp": "first-contentful-paint", "lcp": "largest-contentful-paint", "tbt": "total-blocking-time",
+                "cls": "cumulative-layout-shift", "si": "speed-index", "ttfb": ""}
+BUDGET_SIZES = {f"{t}-kb": t for t in ("total", "document", "script", "stylesheet", "image", "font", "media", "other",
+                                       "third-party")}
+BUDGET_MIN = ("speed-score",)
+DEVICES = ("mobile", "desktop")
+LAB = "OpenPPC lab"
 
 
 @dataclass(frozen=True)
@@ -57,12 +71,24 @@ class Suppression:
     source: str = ""
 
 
+@dataclass(frozen=True)
+class Budget:
+    id: str
+    spec: Rule
+    device: str
+    most: dict[str, float]        # a line each value must stay at or under
+    least: dict[str, float]       # a line each value must reach
+    pages: tuple[str, ...] = ()
+    source: str = ""
+
+
 @dataclass
 class Config:
     files: list[str] = field(default_factory=list)
     rules: list[PackRule] = field(default_factory=list)
     suppress: list[Suppression] = field(default_factory=list)
     vendors: list[dict[str, Any]] = field(default_factory=list)
+    budgets: list[Budget] = field(default_factory=list)
 
 
 class PackError(ValueError):
@@ -161,16 +187,65 @@ def _vendor(where: str, path: str, v: Any, taken: set[str]) -> dict[str, Any]:
     return out
 
 
+def _id(where: str, path: str, rid: Any, ids: set[str]) -> str:
+    if not isinstance(rid, str) or not ID.match(rid):
+        _fail(where, path, "must be lower-case letters, digits and dashes")
+    if rid.startswith("site-"):
+        _fail(where, path, "\"site-\" is kept for the built-in rules; use another prefix")
+    if rid in ids:
+        _fail(where, path, f"\"{rid}\" is defined twice")
+    return rid
+
+
+def _pages(where: str, path: str, pages: Any) -> tuple[str, ...]:
+    pages = [pages] if isinstance(pages, str) else pages
+    if not isinstance(pages, list) or not all(isinstance(p, str) and p for p in pages):
+        _fail(where, path, "must be a path glob such as \"/blog/*\", or a list of them")
+    return tuple(pages)
+
+
+def _lines(where: str, path: str, lines: Any, known: tuple[str, ...]) -> dict[str, float]:
+    if not isinstance(lines, dict):
+        _fail(where, path, "must be an object")
+    for k, v in lines.items():
+        if k not in known:
+            _fail(where, f"{path}.{k}", f"isn't a budget line here (allowed: {', '.join(known)})")
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or v < 0:
+            _fail(where, f"{path}.{k}", "must be a number, 0 or more")
+    return {k: float(v) for k, v in lines.items()}
+
+
+def _budget(where: str, path: str, b: Any, ids: set[str]) -> Budget:
+    _keys(where, path, b, ("id", "severity"), ("title", "fix", "pages", "device", "max", "min"))
+    bid = _id(where, path + ".id", b["id"], ids)
+    if b["severity"] not in SEVERITY_RANK:
+        _fail(where, path + ".severity", f"must be one of {', '.join(SEVERITY_RANK)}")
+    device = b.get("device", "mobile")
+    if device not in DEVICES:
+        _fail(where, path + ".device", f"must be one of {', '.join(DEVICES)}")
+    most = _lines(where, path + ".max", b.get("max", {}), tuple(BUDGET_TIMES) + tuple(BUDGET_SIZES))
+    least = _lines(where, path + ".min", b.get("min", {}), BUDGET_MIN)
+    if least.get("speed-score", 0) > 100:
+        _fail(where, path + ".min.speed-score", "must be 0 to 100")
+    if not (most or least):
+        _fail(where, path, "needs a line in \"max\" or \"min\", e.g. \"max\": {\"lcp\": 2500}")
+    title = _text(where, path + ".title", b["title"], 200) if "title" in b else f"Pages over the {bid} budget"
+    fix = (_text(where, path + ".fix", b["fix"], 1000) if "fix" in b else
+           "Bring each page back within the budget: the note says which line it crossed.")
+    spec = Rule("performance", b["severity"], title, "pages", fix, "medium")
+    return Budget(bid, spec, device, most, least, _pages(where, path + ".pages", b.get("pages", [])), where)
+
+
 def parse(text: str, where: str, config: Config) -> None:
-    """Adds one file's rules, suppressions and signatures to config; a mistake raises PackError."""
+    """Adds one file's rules, budgets, suppressions and signatures to config; a mistake raises PackError."""
     try:
         doc = json.loads(text)
     except json.JSONDecodeError as e:
         raise PackError(f"{where}: line {e.lineno}, column {e.colno}: {e.msg}") from None
-    _keys(where, "", doc, ("openppc_site",), ("name", "about", "rules", "suppress", "signatures"))
+    _keys(where, "", doc, ("openppc_site",), ("name", "about", "rules", "budgets", "suppress", "signatures"))
     if doc["openppc_site"] != SPEC:
         _fail(where, "openppc_site", f"this OpenPPC reads version {SPEC} files, not {doc['openppc_site']!r}")
-    for key in ("rules", "suppress", "signatures"):
+    for key in ("rules", "budgets", "suppress", "signatures"):
         if not isinstance(doc.get(key, []), list):
             _fail(where, key, "must be a list")
     taken = set(VENDORS) | {v["id"] for v in config.vendors}
@@ -178,17 +253,11 @@ def parse(text: str, where: str, config: Config) -> None:
         vendor = _vendor(where, f"signatures[{i}]", v, taken)
         taken.add(vendor["id"])
         config.vendors.append(vendor)
-    ids = {r.id for r in config.rules}
+    ids = {r.id for r in config.rules} | {b.id for b in config.budgets}
     for i, r in enumerate(doc.get("rules", [])):
         path = f"rules[{i}]"
         _keys(where, path, r, ("id", "category", "severity", "title", "fix", "require"), ("effort", "pages"))
-        rid = r["id"]
-        if not isinstance(rid, str) or not ID.match(rid):
-            _fail(where, path + ".id", "must be lower-case letters, digits and dashes")
-        if rid.startswith("site-"):
-            _fail(where, path + ".id", "\"site-\" is kept for the built-in rules; use another prefix")
-        if rid in ids:
-            _fail(where, path + ".id", f"\"{rid}\" is defined twice")
+        rid = _id(where, path + ".id", r["id"], ids)
         if r["category"] not in CATEGORIES or r["category"] == "crawl":
             _fail(where, path + ".category", f"must be one of {', '.join(c for c in CATEGORIES if c != 'crawl')}")
         if r["severity"] not in SEVERITY_RANK:
@@ -197,16 +266,17 @@ def parse(text: str, where: str, config: Config) -> None:
         if effort not in EFFORTS:
             _fail(where, path + ".effort", f"must be one of {', '.join(EFFORTS)}")
         req = _require(where, path + ".require", r["require"], taken)
-        pages = r.get("pages", [])
-        pages = [pages] if isinstance(pages, str) else pages
-        if not isinstance(pages, list) or not all(isinstance(p, str) and p for p in pages):
-            _fail(where, path + ".pages", "must be a path glob such as \"/blog/*\", or a list of them")
+        pages = _pages(where, path + ".pages", r.get("pages", []))
         if pages and "tag" in req:
             _fail(where, path + ".pages", "a tag rule is about the whole site, not some pages")
         spec = Rule(r["category"], r["severity"], _text(where, path + ".title", r["title"], 200),
                     "tags" if "tag" in req else "pages", _text(where, path + ".fix", r["fix"], 1000), effort)
-        config.rules.append(PackRule(rid, spec, req, tuple(pages), where))
+        config.rules.append(PackRule(rid, spec, req, pages, where))
         ids.add(rid)
+    for i, b in enumerate(doc.get("budgets", [])):
+        budget = _budget(where, f"budgets[{i}]", b, ids)
+        config.budgets.append(budget)
+        ids.add(budget.id)
     for i, s in enumerate(doc.get("suppress", [])):
         path = f"suppress[{i}]"
         _keys(where, path, s, ("rule", "reason"), ("match",))
@@ -271,9 +341,63 @@ def _fails(req: dict[str, Any], value: str | float) -> str:
     return ""
 
 
-def evaluate(config: Config, c: Crawl, r: Rendered | None) -> list[Finding]:
-    """The packs' findings, on the pages the crawl read (and the tags the browser saw)."""
-    out: list[Finding] = []
+def measured(url: str, device: str, speed: list[Speed], r: Rendered | None) -> tuple[dict[str, float], str]:
+    """A page's budget values on a device, and where they come from: a Lighthouse result (PageSpeed Insights' or
+    --lighthouse's) when there is one, else OpenPPC's lab loads (timings only)."""
+    s = next((s for s in speed if s.url == url and s.device == device and not s.error and s.score is not None), None)
+    if s:
+        audits = {aid: key for key, aid in BUDGET_TIMES.items() if aid}
+        out = {audits[m.id]: m.value for m in s.metrics if m.id in audits and m.value is not None}
+        out["speed-score"] = float(s.score) if s.score is not None else 0.0
+        summary = s.audits.get("resource-summary")
+        for item in (summary.details.get("items") if summary else None) or []:
+            size = item.get("transferSize") if isinstance(item, dict) else None
+            if f"{item.get('resourceType')}-kb" in BUDGET_SIZES and isinstance(size, (int, float)):
+                out[f"{item['resourceType']}-kb"] = size / 1024
+        return out, s.source
+    v = next((v for v in r.vitals if v.url == url and v.device == device and v.runs), None) if r else None
+    if v:
+        return {k: float(x) for k, x in v.shown.items() if k in BUDGET_TIMES and x is not None}, LAB
+    return {}, ""
+
+
+def _shown(key: str, value: float) -> str:
+    if key == "cls":
+        return f"{value:.3f}"
+    return f"{value:.0f}" + (" ms" if key in BUDGET_TIMES else " KB" if key in BUDGET_SIZES else "")
+
+
+def _budget_findings(b: Budget, speed: list[Speed], r: Rendered | None) -> list[Finding]:
+    """The pages over budget b. A budget nothing could be checked against says so, as an info finding."""
+    urls = list(dict.fromkeys([s.url for s in speed if s.device == b.device]
+                              + [v.url for v in (r.vitals if r else []) if v.device == b.device]))
+    notes: dict[str, str] = {}
+    checked = False
+    for url in urls:
+        if b.pages and not any(fnmatchcase(urlsplit(url).path or "/", g) for g in b.pages):
+            continue
+        values, source = measured(url, b.device, speed, r)
+        crossed = [f"`{k}` is `{_shown(k, values[k])}`, over `{_shown(k, line)}`"
+                   for k, line in b.most.items() if k in values and values[k] > line]
+        crossed += [f"`{k}` is `{_shown(k, values[k])}`, under `{_shown(k, line)}`"
+                    for k, line in b.least.items() if k in values and values[k] < line]
+        checked = checked or any(k in values for k in [*b.most, *b.least])
+        if crossed:
+            notes[url] = "; ".join(crossed) + f" ({source}, {b.device})"
+    if notes:
+        return [Finding(b.id, list(notes), notes, spec=b.spec)]
+    if not checked:
+        why = ("nothing measured it: timings need `--render`, `--psi` or `--lighthouse`, sizes and the speed score "
+               "`--psi` or `--lighthouse`")
+        return [Finding(b.id, [b.id], {b.id: why}, title=f"Budget `{b.id}` wasn't checked", severity="info",
+                        spec=b.spec)]
+    return []
+
+
+def evaluate(config: Config, c: Crawl, r: Rendered | None, speed: list[Speed] | None = None) -> list[Finding]:
+    """The packs' findings, on the pages the crawl read (and the tags the browser saw), and their budgets on the pages
+    measured."""
+    out: list[Finding] = [f for b in config.budgets for f in _budget_findings(b, speed or [], r)]
     pages = c.html_pages()
     tags = tracking(c, r) if any("tag" in x.require for x in config.rules) else {}
     sent = events(r)

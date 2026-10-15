@@ -11,6 +11,7 @@ browser's own traffic (update checks, sign-in, push) goes to net.Sink, which ref
 the calls to Google each context makes itself are turned off or sent to a name the guard refuses unresolved.
 """
 import contextlib
+import json
 import statistics
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -20,14 +21,15 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
-from .crawl import Crawl
-from .lab import insights, metrics
+from .crawl import AD_TEST_VALUE, Crawl
+from .lab import insights, lighthouse, metrics
 from .lab.capture import benchmark, capture
-from .lab.insights import Insight
+from .lab.insights import Insight, TagCost
+from .lab.lhr import Speed, read
 from .lab.score import performance
 from .lab.throttle import DESKTOP, MOBILE
 from .net import Guard, GuardProxy, Sink
-from .tags import CONSENT, consent_platform_of, events_of, vendor_of
+from .tags import CONSENT, consent_platform_of, events_of, is_hit, vendor_of
 
 try:
     from playwright.sync_api import Error as PlaywrightError
@@ -78,7 +80,50 @@ SIGNALS = """() => ({
   links: Array.from(document.querySelectorAll('a[href], area[href]'), a => a.href),
   datalayer: DATALAYER,
 })""".replace("DATALAYER", DATALAYER)
+# Layout shifts not caused by input, kept from the page's start, and when an accept button first went into the page
+# (an init script, so the page's CSP doesn't apply)
+SHIFTS_JS = """((selectors) => {
+  const kept = [];
+  let at = null;
+  Object.defineProperty(window, '__openppcShifts', {value: kept});
+  Object.defineProperty(window, '__openppcBannerAt', {get: () => at});
+  new PerformanceObserver((list) => {
+    for (const e of list.getEntries()) {
+      if (!e.hadRecentInput) kept.push({value: e.value, start: e.startTime, sources: (e.sources || []).map(
+        (s) => ({node: s.node, dy: s.currentRect.y - s.previousRect.y}))});
+    }
+  }).observe({type: 'layout-shift', buffered: true});
+  const matches = (n) => selectors.some((s) => { try { return n.matches(s) || n.querySelector(s); } catch { return false; } });
+  const added = new MutationObserver((records) => {
+    for (const r of records) for (const n of r.addedNodes) {
+      if (n.nodeType === 1 && matches(n)) { at = performance.now(); added.disconnect(); return; }
+    }
+  });
+  added.observe(document, {childList: true, subtree: true});
+})"""
+BANNER_WINDOW_MS = 500       # shifts this soon after the banner went in are its
+BANNER_PX = 2
+# The consent banner is the accept button's largest ancestor that still fits on screen. A shift is the banner's when
+# a node that moved is in it, when content moved by the banner's height, or when it came within BANNER_WINDOW_MS of
+# the banner going in (Chrome often names the banner's container, which moved as it went in, not what it pushed)
+BANNER_SHIFT_JS = """(button) => {
+  let root = button;
+  while (root.parentElement && root.parentElement !== document.body
+         && root.parentElement.getBoundingClientRect().height <= innerHeight) root = root.parentElement;
+  const height = root.getBoundingClientRect().height;
+  const at = window.__openppcBannerAt;
+  let banner = 0;
+  for (const e of window.__openppcShifts || []) {
+    if ((at !== null && e.start >= at && e.start <= at + WINDOW)
+        || e.sources.some((s) => (s.node && root.contains(s.node)) || (height > 0 && Math.abs(s.dy - height) <= PX)))
+      banner += e.value;
+  }
+  return banner;
+}""".replace("WINDOW", str(BANNER_WINDOW_MS)).replace("PX", str(BANNER_PX))
 BODY_CHARS = 16_384          # of a tag hit's POST body, read for the events batched in it
+MAX_ERRORS = 10              # script errors kept per page
+ERROR_CHARS = 200
+LOAD_FAILED = "Failed to load resource"  # Chrome's console line for a file that didn't load
 Progress = Callable[[str], object]
 
 
@@ -98,6 +143,18 @@ class Observation:
     screenshot: str = ""       # where --screenshots saved the page as first loaded
     events: dict[str, list[str]] = field(default_factory=dict)  # tag: the events its hits sent
     datalayer: list[str] = field(default_factory=list)          # events pushed to the dataLayer
+    errors: list[str] = field(default_factory=list)  # uncaught script errors and console errors, each once
+    banner_shift: float | None = None  # layout shift the consent banner caused before it was accepted
+
+
+@dataclass
+class AdParamsSeen:
+    """The start page loaded with the crawl's test ad parameters (crawl.with_ad_params), and where the address ended
+    up once its scripts ran."""
+    url: str
+    final_url: str = ""
+    error: str = ""
+    answered: int = 0          # requests that would have carried the test value off the site, answered here
 
 
 @dataclass
@@ -111,6 +168,7 @@ class Vitals:
     device: str = "mobile"     # the lab.throttle profile's
     insights: list[Insight] = field(default_factory=list)  # lab.insights, from one more load at full speed
     insights_error: str = ""   # why there are none
+    tag_costs: list[TagCost] = field(default_factory=list)  # from the same load
 
     @property
     def median(self) -> dict[str, float | None]:
@@ -161,6 +219,7 @@ class Rendered:
     refused: list[str] = field(default_factory=list)  # hosts the browser was stopped from reaching
     browser_calls: list[str] = field(default_factory=list)  # hosts the browser itself asked for, refused (net.Sink)
     benchmark: float | None = None  # this computer's Lighthouse BenchmarkIndex, before the speed loads
+    ad_params: AdParamsSeen | None = None  # when the crawl asked for the start page with them
 
 
 def pick(c: Crawl, n: int = RENDER_PAGES) -> list[str]:
@@ -228,9 +287,23 @@ def _observe(browser: Any, url: str, consent_selector: str, screenshot: str = ""
                 bodies[len(requests)] = (req.post_data or "")[:BODY_CHARS]
         requests.append(req.url)
 
+    def failed(text: str) -> None:
+        line = " ".join(text.split())[:ERROR_CHARS]
+        if line and line not in o.errors and len(o.errors) < MAX_ERRORS:
+            o.errors.append(line)
+
+    def console(msg: Any) -> None:
+        # a file that didn't load is the crawl's to report, and the guard's refusals would flood it
+        if msg.type == "error" and not msg.text.startswith(LOAD_FAILED):
+            failed(msg.text)
+
     try:
+        accepts = [consent_selector] if consent_selector else [c["accept"] for c in CONSENT.values() if c["accept"]]
+        context.add_init_script(f"({SHIFTS_JS})({json.dumps(accepts)});")
         page = context.new_page()
         page.on("request", seen)
+        page.on("pageerror", lambda e: failed(f"{e.name}: {e.message}" if e.name else e.message))
+        page.on("console", console)
         page.goto(url, wait_until="load", timeout=LOAD_MS)
         page.wait_for_timeout(SETTLE_MS)
         page.evaluate("() => window.scrollTo(0, document.body.scrollHeight)")
@@ -254,6 +327,8 @@ def _observe(browser: Any, url: str, consent_selector: str, screenshot: str = ""
         found = _accept_button(page, selectors)
         if found:
             el, o.selector = found
+            with contextlib.suppress(PlaywrightError):
+                o.banner_shift = round(float(page.evaluate(BANNER_SHIFT_JS, el)), 4)
             o.consent = o.consent or next((cid for cid, c in CONSENT.items() if c["accept"] == o.selector), "custom")
             mark = len(requests)
             el.click(timeout=5000)
@@ -270,6 +345,47 @@ def _observe(browser: Any, url: str, consent_selector: str, screenshot: str = ""
         context.close()
     o.events = _events(requests, bodies)
     return o
+
+
+def _ad_params(browser: Any, url: str, proxy: str = "") -> AdParamsSeen:
+    """The start page loaded with the test ad parameters, its scripts given SETTLE_MS, and the address it ends on. A
+    request in any of its frames that is a tag hit, or that carries the test value to a host the page itself isn't
+    on, is answered here, so the value reaches no ad or analytics account; the page's own server gets it, as in the
+    crawl's check."""
+    seen = AdParamsSeen(url)
+    own = {(urlsplit(url).hostname or "").lower()}
+    context = browser.new_context(service_workers="block", accept_downloads=False,
+                                  **({"proxy": {"server": proxy}} if proxy else {}))
+
+    def route(r: Any) -> None:
+        req = r.request
+        host = (urlsplit(req.url).hostname or "").lower()
+        try:
+            if req.is_navigation_request() and req.frame.parent_frame is None:
+                own.add(host)  # the page's own redirects, which the crawl's check followed too
+            else:
+                body = ""
+                with contextlib.suppress(PlaywrightError, UnicodeDecodeError, ValueError):
+                    body = req.post_data or ""
+                if is_hit(req.url) or (host not in own and AD_TEST_VALUE in req.url + body):
+                    seen.answered += 1
+                    r.fulfill(status=204)
+                    return
+            r.continue_()
+        except PlaywrightError:
+            pass  # the page went, with its request
+
+    try:
+        context.route("**/*", route)
+        page = context.new_page()
+        page.goto(url, wait_until="load", timeout=LOAD_MS)
+        page.wait_for_timeout(SETTLE_MS)
+        seen.final_url = str(page.evaluate("() => location.href"))
+    except PlaywrightError as e:
+        seen.error = str(e).splitlines()[0]
+    finally:
+        context.close()
+    return seen
 
 
 def installed() -> bool:
@@ -352,9 +468,42 @@ def _measure(browser: Any, v: Vitals, runs: int, proxy: str, progress: Progress 
     try:
         run = capture(browser, v.url, profile.unthrottled(), proxy, BLOCK_HITS, raw)
         v.hits_answered += run.hits_answered
-        v.insights = insights.run(browser, raw, v.device)
+        found = insights.run(browser, raw, v.device, BLOCK_HITS)
+        v.insights, v.tag_costs = found.insights, found.tags
     except (PlaywrightError, ValueError) as e:
         v.insights_error = str(e).splitlines()[0]
+
+
+def lighthouse_speed(urls: list[str], folder: Path, guard: Guard, progress: Progress | None = None) -> list[Speed]:
+    """Each page on a phone, then a desktop, by the user's own Lighthouse (lab.lighthouse), with simulated throttling
+    and the four categories, as PageSpeed Insights runs it; one run at a time, since runs side by side would share
+    the CPU. Its loads go through the guard's proxy and fire the page's tags, as PageSpeed's do."""
+    if sync_playwright is None:
+        raise ValueError(INSTALL)
+    out = []
+    with GuardProxy(guard) as proxy, Sink() as sink, sync_playwright() as pw:
+        try:
+            browser = _launch(pw, sink.url, devtools=True)
+        except PlaywrightError as e:
+            raise ValueError(f"{INSTALL} ({str(e).splitlines()[0]})") from e
+        try:
+            address = lighthouse.attach(browser, guard)
+            for url in urls:
+                for device in ("mobile", "desktop"):
+                    if progress:
+                        progress(f"Lighthouse on this computer: {url} on a {device}, load {len(out) + 1} of "
+                                 f"{2 * len(urls)}")
+                    try:
+                        lhr = lighthouse.run(browser, address, folder, url, device, proxy.url, "simulate",
+                                             lighthouse.CATEGORIES)
+                        s = read(lhr, url, lighthouse.SOURCE)
+                        s.device = device
+                    except ValueError as e:
+                        s = Speed(url, device, lighthouse.SOURCE, error=str(e).splitlines()[0])
+                    out.append(s)
+        finally:
+            browser.close()
+    return out
 
 
 def render(c: Crawl, guard: Guard, pages: int = RENDER_PAGES, consent_selector: str = "",
@@ -383,6 +532,10 @@ def render(c: Crawl, guard: Guard, pages: int = RENDER_PAGES, consent_selector: 
                     progress(f"rendering {n} of {len(targets)}: {url}")
                 out.pages.append(_observe(browser, url, consent_selector,
                                           _shot_name(screenshots, n, url) if screenshots else "", proxy.url))
+            if c.ad_params and c.ad_params.status:  # asked for by the crawl, so robots.txt let it
+                if progress:
+                    progress(f"loading {c.start} with test ad parameters")
+                out.ad_params = _ad_params(browser, c.ad_params.url, proxy.url)
             profiles = (MOBILE, DESKTOP) if desktop else (MOBILE,)
             pending = [u for u in targets[:vitals] if u not in (measured or set())]
             if pending:

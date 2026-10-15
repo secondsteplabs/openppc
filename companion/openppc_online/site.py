@@ -1,8 +1,8 @@
 """`openppc-online site`: crawl the website you name, check it, and write the report.
 
 Every input is read before the crawl, so a typo fails in a second, not after an hour. The crawl, the external link
-checks, the browser with --render, Chrome's UX Report API with --crux, PageSpeed Insights with --psi and the webhook
-all go through one siteaudit.net.Guard.
+checks, the browser with --render, Chrome's UX Report API with --crux, PageSpeed Insights with --psi, the browser
+your own Lighthouse drives with --lighthouse and the webhook all go through one siteaudit.net.Guard.
 """
 import ipaddress
 import json
@@ -22,10 +22,10 @@ from .siteaudit import net, packs
 from .siteaudit.checks import SEVERITY_RANK, Finding, evaluate, home, host_base, js_only_links, same_site
 from .siteaudit.crawl import Crawl, Progress, crawl, follow, normalize, start_url, stopped
 from .siteaudit.crux import field_data, key_from
-from .siteaudit.lab import psi
+from .siteaudit.lab import lighthouse, psi
 from .siteaudit.lab.lhr import Speed
 from .siteaudit.net import Guard
-from .siteaudit.render import RENDER_PAGES, VITALS_PAGES, VITALS_RUNS, Rendered, preflight, render
+from .siteaudit.render import RENDER_PAGES, VITALS_PAGES, VITALS_RUNS, Rendered, lighthouse_speed, preflight, render
 from .siteaudit.report import Extras, data, report, sarif
 from .siteaudit.triage import Diff, compare, health, read_baseline, redact_text, suppress
 
@@ -102,29 +102,39 @@ def run(url: str, *, max_pages: int | None = None, max_seconds: float | None = N
         config: list[tuple[str, str]] | None = None, baseline: tuple[str, str] | None = None,
         post_to: str | None = None, rendered: bool = False, render_pages: int = RENDER_PAGES,
         vitals_pages: int = VITALS_PAGES, render_url: list[str] | None = None, consent_selector: str = "",
-        screenshots: str = "", progress: Progress | None = None, runs: int = VITALS_RUNS) -> tuple[Result, Guard]:
+        screenshots: str = "", progress: Progress | None = None, runs: int = VITALS_RUNS,
+        lighthouse_dir: str | None = None) -> tuple[Result, Guard]:
     """Everything the command does short of writing the report and posting it. config and baseline: files as
     (name, text), already read. rendered: the --render pass. psi_key: None without --psi, "" for no key.
-    progress may stop the run (crawl.Progress)."""
+    lighthouse_dir: --lighthouse's folder. progress may stop the run (crawl.Progress)."""
     rules = packs.load(config or [])
     earlier = read_baseline(*baseline) if baseline else None
     key = key_from(crux_key) if crux_key is not None else None
     if post_to:
         webhook_host(post_to)
     also = render_urls(url, render_url or [])
-    if also and not (rendered or psi_key is not None):
-        raise ValueError("--render-url needs --render or --psi")
+    if also and not (rendered or psi_key is not None or lighthouse_dir):
+        raise ValueError("--render-url needs --render, --psi or --lighthouse")
+    if lighthouse_dir and psi_key is not None:
+        raise ValueError("--psi and --lighthouse both measure with Lighthouse: pick one")
+    folder = None
+    if lighthouse_dir:
+        folder = lighthouse.folder(lighthouse_dir)
+        lighthouse.node()
     if screenshots and not rendered:
         raise ValueError("--screenshots needs --render")
     if screenshots:
         _screenshots_folder(screenshots)
     guard = Guard(allow_private=allow_private)
     measure = list(dict.fromkeys([start_url(url)] + also))
+    if folder and len(measure) > psi.MAX_PAGES:
+        raise ValueError(f"--lighthouse measures at most {psi.MAX_PAGES} pages: the start page and up to "
+                         f"{psi.MAX_PAGES - 1} --render-url pages")
     psi_secret = ""
     if psi_key is not None:
         psi_secret = psi.key_from(psi_key)
         psi.check(measure, guard)
-    if rendered:
+    if rendered or folder:
         preflight()
     pool = ThreadPoolExecutor(1)  # PageSpeed Insights takes a minute: it runs while the site is crawled
     later: list[Future[list[Speed]]] = []
@@ -141,6 +151,12 @@ def run(url: str, *, max_pages: int | None = None, max_seconds: float | None = N
     finally:
         halt.set()
         pool.shutdown(wait=False, cancel_futures=True)
+    allowed = [u for u in measure if c.allowed(u)]
+    if folder and allowed and not c.blocked_by:
+        try:
+            speed = lighthouse_speed(allowed, folder, guard, progress)
+        except KeyboardInterrupt as e:
+            c.incomplete = c.incomplete or f"{stopped(e)}, before Lighthouse finished"
     r: Rendered | None = None
     if rendered and not c.blocked_by:
         try:
@@ -156,7 +172,7 @@ def run(url: str, *, max_pages: int | None = None, max_seconds: float | None = N
         field = field_data(c.origin, home(c).url, key, guard)
     else:
         field = [d for s in speed if s.url == c.start for d in s.field_data]
-    findings = evaluate(c, r, field, speed) + ([] if c.blocked_by else packs.evaluate(rules, c, r))
+    findings = evaluate(c, r, field, speed) + ([] if c.blocked_by else packs.evaluate(rules, c, r, speed))
     findings, suppressed = suppress(findings, rules.suppress)
     diff = compare(findings, earlier, baseline[0]) if earlier is not None and baseline else None
     extras = Extras(rules.files, suppressed, diff, field, speed)

@@ -30,8 +30,8 @@ Semantic versioning, as in OpenPPC. Each release names the `openppc` versions it
   with `--crux`, which now asks for desktops, histograms, FCP and TTFB too.
 - **Ad click IDs through server redirects** (`site-ad-params-dropped`): the start page is asked for once more with
   `gclid`, `gbraid`, `wbraid`, `msclkid`, `fbclid` and the five `utm_` parameters set to `OPENPPC-TEST`, and a
-  redirect that loses or changes any of them is a high finding. Server redirects only, for now: a redirect in
-  JavaScript, or a script that rewrites the address, isn't seen. The site's logs and CRM may record the test value.
+  redirect that loses or changes any of them is a high finding. Server redirects here; what the page's scripts do
+  is `site-ad-params-dropped-js`, below. The site's logs and CRM may record the test value.
 - **Plain words for clients:** a "What the speed measures mean" section (what each measure means for someone who
   clicked an ad), a line in plain words on the ten Lighthouse audits that fail most on landing pages, and a glossary
   of the terms the report uses (`siteaudit/words.py`).
@@ -49,6 +49,31 @@ Semantic versioning, as in OpenPPC. Each release names the `openppc` versions it
   `siteaudit/vendor/trace-engine.js` with its licences) simulates the slow phone or desktop on it as Lighthouse
   does, in a blank page of the same browser. On the calibration pages its results match Lighthouse's with simulated
   throttling. JSON: `vitals` items gain `insights`, `insights_error` and `trace_engine`.
+- **What each tag costs:** from the same full-speed load, the bytes and main-thread time of each known tag's and
+  consent platform's files, counted as Lighthouse's third-parties insight counts them; hits the load answered on this
+  computer are left out, since what they cost isn't the vendor's. JSON: `vitals` items gain `tag_costs`.
+- **JavaScript errors on the page** (`site-js-errors`): the tags and consent pass notes uncaught script errors and
+  console errors (at most 10 a page, not files that failed to load, which the crawl and the guard report), and a
+  page with any is a medium finding showing the first. JSON: `rendered.pages` items gain `errors`.
+- **Ad click IDs through the page's scripts** (`site-ad-params-dropped-js`): with `--render`, the start page is also
+  loaded in Chromium with the test parameters, and a click ID the server's redirects kept but the address no longer
+  has once its scripts ran is a medium finding. Tag hits, and any request taking the test value to another host from
+  any frame or worker, are answered on this computer. JSON: `rendered.ad_params`.
+- **A consent banner that pushes the page** (`site-consent-banner-shift`): layout shifts before the banner is
+  accepted, in which a node in the banner moved, content moved by the banner's height, or that came within half a
+  second of the banner going in, are added up; at Cumulative Layout Shift's good line (0.1) or more, a medium finding.
+  The report's consent line gives the number. JSON: `rendered.pages` items gain `banner_shift`.
+- **`--lighthouse FOLDER`: your own Lighthouse 13, on this computer.** The pages `--psi` would measure (the start
+  page and up to 4 `--render-url` pages) are measured by the Lighthouse installed in FOLDER, in OpenPPC's browser
+  through the guard, on a phone and a desktop with simulated throttling and PSI's four categories: the same report
+  as `--psi`, with no key, nothing sent to Google, and private or staging pages allowed with `--allow-private`. Its
+  loads fire the page's tags, as PSI's do. Needs Node.js and the `render` extra; can't be combined with `--psi`.
+- **Speed budgets** in `--config` files: per page glob and device, a `max` for each timing (`fcp`, `lcp`, `tbt`,
+  `cls`, `si`, `ttfb`) or size by Lighthouse's file types (`script-kb` and the rest) and a `min` speed score. A page
+  over a line is a finding of the budget's severity, its note naming the line and the number's source: Lighthouse's
+  result with `--psi` or `--lighthouse`, else the lab's timings with `--render`. A budget nothing measured is an info
+  finding, not a pass. Example: `examples/rulepacks/landing-speed.json`; schema: `budgets` in
+  `site-config.schema.json`.
 - JSON: `who` on findings (developer, hosting, tag manager) and `ad_params` (the redirect check's result).
 - The app's Site form gains "One page only", "Measure with PageSpeed Insights" and a PSI key field.
 - JSON: a top-level `speed` list (each Lighthouse result, its metrics, categories and audits, and its real-visitor
@@ -97,7 +122,7 @@ Semantic versioning, as in OpenPPC. Each release names the `openppc` versions it
   reads `OPENPPC_CRUX_KEY`. The old `--crux-key` with no key took the next argument, a URL included, as the key.
 - CrUX's requests go through the site check's guard, with its size and time limits, like every other connection.
   An API key never follows a redirect.
-- `--render-url` works with `--psi` as well as `--render`.
+- `--render-url` works with `--psi` and `--lighthouse` as well as `--render`.
 - The real-visitor findings read phones' whole-site data, as before; the table now shows phones and desktops.
 - A PSI or CrUX key with anything but letters, digits, `-` and `_` is refused before anything is sent. A CrUX error
   is shown as written, in a code span, so its numbers don't fail the report's own check.

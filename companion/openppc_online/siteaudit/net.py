@@ -332,6 +332,7 @@ class _SinkHandler(socketserver.BaseRequestHandler):
 class _ProxyServer(socketserver.ThreadingTCPServer):
     daemon_threads = True
     allow_reuse_address = True
+    request_queue_size = 128  # a page opens many connections at once; the default 5 can overflow while threads start
     guard: Guard              # the sink's server has none, and never uses it
 
     def __init__(self, guard: Guard | None, handler: type[socketserver.BaseRequestHandler] = _ProxyHandler):

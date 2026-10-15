@@ -33,6 +33,7 @@ SHOP = """<!doctype html><html lang="en"><head><title>Shop</title>
 <meta name="viewport" content="width=device-width"></head><body>
 <h1>Shop</h1><p>Everything for the garden, delivered.</p><img src="/hero.gif">
 <div id="banner"><button id="onetrust-accept-btn-handler">Accept all</button></div>
+<script src="/js/AppMeasurement.js"></script>
 <script>
 const port = location.port;
 const hit = (url) => { new Image().src = url; };
@@ -52,14 +53,21 @@ document.getElementById("onetrust-accept-btn-handler").onclick = () => {
   document.cookie = "consent=yes; path=/";
   document.getElementById("banner").remove();
 };
-</script></body></html>""".replace("HOSTILE", HOSTILE.replace("`", "\\`"))
+</script><script>console.error("checkout widget: no key"); window.missingTag();</script>
+<img src="/missing.png" alt=""></body></html>""".replace("HOSTILE", HOSTILE.replace("`", "\\`"))
+
+
+# Adobe's tag file, by its name: some bytes and some main-thread time for the tag costs
+TAG = b"/* " + b"x" * 4000 + b" */ const until = performance.now() + 30; while (performance.now() < until) {}"
 
 
 class _Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         page = self.path in ("/", "/spa/page", "/thanks")
-        body, kind = (SHOP.encode(), "text/html; charset=utf-8") if page else (b"", "image/gif")
-        self.send_response(200 if page or self.path == "/hero.gif" or "?" in self.path or "/b/ss/" in self.path
+        tag = self.path == "/js/AppMeasurement.js"
+        body, kind = ((SHOP.encode(), "text/html; charset=utf-8") if page else (TAG, "text/javascript") if tag
+                      else (b"", "image/gif"))
+        self.send_response(200 if page or tag or self.path == "/hero.gif" or "?" in self.path or "/b/ss/" in self.path
                            else 404)
         self.send_header("Content-Type", kind)
         self.send_header("Content-Length", str(len(body)))
@@ -118,6 +126,9 @@ def test_the_browser_pass_sees_tags_consent_accessibility_and_vitals(shop, tmp_p
     assert findings["site-tag-before-consent"].items == ["Adobe Analytics"]
     assert "(WCAG `1.1.1`)" in findings["site-a11y:image-alt"].title
     assert findings["site-js-only-links"].items == [shop + "/spa/page"]
+    # the 404 image's console line is the crawl's to report, not a script error
+    assert o.errors == ["checkout widget: no key", "TypeError: window.missingTag is not a function"], o.errors
+    assert findings["site-js-errors"].items == [shop + "/", shop + "/thanks"]
     v = r.vitals[0]
     assert len(r.vitals) == 1 and len(v.runs) == 3 and v.rep is not None
     assert all(v.shown[k] is not None for k in ("fcp", "lcp", "tbt", "cls", "si", "ttfb"))
@@ -129,6 +140,9 @@ def test_the_browser_pass_sees_tags_consent_accessibility_and_vitals(shop, tmp_p
     assert not v.insights_error and len(v.insights) >= 15  # Lighthouse 13.5 runs 18; some don't apply to a page
     assert {"render-blocking-insight", "document-latency-insight", "lcp-breakdown-insight"} <= {i.id for i in v.insights}
     assert all(i.state in ("fail", "pass", "informative") and i.title for i in v.insights)
+    # Adobe's tag file, not the hits answered here
+    assert [(t.id, t.files) for t in v.tag_costs] == [("adobe", 1)]
+    assert v.tag_costs[0].bytes > len(TAG) and v.tag_costs[0].ms >= 25
     assert r.browser_calls  # Chromium's own calls home, refused before they were resolved, never in `asked`
     # Playwright's own --disable-features carried over: Chrome reads only the last one
     assert "BlockOriginHeaderModificationOnRedirect" in render_module._playwright_features
@@ -136,6 +150,7 @@ def test_the_browser_pass_sees_tags_consent_accessibility_and_vitals(shop, tmp_p
     assert passed, markdown
     assert "What slows it down" in markdown and "### Check by hand" in markdown
     assert "Lighthouse's insights, worked out as Lighthouse works them out" in markdown
+    assert "| Adobe Analytics | tag | 4 KB |" in markdown and "Pages with JavaScript errors" in markdown
     assert "<img src=x onerror=alert(1)>'<b>" in markdown  # the event, in a code span its backtick can't close
     assert "<img" not in re.sub(r"`[^`\n]*`", "", markdown)
     assert "<img src=x" not in to_html(markdown, "Site audit")
@@ -172,6 +187,53 @@ def test_one_page_only_measures_a_phone_then_a_desktop_and_skips_what_psi_measur
     markdown, _, passed = report(c, r, evaluate(c, r))
     assert passed and "on a desktop" in markdown and "On a desktop: desktop (rough estimate)" in markdown
     assert render(c, guard, pages=1, desktop=True, measured={shop + "/"}).vitals == []
+
+
+LANDING = """<!doctype html><html lang="en"><head><title>Landing</title></head>
+<body style="margin:0"><h1>Plumbing</h1><p style="height:600px">Same-day repairs.</p>
+<script>
+new Image().src = `http://stats.test:${location.port}/g/collect?v=2&tid=G-TEST1234&en=page_view`;
+setTimeout(() => {
+  const banner = document.createElement("div");
+  banner.style.height = "200px";
+  banner.innerHTML = '<button id="onetrust-accept-btn-handler">Accept all</button>';
+  document.body.prepend(banner);
+}, 300);
+if (location.search.includes("gclid")) {
+  const elsewhere = `http://tracker.test:${location.port}`;
+  const frame = document.createElement("iframe");
+  frame.src = `${elsewhere}/frame${location.search}`;
+  document.body.appendChild(frame);
+  new Worker(URL.createObjectURL(new Blob([`fetch("${elsewhere}/worker?u=" + ${JSON.stringify(location.href)})`])));
+  navigator.sendBeacon(`${elsewhere}/beacon`, location.href);
+  setTimeout(() => {
+    const query = new URLSearchParams(location.search);
+    query.delete("gclid");
+    history.replaceState(null, "", `${location.pathname}?${query}`);
+  }, 200);
+}
+</script></body></html>"""
+
+
+def test_a_script_that_drops_the_click_id_and_a_banner_that_pushes_the_page_are_found(serve):
+    base = serve(lambda b: {"/": (200, {}, LANDING)})
+    guard, asked = recording()
+    c = crawl(base, guard, fast=True, external=False)
+    r = render(c, guard, pages=1, vitals=0)
+    seen = r.ad_params
+    assert seen and not seen.error and seen.url == c.ad_params.url
+    assert "gclid" not in seen.final_url and "utm_source=OPENPPC-TEST" in seen.final_url
+    # the test value went to the site only: the frame, the worker's fetch and the beacon were answered here
+    assert seen.answered >= 3 and "tracker.test" not in asked
+    assert not [p for p in serve.asked if p.startswith(("/frame", "/worker", "/beacon"))]
+    o = r.pages[0]
+    assert o.consent == "onetrust" and o.banner_shift is not None and o.banner_shift >= checks.CLS_GOOD
+    findings = {f.id: f for f in evaluate(c, r)}
+    assert "`gclid`" in findings["site-ad-params-dropped-js"].notes[c.start]
+    assert findings["site-consent-banner-shift"].items == [base + "/"]
+    markdown, _, passed = report(c, r, list(findings.values()))
+    assert passed, markdown
+    assert "it moved the page by a layout shift of" in markdown
 
 
 def test_the_browser_is_held_to_the_same_address_rules(shop):

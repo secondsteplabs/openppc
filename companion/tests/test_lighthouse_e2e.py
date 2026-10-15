@@ -3,12 +3,15 @@ the guard's proxy, its report reads, and no page can reach the DevTools port it 
 calibration's Lighthouse (npm ci --ignore-scripts in companion/calibration); skipped without them.
 
 No network: only the fixtures' names resolve."""
+import json
 import shutil
 from pathlib import Path
 
 import pytest
 from calibration.fixtures import Server, url
+from sites import page
 
+from openppc_online.cli import main
 from openppc_online.siteaudit import render
 from openppc_online.siteaudit.lab import lighthouse
 from openppc_online.siteaudit.net import Guard, GuardProxy, Sink
@@ -61,3 +64,24 @@ def test_lighthouse_measures_through_the_guard_and_the_devtools_port_stays_shut(
     assert "site.test" in asked                      # Lighthouse's load went through the guard
     assert "ERR_HTTP_RESPONSE_CODE_FAILURE" in text and "webSocketDebuggerUrl" not in text
     assert port in guard.closed and "127.0.0.1" in guard.refused
+
+
+def test_the_lighthouse_switch_measures_the_page_on_a_phone_and_a_desktop_and_checks_budgets(lh, serve, tmp_path):
+    base = serve(lambda b: {"/": (200, {}, page("Home", "<h1>Spring sale</h1><p>Everything half price.</p>"))})
+    pack = tmp_path / "budget.json"
+    pack.write_text(json.dumps({"openppc_site": 1, "budgets": [
+        {"id": "tight", "severity": "high", "max": {"fcp": 1, "document-kb": 0}, "min": {"speed-score": 100}},
+        {"id": "roomy", "severity": "high", "device": "desktop", "max": {"lcp": 60000}}]}), encoding="utf-8")
+    out = tmp_path / "site.json"
+    assert main(["site", base + "/", "--allow-private", "--fast", "--single", "--render", "--lighthouse", str(lh),
+                 "--config", str(pack), "--format", "json", "--out", str(out)]) == 0
+    doc = json.loads(out.read_text(encoding="utf-8"))
+    speed = doc["speed"]
+    assert [(s["device"], s["source"], s["method"], s["error"]) for s in speed] == [
+        ("mobile", "Lighthouse", "simulate", None), ("desktop", "Lighthouse", "simulate", None)]
+    assert all(set(s["categories"]) == set(lighthouse.CATEGORIES) and s["score"] is not None for s in speed)
+    assert doc["rendered"]["vitals"] == []  # Lighthouse measured the page: the lab doesn't load it again
+    found = {f["id"]: f for f in doc["findings"]}
+    assert "tight" in found and "roomy" not in found
+    assert found["tight"]["notes"][base + "/"].endswith("(Lighthouse, mobile)")
+    assert "Your own Lighthouse loaded each page in OpenPPC's browser" in doc["markdown"] and doc["passed"]

@@ -1,0 +1,24 @@
+{
+  "openppc_site": 1,
+  "name": "Landing page speed budgets",
+  "about": "Speed budgets for the pages ads send visitors to. Timings are checked against OpenPPC's lab loads (--render) or a Lighthouse result (--psi or --lighthouse); sizes and the speed score need a Lighthouse result. A budget nothing measured shows as an info finding, so a CI job without the flag doesn't pass silently.",
+  "budgets": [
+    {
+      "id": "landing-speed-mobile",
+      "severity": "high",
+      "title": "Landing pages over the phone speed budget",
+      "fix": "Start with the line the note names: a slow Largest Contentful Paint is usually the hero image or a font, too much script is usually tags. The Speed section lists what to cut.",
+      "pages": ["/lp/*", "/landing/*"],
+      "device": "mobile",
+      "max": {"lcp": 2500, "tbt": 200, "cls": 0.1, "script-kb": 400, "total-kb": 1600},
+      "min": {"speed-score": 80}
+    },
+    {
+      "id": "landing-speed-desktop",
+      "severity": "medium",
+      "pages": ["/lp/*", "/landing/*"],
+      "device": "desktop",
+      "max": {"lcp": 1500, "tbt": 100}
+    }
+  ]
+}

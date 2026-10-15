@@ -99,6 +99,16 @@ def known_host(host: str) -> bool:
     return any(_host_is(host, h) for h in _HOSTS)
 
 
+def owner_of(url: str) -> str | None:
+    """The vendor a request belongs to: its tag file or hit, else the first vendor using its host."""
+    match = vendor_of(url)
+    if match:
+        return match[0]
+    host = (urlsplit(url).hostname or "").lower()
+    return next((vid for vid, v in VENDORS.items()
+                 if any("host" in p and _host_is(host, p["host"]) for p in v["load"] + v["hit"])), None)
+
+
 def consent_platform_of(url: str) -> str | None:
     host = (urlsplit(url).hostname or "").lower()
     return next((cid for cid, c in CONSENT.items() if any(_host_is(host, h) for h in c["hosts"])), None)

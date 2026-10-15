@@ -11,6 +11,7 @@
     "name": {"type": "string"},
     "about": {"type": "string"},
     "rules": {"type": "array", "items": {"$ref": "#/$defs/rule"}},
+    "budgets": {"type": "array", "items": {"$ref": "#/$defs/budget"}},
     "suppress": {"type": "array", "items": {"$ref": "#/$defs/suppression"}},
     "signatures": {"type": "array", "items": {"$ref": "#/$defs/signature"}}
   },
@@ -33,6 +34,27 @@
                   "oneOf": [{"$ref": "#/$defs/text"}, {"type": "array", "items": {"$ref": "#/$defs/text"}}]},
         "require": {"oneOf": [{"$ref": "#/$defs/tagRequirement"}, {"$ref": "#/$defs/textRequirement"},
                               {"$ref": "#/$defs/numberRequirement"}]}
+      }
+    },
+    "budget": {
+      "description": "Speed lines for the measured pages (the start page and --render-url pages with --psi or --lighthouse, the measured pages with --render). A page that crosses one is a finding at severity, so --fail-on and --baseline cover budgets. Values come from Lighthouse's result when there is one, else from OpenPPC's lab loads (timings only); a budget nothing measured is an info finding.",
+      "type": "object", "required": ["id", "severity"], "anyOf": [{"required": ["max"]}, {"required": ["min"]}],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string", "pattern": "^(?!site-)[a-z0-9][a-z0-9-]{0,62}$",
+               "description": "Unique among the rules and budgets."},
+        "severity": {"enum": ["high", "medium", "low", "info"]},
+        "title": {"type": "string", "minLength": 1, "maxLength": 200},
+        "fix": {"type": "string", "minLength": 1, "maxLength": 1000},
+        "device": {"enum": ["mobile", "desktop"], "default": "mobile"},
+        "pages": {"description": "Path globs (fnmatch, case-sensitive) of the measured pages it applies to; all when left out.",
+                  "oneOf": [{"$ref": "#/$defs/text"}, {"type": "array", "items": {"$ref": "#/$defs/text"}}]},
+        "max": {"description": "Lines to stay at or under: timings in ms (ttfb from OpenPPC's lab only), cls as it is, sizes in KB transferred (Lighthouse's resource summary).",
+                "type": "object", "minProperties": 1, "additionalProperties": false,
+                "patternProperties": {"^(fcp|lcp|tbt|cls|si|ttfb|(total|document|script|stylesheet|image|font|media|other|third-party)-kb)$": {"type": "number", "minimum": 0}}},
+        "min": {"description": "Lines to reach: the speed score, 0 to 100, from Lighthouse only.",
+                "type": "object", "minProperties": 1, "additionalProperties": false,
+                "properties": {"speed-score": {"type": "number", "minimum": 0, "maximum": 100}}}
       }
     },
     "tagRequirement": {

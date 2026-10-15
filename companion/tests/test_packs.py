@@ -8,7 +8,8 @@ from sites import acme, by_id, local, page
 
 from openppc_online.siteaudit import checks, packs, tags, triage
 from openppc_online.siteaudit.crawl import PROBE, crawl
-from openppc_online.siteaudit.render import Observation, Rendered
+from openppc_online.siteaudit.lab.lhr import read
+from openppc_online.siteaudit.render import Observation, Rendered, Vitals
 from openppc_online.siteaudit.report import Extras, report
 from openppc_online.siteaudit.tags import VENDORS, vendor_of
 
@@ -109,6 +110,70 @@ def test_a_pack_can_require_an_event_a_browser_pass_saw(serve, tmp_path):
     rule["require"]["event"] = "x" * 101
     with pytest.raises(packs.PackError, match="longer than 100"):
         packs.load([_pack(tmp_path, {"openppc_site": 1, "rules": [rule]})])
+
+
+BUDGET = {"id": "landing-speed", "severity": "high", "pages": "/lp/*",
+          "max": {"lcp": 2500, "script-kb": 100}, "min": {"speed-score": 80}}
+
+
+@pytest.mark.parametrize("change, message", [
+    (lambda b: b["max"].update(inp=200), r"budgets\[0\]\.max\.inp: isn't a budget line here"),
+    (lambda b: b["min"].update(lcp=1), r"budgets\[0\]\.min\.lcp: isn't a budget line here"),
+    (lambda b: b["max"].update(lcp=-1), r"must be a number, 0 or more"),
+    (lambda b: b["max"].update(lcp=True), r"must be a number, 0 or more"),
+    (lambda b: b["min"].update({"speed-score": 101}), r"must be 0 to 100"),
+    (lambda b: (b.pop("max"), b.pop("min")), r"needs a line in \"max\" or \"min\""),
+    (lambda b: b.update(device="tablet"), r"budgets\[0\]\.device: must be one of mobile, desktop"),
+    (lambda b: b.update(id="gtm-everywhere"), r"\"gtm-everywhere\" is defined twice"),
+    (lambda b: b.update(id="site-speed"), r"kept for the built-in rules"),
+    (lambda b: b.update(limit=1), r"budgets\[0\]: unknown key \"limit\""),
+])
+def test_a_budget_mistake_names_the_place(change, message):
+    doc = json.loads(json.dumps(PACK))
+    doc["budgets"] = [json.loads(json.dumps(BUDGET))]
+    change(doc["budgets"][0])
+    with pytest.raises(packs.PackError, match=message):
+        packs.parse(json.dumps(doc), "pack.json", packs.Config())
+
+
+def _site(serve):
+    base = serve(lambda b: {"/": (200, {}, page("Home")), "/lp/spring": (200, {}, page("Spring"))})
+    return base, crawl(base, local(), fast=True, external=False)
+
+
+def test_a_budget_checks_lighthouses_numbers_on_its_pages(serve, tmp_path):
+    base, c = _site(serve)
+    config = packs.load([_pack(tmp_path, {"openppc_site": 1, "budgets": [BUDGET]})])
+    lhr = json.loads((COMPANION / "tests" / "fixtures" / "lhr-13.5-mobile.json").read_text(encoding="utf-8"))
+    speed = [read(lhr, base + "/lp/spring", "Lighthouse"), read(lhr, base + "/", "Lighthouse")]
+    found = by_id(packs.evaluate(config, c, None, speed))["landing-speed"]
+    assert found.items == [base + "/lp/spring"]  # the home page is outside /lp/*
+    assert found.notes[base + "/lp/spring"] == ("`lcp` is `10885 ms`, over `2500 ms`; `script-kb` is `164 KB`, over "
+                                                "`100 KB`; `speed-score` is `32`, under `80` (Lighthouse, mobile)")
+    markdown, _, passed = report(c, None, [found], Extras(config.files, speed=speed))
+    assert passed, markdown
+    assert "Pages over the landing-speed budget" in markdown
+    roomy = dict(BUDGET, max={"lcp": 20000}, min={})
+    assert packs.evaluate(packs.load([_pack(tmp_path, {"openppc_site": 1, "budgets": [roomy]})]), c, None, speed) == []
+    desktop = dict(BUDGET, device="desktop")
+    found = packs.evaluate(packs.load([_pack(tmp_path, {"openppc_site": 1, "budgets": [desktop]})]), c, None, speed)
+    assert [(f.title, f.severity) for f in found] == [("Budget `landing-speed` wasn't checked", "info")]
+
+
+def test_a_budget_falls_back_to_the_lab_timings_and_says_when_nothing_was_measured(serve, tmp_path):
+    base, c = _site(serve)
+    config = packs.load([_pack(tmp_path, {"openppc_site": 1, "budgets": [BUDGET]})])
+    lab = Vitals(base + "/lp/spring", runs=[{"lcp": 3120.4, "fcp": 900.0, "tbt": 0.0, "cls": 0.0, "ttfb": 80.0,
+                                            "si": 1000.0}])
+    found = by_id(packs.evaluate(config, c, Rendered(vitals=[lab])))["landing-speed"]
+    assert found.notes == {base + "/lp/spring": "`lcp` is `3120 ms`, over `2500 ms` (OpenPPC lab, mobile)"}
+    sizes_only = dict(BUDGET, max={"script-kb": 100})
+    found = packs.evaluate(packs.load([_pack(tmp_path, {"openppc_site": 1, "budgets": [sizes_only]})]), c,
+                           Rendered(vitals=[lab]))
+    assert [f.severity for f in found] == ["info"]
+    assert "sizes and the speed score `--psi` or `--lighthouse`" in found[0].notes["landing-speed"]
+    found = packs.evaluate(config, c, None)
+    assert [(f.id, f.items, f.severity) for f in found] == [("landing-speed", ["landing-speed"], "info")]
 
 
 def test_fingerprints_ignore_the_origin_and_secrets_are_masked():

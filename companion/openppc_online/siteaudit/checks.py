@@ -5,9 +5,9 @@ import json
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import parse_qsl, urlsplit
 
-from .crawl import AI_BOTS, Crawl, Page, dropped_ad_params, normalize
+from .crawl import AD_PARAMS, AD_TEST_VALUE, AI_BOTS, Crawl, Page, dropped_ad_params, normalize
 from .crux import METRICS as CRUX_METRICS
 from .crux import FieldData
 from .lab.lhr import Speed
@@ -187,6 +187,15 @@ RULES: dict[str, Rule] = {
                                 "click that brought it."),
     "site-unknown-third-party": R("tracking", "info", "Third-party hosts this scan doesn't recognise", "hosts",
                                   "Check you know what each one is: any of them could be a tracker."),
+    "site-ad-params-dropped-js": R("tracking", "medium", "Ad click IDs that the page's scripts take out of the "
+                                   "address", "pages",
+                                   "Find the script that rewrites the address (a router, a consent or cookie script) "
+                                   "and make it keep the query string. A tag that reads the address after it (one "
+                                   "held until consent, or loaded late) gets no click ID, so the ad platform can't tie "
+                                   "a sale or lead to the click."),
+    "site-js-errors": R("tracking", "medium", "Pages with JavaScript errors", "pages",
+                        "Open the page with the browser's console showing and fix each error: an error stops the "
+                        "rest of its script, which can be a tag or the code that sends a conversion.", "medium"),
     # accessibility (AUD-08): one finding per axe rule, titled with axe's own words
     "site-a11y": R("accessibility", "medium", "Accessibility problem", "pages",
                    "See the axe rule's page for how to fix it; automated checks find only some problems.", "medium"),
@@ -196,6 +205,10 @@ RULES: dict[str, Rule] = {
                        "render-blocking scripts.", "high"),
     "site-cls-high": R("performance", "medium", "Layout shifts while loading (lab)", "pages",
                        "Reserve space for images, ads and embeds, so content doesn't jump.", "medium"),
+    "site-consent-banner-shift": R("performance", "medium", "The consent banner moves the page as it appears", "pages",
+                                   "Show the banner over the page (fixed to the bottom or as a dialog), or reserve "
+                                   "its space from the start, so the content doesn't jump while the visitor reads.",
+                                   "medium"),
     "site-tbt-high": R("performance", "medium", "Main thread blocked while loading (lab)", "pages",
                        "Ship less JavaScript, split long tasks, and defer what isn't needed at load.", "high"),
     "site-field-lcp-slow": R("performance", "medium", "Real visitors wait for the main content", "sites",
@@ -221,7 +234,8 @@ WHO = {"crawl": "hosting", "seo": "developer", "links": "developer", "indexing":
        "structured-data": "developer", "security": "hosting", "ai": "developer", "tracking": "tag manager",
        "accessibility": "developer", "performance": "developer"}
 WHO_RULE = {"site-mixed-content": "developer", "site-crawl-error": "hosting", "site-robots-unreachable": "hosting",
-            "site-ad-params-dropped": "developer or hosting"}
+            "site-ad-params-dropped": "developer or hosting", "site-ad-params-dropped-js": "developer",
+            "site-js-errors": "developer", "site-consent-banner-shift": "tag manager"}
 
 
 @dataclass
@@ -384,6 +398,23 @@ def _tracking_findings(c: Crawl, r: Rendered | None, add: Any) -> None:
     unknown = sorted({host for host in seen.values() if host and not same_site(host, base)
                       and host not in recognised and not known_host(host)})
     add("site-unknown-third-party", unknown)
+    if lost := js_dropped_ad_params(c, r):
+        names = ", ".join(f"`{p}`" for p in lost)
+        add("site-ad-params-dropped-js", [c.start],
+            {c.start: f"loses {names} once its scripts run: the address became {code(r.ad_params.final_url)}"
+             if r.ad_params else ""})
+    shifted = [o.url for o in r.pages if o.banner_shift is not None and o.banner_shift >= CLS_GOOD]
+    add("site-consent-banner-shift", shifted)
+
+
+def js_dropped_ad_params(c: Crawl, r: Rendered | None) -> list[str]:
+    """The AD_PARAMS the server's redirects kept and the page's scripts then took out of the address."""
+    seen = r.ad_params if r else None
+    if not seen or seen.error or not seen.final_url:
+        return []
+    kept = dict(parse_qsl(urlsplit(seen.final_url).query, keep_blank_values=True))
+    gone = set(dropped_ad_params(c.ad_params))
+    return [p for p in AD_PARAMS if p not in gone and kept.get(p) != AD_TEST_VALUE]
 
 
 def host_base(origin: str) -> str:
@@ -396,6 +427,8 @@ def same_site(host: str, base: str) -> bool:
 
 
 def _rendered_findings(r: Rendered, add: Any) -> None:
+    broken = [o for o in r.pages if o.errors]
+    add("site-js-errors", [o.url for o in broken], {o.url: code(o.errors[0]) for o in broken})
     by_rule: dict[str, dict[str, Any]] = {}
     for o in r.pages:
         for v in o.axe:

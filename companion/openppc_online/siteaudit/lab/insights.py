@@ -15,6 +15,7 @@ from functools import cache
 from importlib.resources import files
 from typing import Any
 
+from .. import tags
 from .metrics import Event
 from .throttle import DESKTOP, MOBILE, MOBILE_CPU, MOBILE_DOWN_KBPS, MOBILE_LATENCY_MS, MOBILE_UP_KBPS
 
@@ -43,6 +44,23 @@ class Insight:
     bytes: int | None = None   # bytes it would save
     failed: list[str] = field(default_factory=list)  # the checks it failed, in the engine's words
     items: list[str] = field(default_factory=list)   # what it blames: files, or companies for third parties
+
+
+@dataclass
+class TagCost:
+    """What one tag or consent platform cost the load, summed over its files as the engine counts each file."""
+    id: str                    # signatures.json's vendor or consent platform id
+    name: str
+    kind: str                  # tag or consent
+    bytes: int                 # downloaded
+    ms: float                  # main-thread time on this computer, unslowed, as Lighthouse reports it
+    files: int
+
+
+@dataclass
+class Found:
+    insights: list[Insight]
+    tags: list[TagCost]
 
 
 @cache
@@ -80,9 +98,32 @@ def evaluate(browser: Any, events: list[Event], device: str, debug: bool = False
         page.context.close()
 
 
-def run(browser: Any, events: list[Event], device: str) -> list[Insight]:
+def tag_costs(costs: list[dict[str, Any]], answered: bool = False) -> list[TagCost]:
+    """The engine's per-file costs summed per known tag and consent platform, the costliest first. `answered`: the
+    load's tag hits were answered on this computer, so what they cost isn't the vendor's and is left out."""
+    out: dict[str, TagCost] = {}
+    for c in costs:
+        url = str(c.get("url") or "")
+        if answered and tags.is_hit(url):
+            continue
+        size, ms = c.get("bytes"), c.get("ms")
+        vid, cid = tags.owner_of(url), tags.consent_platform_of(url)
+        if vid:
+            key, name, kind = vid, tags.VENDORS[vid]["name"], "tag"
+        elif cid:
+            key, name, kind = cid, tags.CONSENT[cid]["name"], "consent"
+        else:
+            continue
+        t = out.setdefault(f"{kind}:{key}", TagCost(key, name, kind, 0, 0.0, 0))
+        t.bytes += round(size) if isinstance(size, (int, float)) and size > 0 else 0
+        t.ms += float(ms) if isinstance(ms, (int, float)) and ms > 0 else 0.0
+        t.files += 1
+    return sorted(out.values(), key=lambda t: (-t.ms, -t.bytes, t.name))
+
+
+def run(browser: Any, events: list[Event], device: str, answered: bool = False) -> Found:
     """Every insight on the load traced in `events` (lab.capture's raw events of an unthrottled load), failing ones
-    first. Raises ValueError when the engine finds no page load in it."""
+    first, and what each tag cost it (tag_costs). Raises ValueError when the engine finds no page load in it."""
     answer = evaluate(browser, events, device)
     if answer.get("error"):
         raise ValueError(str(answer["error"]))
@@ -95,4 +136,5 @@ def run(browser: Any, events: list[Event], device: str) -> list[Insight]:
                            quantized(r.get("metricSavings") or {}),
                            round(wasted) if isinstance(wasted, (int, float)) and wasted > 0 else None,
                            [str(x) for x in r.get("failed") or []], [str(x) for x in r.get("items") or []]))
-    return sorted(out, key=lambda i: i.state != "fail")
+    costs = [c for c in answer.get("costs") or [] if isinstance(c, dict)]
+    return Found(sorted(out, key=lambda i: i.state != "fail"), tag_costs(costs, answered))

@@ -73,6 +73,7 @@ openppc-online site example.com --max-pages 200 --format html --out site.html
 openppc-online site https://example.com --config openppc-site.json --baseline last.json --fail-on high
 openppc-online site https://example.com --render --render-url /thank-you
 openppc-online site https://example.com/landing --single --psi
+openppc-online site https://staging.example.com/ --single --lighthouse ~/lh --allow-private
 ```
 
 Crawls the site from the page you name and checks what a landing page needs before ads point at it: SEO, broken
@@ -87,15 +88,18 @@ To see whether the ad click survives the landing page's redirects, it asks for t
 platforms' click IDs (`gclid`, `gbraid`, `wbraid`, `msclkid`, `fbclid`) and the five `utm_` parameters set to
 `OPENPPC-TEST`, and checks the address it ends on still has them. That request looks like an ad click to the
 server, so the site's logs, and a CRM that reads those parameters on the server, may record `OPENPPC-TEST`; no tag
-fires, since no browser runs it. Only server redirects are checked for now.
+fires, since no browser runs it. With `--render`, Chromium then loads that address too, to see whether the page's
+scripts take a click ID out of the address; there the tags run, but their hits, and any request carrying
+`OPENPPC-TEST` to a host other than the site's, from any frame or worker, are answered on your computer, so no ad or
+analytics account sees the test value.
 
 Check only sites you own or have permission to check. It names itself in every request, as
 `OpenPPC-SiteAudit/<version> (+https://openppc.si)` in its user agent. robots.txt rules for `OpenPPC`, or for every
 crawler, apply to it, so a site's owner can see it in their logs and turn it away.
 
 - **Hosts:** the site you name (and the host its start page moves to), the hosts it links to (one `HEAD` or `GET`
-  per link, which `--no-external` skips), with `--render` the hosts the rendered pages load from (tags, fonts,
-  CDNs), chromeuxreport.googleapis.com only with `--crux`, pagespeedonline.googleapis.com only with `--psi`, and
+  per link, which `--no-external` skips), with `--render` or `--lighthouse` the hosts the pages load from (tags,
+  fonts, CDNs), chromeuxreport.googleapis.com only with `--crux`, pagespeedonline.googleapis.com only with `--psi`, and
   the webhook's host only with `--post-to`. Nothing else.
 - **Private addresses:** it refuses to connect to private, local, link-local and cloud-metadata addresses, checked
   on every connection and redirect, the browser's included. `--allow-private` opens private and local ones, to
@@ -113,8 +117,10 @@ the slow phone instead (the report explains the difference, and gives this compu
 load, a number just over a line isn't made a finding. Each measured page then gets one more load at full speed, for
 Lighthouse's insights (render-blocking files, image delivery, the main image found late, document latency, layout
 shift culprits and the rest), worked out by the DevTools trace engine Lighthouse itself uses, with the slow phone
-simulated as Lighthouse simulates it, and listed with what fixing each would save. Without it, those checks say
-they need it instead of passing. It needs Playwright and Chromium:
+simulated as Lighthouse simulates it, and listed with what fixing each would save, with what each known tag and
+consent banner cost that load (bytes downloaded and main-thread time). Script errors on the rendered pages (not
+files that failed to load) are a finding: an error stops the rest of its script, which can be a tag. Without it,
+those checks say they need it instead of passing. It needs Playwright and Chromium:
 
 ```
 pip install "openppc-online[render]"
@@ -140,6 +146,34 @@ measures public pages only: it refuses `--allow-private`, a page that isn't on a
 with a secret-looking value (`token=`, `session=` and the like) before anything is sent. The key travels in a
 header, never in a URL, and is never shown.
 
+**`--lighthouse FOLDER`** measures the same pages with your own copy of Lighthouse 13 instead, on this computer:
+the same report as `--psi` (the speed score, the five lab metrics, every audit in PSI's four categories), with no
+key and nothing sent to Google, so staging servers and private pages can be measured too (with `--allow-private`).
+Install Lighthouse once in a folder of your choice (`npm install lighthouse@13`; it needs Node.js) and give that
+folder; it also needs the `--render` extra below, since Lighthouse drives OpenPPC's browser. Each page is loaded on
+a phone, then a desktop, with the slow network and CPU simulated as PSI simulates them, one run at a time (roughly
+half a minute each for a simple page). Lighthouse attaches to the browser over a DevTools port on 127.0.0.1, open only while it runs
+and refused to every page; its loads go through the same guard as the rest of the check. Unlike OpenPPC's own Web
+Vitals loads, they fire the page's tags, as PSI's loads do, so each counts as a visit in the site's analytics.
+Pages Lighthouse measured aren't measured again by `--render`. It can't be combined with `--psi`.
+
+**Budgets** in a `--config` file set the lines a page's speed must stay within, and make each page over one a
+finding of the severity you give, so `--fail-on` can stop a release:
+
+```json
+{"openppc_site": 1,
+ "budgets": [{"id": "landing-speed", "severity": "high", "pages": "/lp/*", "device": "mobile",
+              "max": {"lcp": 2500, "tbt": 200, "script-kb": 400}, "min": {"speed-score": 80}}]}
+```
+
+`max` takes the timings `fcp`, `lcp`, `tbt`, `si` and `ttfb` in milliseconds and `cls`, and sizes downloaded in KB
+by Lighthouse's file types (`total-kb`, `script-kb`, `image-kb`, `third-party-kb` and the rest); `min` takes
+`speed-score`. A page is checked against Lighthouse's result (`--psi` or `--lighthouse`) when there is one, else
+OpenPPC's lab loads (`--render`, timings only); the finding names the line crossed and where the number came from.
+A budget nothing measured is an info finding saying what it needs, never a silent pass. `pages` (path globs) and
+`device` (`mobile`, the default, or `desktop`) are optional; [`landing-speed.json`](examples/rulepacks/landing-speed.json)
+is an example.
+
 **`--single`** checks one page instead of the whole site: the start page, and any `--render-url` pages. No sitemap,
 no links followed, no links to other sites checked; the checks that need the whole site (titles shared between
 pages, the sitemap, how a missing page answers) don't run, and the report says so. With `--render`, Web Vitals are
@@ -153,13 +187,14 @@ measured on a phone and a desktop. `--single --psi` is the quick check of one la
 | `--render` | The browser pass, as above |
 | `--render-pages N`, `--vitals-pages N` | With `--render`: pages to render (default 5), and how many of them to measure Web Vitals on (default 1, the home page; 0 skips them; pages after the first get one load each) |
 | `--runs N` | With `--render`: loads of the first measured page per device, 1 to 9 (default 3) |
-| `--render-url URL` | With `--render`, also render this page, such as a thank-you page no link leads to, to see which events its tags send; with `--psi`, also measure it (a path or a full address on the site; repeat for more) |
+| `--render-url URL` | With `--render`, also render this page, such as a thank-you page no link leads to, to see which events its tags send; with `--psi` or `--lighthouse`, also measure it (a path or a full address on the site; repeat for more) |
 | `--consent-selector CSS` | With `--render`, your consent banner's accept button, when it isn't one the check recognises |
 | `--screenshots DIR` | With `--render`, save each rendered page as first loaded there; they show whatever the page shows, so nothing is saved without it |
 | `--crux`, `--crux-key KEY` | Add real visitors' Web Vitals from Chrome's UX Report, with your own Google API key: `--crux-key KEY` (which turns `--crux` on), or `--crux` alone to read `OPENPPC_CRUX_KEY` and keep the key out of your shell history |
 | `--psi`, `--psi-key KEY` | Measure with Google PageSpeed Insights, as above; `--psi-key KEY` (which turns `--psi` on), or `OPENPPC_PSI_KEY`, uses your own key instead of the shared quota |
+| `--lighthouse FOLDER` | Measure with your own Lighthouse 13, installed in FOLDER, as above (the start page and up to 4 `--render-url` pages) |
 | `--single` | Check the start page (and `--render-url` pages) only, not the whole site |
-| `--config FILE` | A rule pack or project config: your own rules, suppressions and tag signatures (repeat for more; examples in [`examples/rulepacks`](examples/rulepacks)) |
+| `--config FILE` | A rule pack or project config: your own rules, speed budgets, suppressions and tag signatures (repeat for more; examples in [`examples/rulepacks`](examples/rulepacks)) |
 | `--baseline FILE` | An earlier `--format json` result: report what's new and fixed, and fail only on new problems |
 | `--fail-on high\|medium\|low` | Exit 2 when a finding is this severe or worse |
 | `--format md\|json\|html\|sarif` | Markdown (default), data, one HTML page, or SARIF for code scanning |

@@ -22,12 +22,13 @@ from .checks import (
     code,
     events,
     home,
+    js_dropped_ad_params,
     near_line,
     tracking,
 )
 from .crawl import MAX_QUERY_VARIANTS, Crawl, dropped_ad_params
 from .crux import ALL_METRICS, NO_DATA, FieldData
-from .lab import lhr
+from .lab import lhr, psi
 from .lab.insights import ENGINE_VERSION
 from .lab.lhr import Speed
 from .lab.metrics import QUIET_WINDOW_MS
@@ -228,10 +229,10 @@ def _markdown(c: Crawl, r: Rendered | None, findings: list[Finding], extras: Ext
             out += ["", "### Check by hand", "", "Automated checks can't judge these; a person should:", ""]
             out += [f"- [ ] {x}" for x in MANUAL_CHECKS]
 
-    out += _tracking_table(c, r)
+    out += _tracking_table(c, r, book)
     out += _meanings(extras.speed, r, extras.field_data)
     out += _speed_section(extras.speed, book)
-    out += _vitals_tables(r, book, bool(extras.speed))
+    out += _vitals_tables(r, book, extras.speed[0].source if extras.speed else "")
     out += _field_table(extras.field_data, book)
     out += _all_audits(extras.speed, book)
     out += _suppressed(extras.suppressed, book)
@@ -273,12 +274,14 @@ def _scores(graded: dict[str, Score], book: FactBook, start: Speed | None = None
     perf = graded.get("performance")
     if start and perf and perf.score is not None:
         whose = start.source + ("'" if start.source.endswith("s") else "'s")
+        shows = ("the number pagespeed.web.dev shows" if start.source == psi.SOURCE else
+                 "worked out as pagespeed.web.dev works it out")
         out += ["", f"Performance is different: it is {whose} speed score for the start page on a phone, from 0 "
-                    f"to {n('perfect score', 100, 'rule')}, the number pagespeed.web.dev shows. {_bands(book)} Its "
+                    f"to {n('perfect score', 100, 'rule')}, {shows}. {_bands(book)} Its "
                     "findings below are what lowers it, so they cost no points of their own."]
     elif perf and perf.score is not None:
         out += ["", "Performance's points come from lab loads on this computer, a rough estimate; `--psi` gives "
-                    "PageSpeed Insights' speed score instead."]
+                    "PageSpeed Insights' speed score instead, and `--lighthouse` your own Lighthouse's."]
     out += ["", "| Area | Score | Grade | |", "|---|---|---|---|"]
     for cat, s in graded.items():
         if s.score is None:
@@ -324,7 +327,7 @@ def _names(names: list[str]) -> str:
     return ", ".join(code(n).replace("|", "\\|") for n in names)
 
 
-def _tracking_table(c: Crawl, r: Rendered | None) -> list[str]:
+def _tracking_table(c: Crawl, r: Rendered | None, book: FactBook) -> list[str]:
     tags = tracking(c, r)
     if not tags:
         return []
@@ -344,6 +347,11 @@ def _tracking_table(c: Crawl, r: Rendered | None) -> list[str]:
             o = observed[0]
             out += ["", f"Consent banner: `{o.consent}`, " + (f"accepted by clicking `{o.selector}`." if o.accepted
                                                              else "not accepted, so there is no after-consent data.")]
+            if o.banner_shift is not None:
+                shift = book.count(f"consent banner layout shift on {o.url}", o.banner_shift, dp=3)
+                good = book.count("Cumulative Layout Shift good line", CLS_GOOD, "rule", dp=3)
+                out[-1] += (f" As it appeared on `{o.url}`, it moved the page by a layout shift of {shift} (a desktop "
+                            f"window at full speed; a whole page's shifts are good up to {good}).")
     else:
         out += [f"Found in the home page's HTML. Whether they fire, and when, needs {RENDER_FLAG}.", ""]
         out += [f"- {VENDORS[v]['name']}" for v in tags]
@@ -365,9 +373,12 @@ def _speed_section(speed: list[Speed], book: FactBook) -> list[str]:
     if not speed:
         return []
     n = book.count
+    where = ("Google loaded each page on its own servers with Lighthouse," if speed[0].source == psi.SOURCE else
+             "Your own Lighthouse loaded each page in OpenPPC's browser, through its guard and with the page's tags "
+             "firing, with the slow network and CPU simulated,")
     out = ["", f"## Speed ({speed[0].source})", "",
-           "Google loaded each page on its own servers with Lighthouse, on a slow phone and on a desktop, as "
-           f"pagespeed.web.dev does. {_bands(book)} The score moves a few points from one run to the next."]
+           f"{where} on a slow phone and on a desktop, as pagespeed.web.dev does. {_bands(book)} The score moves a "
+           "few points from one run to the next."]
     for s in speed:
         where = f"`{s.url}` on a {DEVICE.get(s.device, s.device)}"
         if s.error or s.score is None:
@@ -392,7 +403,7 @@ def _speed_section(speed: list[Speed], book: FactBook) -> list[str]:
     return out
 
 
-def _vitals_tables(r: Rendered | None, book: FactBook, psi: bool = False) -> list[str]:
+def _vitals_tables(r: Rendered | None, book: FactBook, measured_by: str = "") -> list[str]:
     if not r or not r.vitals:
         return []
     for label, setting in (("lab phone width", MOBILE.width), ("lab phone height", MOBILE.height),
@@ -413,8 +424,8 @@ def _vitals_tables(r: Rendered | None, book: FactBook, psi: bool = False) -> lis
         book.add("lab desktop width", DESKTOP.width, "count", "rule")
         book.add("lab desktop height", DESKTOP.height, "count", "rule")
         out += ["", f"On a desktop: {DESKTOP.label}."]
-    if psi:
-        out += ["", "Pages PageSpeed Insights measured aren't measured again here."]
+    if measured_by:
+        out += ["", f"Pages {measured_by} measured aren't measured again here."]
     if BLOCK_HITS:
         out += ["", "During these loads, the page's tag hits (analytics and ad pixels reporting a visit) were answered "
                     "on this computer, so the page sends no visits to the site's analytics or ad accounts; the tags "
@@ -495,7 +506,7 @@ def _vitals_one(v: Vitals, book: FactBook) -> list[str]:
             f"`{u}` ({book.count(f'size of {u} in KB', size / 1024)} KB)" for u, size in d["heavy"]) + ".")
     if slows:
         out += ["", "What slows it down, from the load shown:", ""] + slows
-    return out + _insight_lines(v, book, on)
+    return out + _insight_lines(v, book, on) + _tag_cost_lines(v, book, on)
 
 
 def _insight_lines(v: Vitals, book: FactBook, on: str) -> list[str]:
@@ -530,6 +541,24 @@ def _insight_lines(v: Vitals, book: FactBook, on: str) -> list[str]:
     out.append(f"- Passed: {n(f'Lighthouse insights passed on {on}', sum(i.state == 'pass' for i in v.insights))}; "
                f"to look at, with nothing to fix: "
                f"{n(f'Lighthouse insights informative on {on}', sum(i.state == 'informative' for i in v.insights))}.")
+    return out
+
+
+def _tag_cost_lines(v: Vitals, book: FactBook, on: str) -> list[str]:
+    """What each known tag and consent platform cost the full-speed load."""
+    if not v.tag_costs:
+        return []
+    n = book.count
+    out = ["", "What each tag cost that load, as Lighthouse's third-parties insight counts it: what its files "
+               "downloaded, and how long they kept the page's main thread busy on this computer, at full speed as "
+               "Lighthouse shows it:", "", "| Tag | Kind | Downloaded | Main-thread time | Files |",
+           "|---|---|---|---|---|"]
+    for t in v.tag_costs:
+        _text_numbers(book, t.name, f"tag name {t.id}")
+        label = f"{t.name} on {on}"
+        out.append(f"| {t.name} | {'consent banner' if t.kind == 'consent' else 'tag'} | "
+                   f"{n(f'{label}: KB downloaded', t.bytes / 1024)} KB | {n(f'{label}: main-thread ms', round(t.ms))} "
+                   f"ms | {n(f'{label}: files', t.files)} |")
     return out
 
 
@@ -709,7 +738,7 @@ def _vitals_data(v: Vitals) -> dict[str, Any]:
             "range": {k: list(lo_hi) for k, lo_hi in v.spread.items()}, "unstable": v.unstable,
             "no_tti": v.no_tti, "score": v.score, "score_label": LAB_SCORE,
             "insights": [asdict(i) for i in v.insights], "insights_error": v.insights_error or None,
-            "trace_engine": ENGINE_VERSION}
+            "tag_costs": [asdict(t) | {"ms": round(t.ms, 1)} for t in v.tag_costs], "trace_engine": ENGINE_VERSION}
 
 
 def _field_data(d: FieldData) -> dict[str, Any]:
@@ -753,7 +782,11 @@ def data(c: Crawl, r: Rendered | None, findings: list[Finding], extras: Extras |
         "rendered": None if not r else {
             "pages": [{"url": o.url, "error": o.error, "consent": o.consent, "accepted": o.accepted,
                        "tcf": o.tcf, "consent_mode": o.consent_mode, "screenshot": o.screenshot,
-                       "events": o.events, "datalayer": o.datalayer} for o in r.pages],
+                       "events": o.events, "datalayer": o.datalayer, "errors": o.errors,
+                       "banner_shift": o.banner_shift} for o in r.pages],
+            "ad_params": None if not r.ad_params else {
+                "url": r.ad_params.url, "final_url": r.ad_params.final_url, "error": r.ad_params.error or None,
+                "answered": r.ad_params.answered, "dropped": js_dropped_ad_params(c, r)},
             "vitals": [_vitals_data(v) for v in r.vitals],
             "refused": r.refused, "browser_calls": r.browser_calls, "benchmark_index": r.benchmark},
     }

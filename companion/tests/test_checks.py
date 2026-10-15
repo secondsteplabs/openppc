@@ -6,11 +6,11 @@ import pytest
 from sites import acme, by_id, local, page
 
 from openppc_online.siteaudit import checks, crux, packs, tags, words
-from openppc_online.siteaudit.crawl import crawl
-from openppc_online.siteaudit.lab.insights import Insight
+from openppc_online.siteaudit.crawl import AD_PARAMS, crawl
+from openppc_online.siteaudit.lab.insights import Insight, TagCost
 from openppc_online.siteaudit.page import read
-from openppc_online.siteaudit.render import Observation, Rendered, Vitals
-from openppc_online.siteaudit.report import Extras, report, sarif
+from openppc_online.siteaudit.render import AdParamsSeen, Observation, Rendered, Vitals
+from openppc_online.siteaudit.report import Extras, data, report, sarif
 from openppc_online.siteaudit.tags import consent_mode_on, known_host, vendor_of
 from openppc_online.siteaudit.triage import Diff, Suppressed, fingerprint
 
@@ -140,8 +140,13 @@ def test_lighthouses_insights_are_listed_with_their_savings_and_traced(serve):
              Insight("cls-culprits-insight", "Layout shift culprits", "fail", {"CLS": 0.124}),
              Insight("cache-insight", "Use efficient cache lifetimes", "pass"),
              Insight("lcp-breakdown-insight", "LCP breakdown", "informative")]
-    markdown, _, passed = report(c, Rendered(vitals=[Vitals(base + "/", runs=[run], insights=found)]), [])
+    costs = [TagCost("onetrust", "OneTrust", "consent", 20_480, 212.6, 1),
+             TagCost("ga4", "Google Analytics 4", "tag", 153_600, 48.2, 3)]
+    markdown, _, passed = report(c, Rendered(vitals=[Vitals(base + "/", runs=[run], insights=found,
+                                                            tag_costs=costs)]), [])
     assert passed, markdown
+    assert "| OneTrust | consent banner | 20 KB | 213 ms | 1 |" in markdown
+    assert "| Google Analytics 4 | tag | 150 KB | 48 ms | 3 |" in markdown
     assert "the DevTools trace engine `0.0.65`) from one more load at full speed, with the phone simulated" in markdown
     assert ("- **Render blocking requests** (`render-blocking-insight`): could save about 900 ms of First Contentful "
             "Paint and 850 ms of Largest Contentful Paint. In plain words: files the browser must fetch") in markdown
@@ -176,15 +181,33 @@ def test_what_a_browser_pass_saw_becomes_findings(serve):
                                     links=[base + "/a", base + "/app/deep", "https://other.test/"],
                                     events={"ga4": ["page_view", "step_2"]}, datalayer=["form_submit_3"],
                                     axe=[{"id": "image-alt", "impact": "critical", "help": "Images need alt text",
-                                          "targets": ["img.hero"], "criteria": ["1.1.1"]}])])
+                                          "targets": ["img.hero"], "criteria": ["1.1.1"]}],
+                                    errors=["TypeError: fbq_2 is `not` a function", "SyntaxError: line 40"]),
+                        Observation(base + "/a")],
+                 ad_params=AdParamsSeen(c.ad_params.url, base + "/?" + "&".join(
+                     f"{p}=OPENPPC-TEST" for p in AD_PARAMS if p not in ("gclid", "fbclid")), answered=3))
     f = by_id(checks.evaluate(c, r))
+    assert f["site-ad-params-dropped-js"].notes[base + "/"].startswith("loses `gclid`, `fbclid` once its scripts run")
+    assert checks.js_dropped_ad_params(c, Rendered(ad_params=AdParamsSeen(c.ad_params.url, error="timed out"))) == []
     assert f["site-js-only-links"].items == [base + "/app/deep"]
     assert f["site-no-consent-banner"].items == ["Google Analytics 4"]
     assert f["site-unknown-third-party"].items == ["cdn.unknown.test"]
     assert f["site-a11y:image-alt"].level == "high"
+    assert f["site-js-errors"].items == [base + "/"]
+    assert f["site-js-errors"].notes == {base + "/": "`TypeError: fbq_2 is 'not' a function`"}
     markdown, _, passed = report(c, r, list(f.values()))
     assert passed, markdown
     assert "| `page_view`, `step_2` |" in markdown and "dataLayer: `form_submit_3`." in markdown
+    assert "Pages with JavaScript errors" in markdown
+    doc = data(c, r, list(f.values()))
+    assert doc["rendered"]["ad_params"]["dropped"] == ["gclid", "fbclid"] and doc["rendered"]["ad_params"]["answered"] == 3
+    assert doc["rendered"]["pages"][0]["errors"][0].startswith("TypeError")
+    r = Rendered(pages=[Observation(base + "/", before=[hit], consent="onetrust", accepted=True, selector="#accept",
+                                    banner_shift=0.1563), Observation(base + "/a", banner_shift=0.09)])
+    f = by_id(checks.evaluate(c, r))
+    assert f["site-consent-banner-shift"].items == [base + "/"]
+    markdown, _, passed = report(c, r, list(f.values()))
+    assert passed and "it moved the page by a layout shift of 0.156 (a desktop window" in markdown
 
 
 @pytest.mark.parametrize("url, vendor", [

@@ -10,7 +10,7 @@ from openppc_online.siteaudit.lab.throttle import MOBILE
 
 # companion/calibration's `npm run vendor` from its lockfile (trace engine 0.0.65, esbuild 0.28.2); the calibration
 # workflow rebuilds it and compares
-ENGINE_SHA256 = "dc1359f8db11b0173ff60e340c3eeccc85db8322e7a26c4d57a293dd6ce0174e"
+ENGINE_SHA256 = "c5a75c7e2fa81109c63ff13da56974c000a4832885e7a9ffe59873efd37312a2"
 
 
 def test_the_vendored_trace_engine_is_the_pinned_build_with_its_licences():
@@ -69,7 +69,7 @@ def test_the_engines_answer_becomes_insights_failing_first():
                             "wastedBytes": 2610.4, "failed": ["Applies text compression"]},
         "ForcedReflow": {"error": "Error: no stacks"}}}
     browser = Browser(answer)
-    found = insights.run(browser, [{"name": "x"}], "mobile")
+    found = insights.run(browser, [{"name": "x"}], "mobile").insights
     assert [(i.id, i.state) for i in found] == [("render-blocking-insight", "fail"),
                                                 ("document-latency-insight", "fail"), ("cache-insight", "pass")]
     assert found[0].savings == {"FCP": 900} and found[0].items == ["https://a.test/app.css"]
@@ -79,6 +79,30 @@ def test_the_engines_answer_becomes_insights_failing_first():
     text, settings, dpr, debug = page.args
     assert text == '[{"name": "x"}]' and settings["cpuSlowdownMultiplier"] == 4 and settings["rttMs"] == 150
     assert settings["requestLatencyMs"] == MOBILE.latency_ms and dpr == MOBILE.scale and debug is False
+
+
+def test_each_tags_files_are_summed_and_the_site_and_unknown_hosts_left_out():
+    costs = [
+        {"url": "https://www.googletagmanager.com/gtm.js?id=GTM-X", "bytes": 90_000, "ms": 120.4},
+        {"url": "https://www.googletagmanager.com/gtag/js?id=G-X", "bytes": 40_000, "ms": 30},
+        {"url": "https://www.google-analytics.com/g/collect?v=2", "bytes": 0, "ms": 0.5},
+        {"url": "https://connect.facebook.net/en_US/fbevents.js", "bytes": 60_000.4, "ms": 15},
+        {"url": "https://cdn.cookielaw.org/scripttemplates/otSDKStub.js", "bytes": 20_000, "ms": 200},
+        {"url": "https://a.test/app.js", "bytes": 500_000, "ms": 900},
+        {"url": "https://cdn.unknown.test/x.js", "bytes": 1, "ms": 1},
+        {"url": "https://connect.facebook.net/signals/config", "bytes": None, "ms": "x"}]
+    got = {t.id: (t.kind, t.bytes, round(t.ms, 1), t.files) for t in insights.tag_costs(costs)}
+    assert got == {"onetrust": ("consent", 20_000, 200.0, 1), "gtm": ("tag", 90_000, 120.4, 1),
+                   "ga4": ("tag", 40_000, 30.5, 2), "meta": ("tag", 60_000, 15.0, 2)}
+    assert [t.id for t in insights.tag_costs(costs)] == ["onetrust", "gtm", "ga4", "meta"]
+    assert insights.tag_costs(costs, answered=True)[2].files == 1  # GA4's hit was answered here, so isn't its cost
+
+
+def test_the_engines_costs_come_back_per_tag():
+    answer = {"url": "https://a.test/", "insights": {}, "costs": [
+        {"url": "https://connect.facebook.net/en_US/fbevents.js", "bytes": 1000, "ms": 5}, "junk"]}
+    found = insights.run(Browser(answer), [], "mobile")
+    assert found.insights == [] and [(t.name, t.bytes) for t in found.tags] == [("Meta Pixel", 1000)]
 
 
 def test_a_trace_with_no_page_load_is_an_error_and_the_page_still_closes():

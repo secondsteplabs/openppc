@@ -299,11 +299,14 @@
           : soft ? doc.findings.find((x) => x.rule === soft).title + '.' : 'Nothing was sent before consent.']);
     }
     const ad = doc.ad_params;
-    out.push(['Ad click IDs survive redirects', !ad ? 'unknown' : ad.dropped.length ? 'fail' : 'pass',
+    const js = doc.rendered && doc.rendered.ad_params && !doc.rendered.ad_params.error ? doc.rendered.ad_params : null;
+    const scope = js ? ' and the page\u2019s scripts keep them' : ' (server redirects only)';
+    out.push(['Ad click IDs survive redirects', !ad ? 'unknown' : ad.dropped.length || (js && js.dropped.length) ? 'fail' : 'pass',
       !ad ? 'Not checked: the start page wasn\u2019t fetched with them.'
         : ad.dropped.length ? `A redirect drops ${ad.dropped.join(', ')}.`
-          : ad.redirects ? `Kept through ${plural(ad.redirects, 'redirect')} (server redirects only).`
-            : 'No redirect: they reach the page (server redirects only).']);
+          : js && js.dropped.length ? `The page\u2019s scripts take out ${js.dropped.join(', ')}.`
+            : ad.redirects ? `Kept through ${plural(ad.redirects, 'redirect')}${scope}.`
+              : `No redirect: they reach the page${scope}.`]);
     return out;
   }
 

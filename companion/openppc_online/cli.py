@@ -6,6 +6,7 @@
     openppc-online site https://example.com --config openppc-site.json --baseline last.json --fail-on high
     openppc-online site https://example.com --render --render-url /thank-you
     openppc-online site https://example.com/landing --single --psi
+    openppc-online site https://staging.example.com/ --single --lighthouse ~/lh --allow-private
     openppc-online fetch google 123-456-7890 --out exports/
     openppc-online fetch meta act_123456789 --conversion lead --out exports/
 
@@ -114,6 +115,11 @@ def _parser() -> argparse.ArgumentParser:
     s.add_argument("--psi-key", metavar="KEY",
                    help=f"your own PageSpeed Insights API key, for --psi (it implies it); {PSI_KEY_ENV} keeps it out "
                         "of your shell history")
+    s.add_argument("--lighthouse", metavar="FOLDER",
+                   help="also measure the start page and each --render-url page (5 in all) with your own "
+                        "Lighthouse 13 (the folder where you ran npm install lighthouse@13; needs Node.js and the "
+                        "render extra), on a phone and a desktop, as PageSpeed Insights does: private and staging "
+                        "pages too, nothing sent to Google; the loads fire the page's tags")
     s.add_argument("--single", action="store_true",
                    help="check the start page (and any --render-url pages) only, not the whole site: no sitemap, "
                         "no links followed")
@@ -192,7 +198,7 @@ def _site(args: argparse.Namespace) -> int:
                              baseline=baseline, post_to=args.post_to, rendered=args.render,
                              render_pages=args.render_pages, vitals_pages=args.vitals_pages, runs=args.runs,
                              render_url=args.render_url, consent_selector=args.consent_selector,
-                             screenshots=args.screenshots, progress=progress)
+                             screenshots=args.screenshots, progress=progress, lighthouse_dir=args.lighthouse)
     if progress:
         print(file=sys.stderr)
     _emit(result.texts[args.format], args.out)

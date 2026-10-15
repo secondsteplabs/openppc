@@ -134,14 +134,17 @@ def test_a_run_attaches_to_a_marked_page_behind_the_proxy(tmp_path, monkeypatch)
                          "http://127.0.0.1:2")
     assert got["lighthouseVersion"] == lhr["lighthouseVersion"]
     (cmd, kwargs), = calls
-    script, lh, address, marker, url, device, method = cmd[1:]
+    script, lh, address, marker, url, device, method, categories = cmd[1:]
     assert script.endswith("lighthouse.mjs") and Path(script).is_file()
-    assert (lh, address, url, device, method) == (str(tmp_path), "ws://127.0.0.1:1/devtools/browser/x",
-                                                  "https://example.com/", "mobile", "devtools")
+    assert (lh, address, url, device, method, categories) == (
+        str(tmp_path), "ws://127.0.0.1:1/devtools/browser/x", "https://example.com/", "mobile", "devtools",
+        "performance")
     assert marker.startswith("about:blank#openppc-") and browser.visited == [marker]
     context, = browser.contexts
     assert context.kwargs["proxy"] == {"server": "http://127.0.0.1:2"} and context.closed
     assert kwargs["timeout"] == lighthouse.RUN_S and "shell" not in kwargs
+    lighthouse.run(browser, "ws://x", tmp_path, "https://example.com/", "mobile", "p", "simulate", lighthouse.CATEGORIES)
+    assert calls[-1][0][-2:] == ["simulate", "performance,accessibility,best-practices,seo"]
 
 
 @pytest.mark.parametrize("result, raises, match", [
@@ -165,6 +168,8 @@ def test_an_unknown_device_or_method_is_refused_before_anything_starts(tmp_path)
         lighthouse.run(FakeBrowser(tmp_path), "ws://x", tmp_path, "https://a/", "tablet", "p")
     with pytest.raises(ValueError, match="no Lighthouse run"):
         lighthouse.run(FakeBrowser(tmp_path), "ws://x", tmp_path, "https://a/", "mobile", "p", "provided")
+    with pytest.raises(ValueError, match="no Lighthouse run"):
+        lighthouse.run(FakeBrowser(tmp_path), "ws://x", tmp_path, "https://a/", "mobile", "p", "simulate", ("pwa",))
 
 
 def test_the_reports_metrics_are_named_as_the_lab_names_them():

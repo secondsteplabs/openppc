@@ -2,7 +2,7 @@
 // run: `npm run vendor` writes openppc_online/siteaudit/vendor/trace-engine.js (`npm run build`, build/ for trying it),
 // which sets globalThis.openppcTraceEngine. Its insights(events, lanternSettings, hostDPR) runs the engine as
 // Lighthouse's core/computed/trace-engine-result.js does and returns, for the load's navigation, each insight's state,
-// savings, English title, the checks it failed and up to ITEMS of what it blames, as plain JSON.
+// savings, English title, the checks it failed and up to ITEMS of what it blames, and each URL's cost, as plain JSON.
 import * as TraceEngine from '@paulirish/trace_engine';
 
 const ITEMS = 5;
@@ -60,7 +60,11 @@ async function insights(events, lanternSettings, hostDPR, debug = false) {
     if (debug && model.state === 'fail') out[name].model = trimmed(model);
   }
   for (const [name, error] of Object.entries(set.modelErrors)) out[name] = { error: String(error) };
-  return { url: String(set.url), insights: out };
+  // Each URL's bytes and main-thread time, as Lighthouse's third-parties insight counts them
+  const costs = TraceEngine.Extras.ThirdParties.summarizeByURL(processor.data, set.bounds)
+    .filter((s) => s.url && (s.transferSize > 0 || s.mainThreadTime > 0))
+    .map((s) => ({ url: s.url, bytes: s.transferSize, ms: s.mainThreadTime }));
+  return { url: String(set.url), insights: out, costs };
 }
 
 globalThis.openppcTraceEngine = { insights };
