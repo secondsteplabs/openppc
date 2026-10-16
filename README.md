@@ -118,6 +118,17 @@ openppc audit search-term-waste exports/search_terms.csv --brand "Acme Plumbing,
 
 Premium templates are planned as a paid add-on: a full account audit, Performance Max, a branded client-ready PDF, and multi-account triage. Everything in this repository stays free under the MIT license.
 
+## Playbook: how to fix each finding
+
+The Playbook turns an audit into a fix plan. For every finding: what the audit found (its own sentence, so every number is one the audit computed and checked), why it matters, the steps in Google Ads, what to check first and how to tell it worked. Each step cites the rulebook rule and source behind it, and the guides promise no results.
+
+```bash
+openppc playbook search-term-waste exports/search_terms.csv --brand "Acme Plumbing, Acme"
+openppc playbook account-structure --sample
+```
+
+The guides live in [`openppc/playbook/guides/`](openppc/playbook/guides/), one per kind of finding, and every fix plan passes the number check against its export in the tests. Read them all at [openppc.si/docs/playbook](https://openppc.si/docs/playbook/). The MCP server offers the same as `fix_plan_for_account` (local) and `fix_plan_for_export` (web).
+
 ## Use it inside Claude, Cursor and ChatGPT
 
 OpenPPC is an MCP server: your assistant writes the words, and OpenPPC computes and checks the numbers.

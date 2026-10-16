@@ -15,7 +15,7 @@ These searches keep paying for clicks that don't turn into leads or sales. The w
 
 ## How to fix it in Google Ads
 1. Open Campaigns, then Insights and reports, then Search terms, and set the same date range as the audit.
-2. Tick the terms listed above, then choose Add as negative keyword.
+2. Tick the terms the audit lists, then choose Add as negative keyword.
 3. Add each as an exact match negative, written in square brackets, for example [free plumbing estimate]. Exact negatives block that search only, so they can't stop good searches.
 4. Add them at the campaign level, or to a shared negative keyword list if the same terms show up in several campaigns.
 
