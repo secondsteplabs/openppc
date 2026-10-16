@@ -11,20 +11,28 @@
   "homepage": "https://openppc.si",
   "repository": "https://github.com/secondsteplabs/openppc",
   "license": "MIT",
-  "keywords": ["google ads", "ppc", "audit", "search terms", "negative keywords", "wasted spend"],
+  "keywords": [
+    "google ads",
+    "ppc",
+    "audit",
+    "search terms",
+    "negative keywords",
+    "wasted spend"
+  ],
   "extensions": {
     "com.openai": {
       "interface": {
         "displayName": "OpenPPC",
         "shortDescription": "Google Ads audits, checked",
-        "longDescription": "OpenPPC by Second Step Labs audits Google Ads accounts from an export you upload in the chat, and checks the numbers in any Google Ads audit, including one ChatGPT or an agency wrote.\n\nWhat it does:\n- Search-term audit: terms that spent money and never converted, ranked by cost, with how sure it is that each one is wasting money, and the terms worth adding as keywords.\n- Keyword audit: keywords spending without converting, results by match type, spend on low Quality Scores.\n- Account structure audit: broad match without Smart Bidding, brand mixed with non-brand, duplicate keywords, negatives that block your own keywords, thin ads and more.\n- Number check: every figure in an audit is traced to your export and marked traced, wrong number, wrong label or can't check.\n\nHow it works: open-source code computes every number from your export; nothing is estimated by the model. It never connects to your Google Ads account and never changes anything. It keeps nothing after it answers.\n\nWho it is for: business owners, marketers and agencies who run Google Ads.\n\nLimits: Google Ads only, from exports (CSV for search terms and keywords, JSON for an account snapshot). Exports up to 25 MB. Fair use: 30 audits or checks per 10 minutes per user. The same engine runs free and without limits at openppc.si or with pip install openppc.",
+        "longDescription": "OpenPPC by Second Step Labs audits Google Ads accounts from an export you upload in the chat, and checks the numbers in any Google Ads audit, including one ChatGPT or an agency wrote.\n\nWhat it does:\n- Search-term audit: terms that spent money and never converted, ranked by cost, with how sure it is that each one is wasting money, and the terms worth adding as keywords.\n- Keyword audit: keywords spending without converting, results by match type, spend on low Quality Scores.\n- Account structure audit: broad match without Smart Bidding, brand mixed with non-brand, duplicate keywords, negatives that block your own keywords, thin ads and more.\n- Number check: every figure in an audit is traced to your export and marked traced, wrong number, wrong label or can't check.\n- Fix plan: for each finding, why it matters, the steps in Google Ads, what to check first and how to tell it worked, citing Google's help pages and named practitioners.\n\nHow it works: open-source code computes every number from your export; nothing is estimated by the model. It never connects to your Google Ads account and never changes anything. It keeps nothing after it answers.\n\nWho it is for: business owners, marketers and agencies who run Google Ads.\n\nLimits: Google Ads only, from exports (CSV for search terms and keywords, JSON for an account snapshot). Exports up to 25 MB. Fair use: 30 audits or checks per 10 minutes per user. The same engine runs free and without limits at openppc.si or with pip install openppc.",
         "developerName": "Second Step Labs",
         "category": "Productivity",
         "capabilities": [
           "Audit search terms for wasted spend",
           "Audit keywords and match types",
           "Audit account structure",
-          "Check every number in a Google Ads audit"
+          "Check every number in a Google Ads audit",
+          "Step-by-step fix plans with sources"
         ],
         "websiteURL": "https://openppc.si",
         "supportURL": "https://openppc.si/support/",
@@ -33,7 +41,7 @@
         "defaultPrompt": [
           "Audit this Google Ads search terms report for wasted spend.",
           "Check every number in this Google Ads audit against my export.",
-          "Which of my search terms should become negative keywords?"
+          "Give me a step-by-step fix plan for this search terms report."
         ],
         "composerIcon": "./assets/icon.png",
         "logo": "./assets/logo.png",
@@ -47,7 +55,9 @@
               "prompt": "Audit this search terms report for wasted spend. Our brand is Acme Plumbing.",
               "tools_triggered": "audit_export",
               "expected_behavior": "Runs the search-term-waste template on the attached CSV and shows the results view: wasted spend $767.20, 15.4% of total cost, cost per conversion $58.51, July 1 to July 31, 2026, with a table of terms and a button to copy selected terms as exact-match negatives. Brand terms are not flagged. The reply quotes these figures without adding new ones.",
-              "file_attachment_urls": ["https://raw.githubusercontent.com/secondsteplabs/openppc/main/examples/search_terms_acme.csv"]
+              "file_attachment_urls": [
+                "https://raw.githubusercontent.com/secondsteplabs/openppc/main/examples/search_terms_acme.csv"
+              ]
             },
             {
               "description": "Check the numbers in an AI-written audit",
@@ -64,20 +74,27 @@
               "prompt": "Run a keyword audit on this keywords report.",
               "tools_triggered": "audit_export",
               "expected_behavior": "Runs the keyword-audit template on the attached CSV and reports keywords spending without converting, results by match type and spend on low Quality Scores for July 1 to July 31, 2026, every figure computed from the file.",
-              "file_attachment_urls": ["https://raw.githubusercontent.com/secondsteplabs/openppc/main/examples/keywords_acme.csv"]
+              "file_attachment_urls": [
+                "https://raw.githubusercontent.com/secondsteplabs/openppc/main/examples/keywords_acme.csv"
+              ]
             },
             {
               "description": "Account structure audit from an account snapshot",
               "prompt": "Audit how this Google Ads account is built.",
               "tools_triggered": "audit_export",
               "expected_behavior": "Runs the account-structure template on the attached JSON snapshot of the synthetic Acme Plumbing account and lists structural problems such as brand mixed with non-brand, duplicate keywords and negatives that block the account's own keywords.",
-              "file_attachment_urls": ["https://raw.githubusercontent.com/secondsteplabs/openppc/main/examples/account_structure_acme.json"]
+              "file_attachment_urls": [
+                "https://raw.githubusercontent.com/secondsteplabs/openppc/main/examples/account_structure_acme.json"
+              ]
             },
             {
-              "description": "Explain which audits are available",
-              "prompt": "What Google Ads audits can OpenPPC run, and which export does each one need?",
-              "tools_triggered": "list_templates",
-              "expected_behavior": "Lists the four templates (search-term-waste, keyword-audit, account-structure, account-read) with the export each one reads and what it returns, and asks the user to upload the matching export."
+              "description": "Fix plan for an uploaded export",
+              "prompt": "How do I fix what's wrong in this search terms report? Our brand is Acme Plumbing.",
+              "tools_triggered": "fix_plan",
+              "expected_behavior": "Returns a fix plan with 3 fixes, each opening with the audit's own finding: 6 terms that need more clicks before becoming negatives (the closest, “free plumbing estimate”, is 79% likely bad after 41 clicks), one expensive converter (“water heater replacement cost” at $201.40 against the $58.51 average), and 5 converting terms to add as keywords. Each fix lists why it matters, the steps in Google Ads, what to check first, how to tell it worked, and its sources. The reply adds no figures of its own.",
+              "file_attachment_urls": [
+                "https://raw.githubusercontent.com/secondsteplabs/openppc/main/examples/search_terms_acme.csv"
+              ]
             }
           ],
           "negative": [

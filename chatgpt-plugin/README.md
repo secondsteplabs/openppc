@@ -8,8 +8,8 @@ The ChatGPT plugin: the OpenPPC MCP server (`openppc-mcp --http`) as an app, plu
 - `assets/`: icon and logo (square, 512 px).
 - `Dockerfile`, `railway.json`: the hosted server's container, built from the repository root.
 
-The server gives ChatGPT two read-only tools that take an uploaded export (`audit_export`, `check_audit`) and show
-their results in a view (`ui://openppc/results-v1.html`), plus `list_templates`.
+The server gives ChatGPT three read-only tools that take an uploaded export (`audit_export`, `check_audit`,
+`fix_plan`) and show their results in a view (`ui://openppc/results-v1.html`), plus `list_templates`.
 
 ## Hosting
 

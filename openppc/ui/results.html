@@ -57,6 +57,15 @@ button:disabled { opacity: .5; cursor: default; }
 textarea { width: 100%; min-height: 90px; margin-top: 8px; padding: 8px; border: 1px solid var(--line); border-radius: 10px; font: 12.5px var(--mono); color: var(--ink); background: var(--soft); }
 .foot { margin-top: 16px; font-size: 12px; color: var(--muted); }
 .empty { color: var(--muted); }
+.fix { margin-top: 10px; padding: 12px 14px; border-radius: 12px; background: var(--soft); border-left: 4px solid var(--accent); }
+.fix > summary { list-style: none; color: var(--ink); font-weight: 700; font-size: 15px; }
+.fix > summary::-webkit-details-marker { display: none; }
+.fix > summary .n { display: inline-block; min-width: 22px; color: var(--accent); }
+.found { margin: 10px 0 4px; padding: 8px 10px; border-radius: 10px; background: var(--card); color: var(--ink); }
+.found b { color: var(--accent); }
+.fix h3 { margin: 12px 0 4px; font-size: 13px; color: var(--ink); }
+.fix p { margin: 4px 0; } .fix ol, .fix ul { margin: 4px 0; padding-left: 20px; } .fix li { margin: 3px 0; }
+.src { margin-top: 10px; font-size: 12px; color: var(--muted); }
 @media (max-width: 520px) { .chips { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>
 </head>
@@ -141,12 +150,38 @@ textarea { width: 100%; min-height: 90px; margin-top: 8px; padding: 8px; border:
     resize();
   }
 
+  const rich = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');  // guides use **bold** and nothing else
+
+  function section(s) {
+    return `<h3>${esc(s.heading)}</h3>`
+      + (s.paragraphs || []).map((p) => `<p>${rich(p)}</p>`).join('')
+      + ((s.steps || []).length ? `<ol>${s.steps.map((x) => `<li>${rich(x)}</li>`).join('')}</ol>` : '')
+      + ((s.bullets || []).length ? `<ul>${s.bullets.map((x) => `<li>${rich(x)}</li>`).join('')}</ul>` : '');
+  }
+
+  function renderPlan(v) {
+    const fixes = v.fixes || [];
+    root.innerHTML = `<div class="brand">${LOGO}OpenPPC fix plan</div><h1>${esc(v.title)}</h1>`
+      + (fixes.length
+        ? `<div class="ctx">${plural(fixes.length, 'thing', 'things')} to fix. Every number is quoted from the audit; each step names its sources.</div>`
+          + fixes.map((f, i) => `<details class="fix" ${i === 0 ? 'open' : ''}><summary><span class="n">${i + 1}.</span>${esc(f.title)}</summary>`
+            + `<div class="found"><b>What the audit found:</b> ${esc((f.found || []).join(' '))}</div>`
+            + (f.sections || []).map(section).join('')
+            + ((f.sources || []).length ? `<div class="src">Sources: ${f.sources.map((s) => esc(s.publisher ? `${s.name} (${s.publisher})` : s.name)).join('; ')}</div>` : '')
+            + '</details>').join('')
+        : '<p class="empty">The audit found nothing the Playbook has a guide for. Nothing to fix here.</p>')
+      + `<p class="foot">OpenPPC never changes your account: you make each change in Google Ads. Nothing was stored.</p>`;
+    root.querySelectorAll('details').forEach((d) => d.addEventListener('toggle', resize));
+    resize();
+  }
+
   function render(result) {
     const v = result && (result.structuredContent || result.structured_content || result);
     if (!v || !v.kind) return;
     theme();
     if (v.kind === 'check') renderCheck(v);
     else if (v.kind === 'audit') renderAudit(v);
+    else if (v.kind === 'plan') renderPlan(v);
   }
 
   theme();

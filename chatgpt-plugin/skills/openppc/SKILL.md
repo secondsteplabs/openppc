@@ -13,6 +13,14 @@ OpenPPC computes Google Ads numbers with code and traces each one back to the ex
 4. Present the report's numbers exactly as OpenPPC gives them. Never add totals, shares, averages or forecasts of your own: if a figure isn't in the report, say so instead of working it out.
 5. Lead with what to do: the terms to watch, the negatives to add, the terms to add as keywords. Say plainly when a term is only likely bad, not proven bad.
 
+## When someone asks how to fix it
+
+Use `fix_plan` when someone asks what to do about an audit's findings, how to fix their account, or for a step-by-step plan. Pass the same export and brand names as the audit.
+
+- Present the plan as it comes: each fix opens with what the audit found, in its own numbers, then why it matters, the steps in Google Ads, what to check first and how to tell it worked.
+- Keep the sources with each fix. Don't add steps, figures or promised results of your own.
+- If the user wants only one fix explained, quote that fix's steps; don't rewrite them.
+
 ## When someone wants an audit checked
 
 Use `check_audit` for any audit: one written by an agency, a colleague, another AI, or one you wrote earlier in this chat. Pass the audit's text and the same export it was written from.

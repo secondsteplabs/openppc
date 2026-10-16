@@ -121,6 +121,7 @@ def test_chatgpt_sees_read_only_tools_that_take_an_upload_and_show_a_results_vie
             assert tools[name]["annotations"] == {"readOnlyHint": True, "destructiveHint": False, "openWorldHint": False}
         view = call(3, "resources/read", {"uri": mcp_server.RESULTS_VIEW})["contents"][0]
         assert view["mimeType"] == "text/html;profile=mcp-app" and "ui/notifications/tool-result" in view["text"]
+        assert "renderPlan" in view["text"]  # the fix plan has its own view
 
 
 def test_an_export_uploaded_in_chatgpt_is_fetched_audited_and_checked(monkeypatch):
@@ -145,6 +146,16 @@ def test_an_export_uploaded_in_chatgpt_is_fetched_audited_and_checked(monkeypatc
             view = audit["structuredContent"]
             assert view["kind"] == "audit" and view["passed"] and view["cards"]["waste"]
             assert audit["content"][0]["text"] == mcp_server.audit_account("search-term-waste", str(CSV))
+            plan = call(4, "tools/call", {"name": "fix_plan", "arguments": {
+                "template": "search-term-waste", "export_file": upload, "brand": "Acme Plumbing, Acme"}})
+            view = plan["structuredContent"]
+            assert view["kind"] == "plan" and [f["guide"] for f in view["fixes"]] == [
+                "stw-not-proven-yet", "stw-expensive-converters", "stw-harvest"]
+            first = view["fixes"][0]
+            assert first["found"][0].startswith("Give 6 terms more clicks") and first["sources"]
+            assert [s["heading"] for s in first["sections"]][:2] == ["Why it matters", "How to fix it in Google Ads"]
+            assert plan["content"][0]["text"] == mcp_server.fix_plan_for_account(
+                "search-term-waste", str(CSV), brand="Acme Plumbing, Acme")
     finally:
         httpd.shutdown()
 
