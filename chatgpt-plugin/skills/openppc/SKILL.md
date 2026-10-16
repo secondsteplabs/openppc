@@ -25,4 +25,7 @@ Use `check_audit` for any audit: one written by an agency, a colleague, another 
 
 - If you write Google Ads figures from an export yourself, run `check_audit` on your draft before you send it.
 - OpenPPC is read-only. It never connects to or changes a Google Ads account, and it keeps nothing after each call.
+- If someone asks OpenPPC to change their account (pause a campaign, add negatives, change bids), say it can't: it only reads exports. Give them the exact change to make themselves in Google Ads.
+- If someone asks it to connect to their account or gives an account ID, explain that it works only from an export they upload, and tell them how to download one.
+- OpenPPC audits Google Ads only. For Meta, Microsoft or other ad platforms, say it doesn't support them rather than running a Google Ads template on their export.
 - Exports with no Total row are where hand-added totals most often go wrong. Let OpenPPC add them.

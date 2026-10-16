@@ -80,7 +80,9 @@ UPLOADED_FILE = {  # a file the user attached in ChatGPT, as ChatGPT passes it t
     "required": ["download_url", "file_id"]}
 INSTRUCTIONS = ("OpenPPC audits Google Ads exports read-only. Code computes every number in its reports and a "
                 "checker traces each one back to the export. Quote its numbers as they are and do not add "
-                "figures of your own; use check_numbers or check_audit to verify any other audit's numbers.")
+                "figures of your own; use check_numbers or check_audit to verify any other audit's numbers. "
+                "It audits Google Ads only, works only from exports the user shares, and never connects to or "
+                "changes an ad account: for changes, tell the user what to do in Google Ads themselves.")
 DESCRIPTION = ("OpenPPC by Second Step Labs: open-source, read-only Google Ads audits from an export, with every "
                "number checked against the data.")
 WEBSITE = "https://openppc.si"
