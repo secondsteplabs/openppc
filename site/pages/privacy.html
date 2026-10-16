@@ -1,0 +1,57 @@
+<!--
+title: Privacy policy: OpenPPC
+description: What OpenPPC collects and keeps: nothing from your exports in the browser app, nothing after a call in ChatGPT, and basic site analytics.
+crumb: Privacy
+-->
+<div class="wrap doc">
+  <nav class="doc-nav" aria-label="About OpenPPC">
+    <a href="/privacy/">Privacy policy</a>
+    <a href="/terms/">Terms of service</a>
+    <a href="/support/">Support</a>
+  </nav>
+  <article class="doc-body">
+    <span class="label">Last updated October 17, 2026</span>
+    <h1>Privacy policy</h1>
+    <p class="doc-lead">OpenPPC is built so that we never need your data. This page says exactly what each part of it receives, what it keeps and for how long.</p>
+    <p>OpenPPC is made by Second Step Labs, the open-source arm of Second Step, a business registered in India ("we"). Questions go to <a href="mailto:support@openppc.si">support@openppc.si</a>.</p>
+
+    <h2 id="app">The browser app (openppc.si/app)</h2>
+    <p>The app runs entirely in your browser. The exports and audits you add are read on your own device and are never uploaded to us or anyone else. Closing the tab removes them. The app loads its Python engine from a public code server (cdn.jsdelivr.net), which sees an ordinary download request, and runs no analytics.</p>
+
+    <h2 id="chatgpt">OpenPPC in ChatGPT</h2>
+    <p>When you use OpenPPC inside ChatGPT, our server at mcp.openppc.si receives what the tool call needs:</p>
+    <ul>
+      <li>the Google Ads export you upload or paste (search terms, keywords or an account snapshot), and the audit text you ask it to check;</li>
+      <li>the settings you give, such as brand names and an industry;</li>
+      <li>an anonymous user id that ChatGPT sends with each call. It is not your name, email or account.</li>
+    </ul>
+    <p><b>How we use it.</b> Only to run the audit or check you asked for and return the result to ChatGPT. The export is written to a temporary folder that is deleted as soon as the call ends. We do not store exports, audits or results, use them to train models, or share them with anyone.</p>
+    <p><b>Fair use.</b> To keep the free service available, the server counts each anonymous user id's calls in memory for 10 minutes. The count is never written to disk and resets when the server restarts.</p>
+    <p><b>Logs.</b> Our hosting provider, Railway, records basic request information (time, address, response status) as part of running the server, kept for a limited period. These logs do not contain your export or audit.</p>
+    <p>ChatGPT itself is run by OpenAI under its own privacy policy, which covers your conversations, including the files you upload there.</p>
+
+    <h2 id="computer">On your own computer</h2>
+    <p>The command line tool and the MCP server for Claude, Cursor and other assistants run on your machine and make no network calls of their own. We receive nothing from them.</p>
+
+    <h2 id="website">This website</h2>
+    <p>The website uses Google Analytics 4 to count visits and see which pages are read: pages viewed, the site that referred you, your device and browser type, and an approximate location derived from your address. Visitors in the European Economic Area, the United Kingdom and Switzerland are counted without analytics cookies. Advertising cookies are off for everyone. Analytics never runs in the app.</p>
+    <p>The site is served by Hostinger and delivered through Cloudflare, which process requests to deliver the pages and protect the site.</p>
+
+    <h2 id="sharing">Who receives data</h2>
+    <p>We do not sell or share personal data. The services named above (OpenAI for ChatGPT, Railway, Hostinger, Cloudflare, Google Analytics and jsDelivr) receive only what they need to provide their part.</p>
+
+    <h2 id="retention">How long we keep it</h2>
+    <ul>
+      <li>Exports, audits and results: not kept. Deleted when the call ends.</li>
+      <li>Fair-use counts: in memory for 10 minutes.</li>
+      <li>Server request logs: kept by Railway for a limited period.</li>
+      <li>Website analytics: kept by Google Analytics for the retention period set in our account, at most 14 months.</li>
+    </ul>
+
+    <h2 id="choices">Your choices</h2>
+    <p>You decide what to upload. Remove anything you don't want to share from an export before you add it, or use the browser app or the command line, which send us nothing. You can block analytics with your browser's privacy settings. To ask about your data, write to <a href="mailto:support@openppc.si">support@openppc.si</a>.</p>
+
+    <h2 id="changes">Changes</h2>
+    <p>If this policy changes, we will update this page and its date. The source of every part of OpenPPC is public on <a href="https://github.com/secondsteplabs/openppc">GitHub</a>, so you can check what it does.</p>
+  </article>
+</div>
