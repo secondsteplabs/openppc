@@ -29,7 +29,10 @@ def test_a_command_with_neither_a_file_nor_sample_says_what_to_give(capsys):
 def test_the_wheel_carries_every_sample_file():
     tomllib = pytest.importorskip("tomllib")
     wheel = tomllib.loads((ROOT / "pyproject.toml").read_text())["tool"]["hatch"]["build"]["targets"]["wheel"]
-    forced = wheel["force-include"]
+    forced = {src: dest for src, dest in wheel["force-include"].items() if dest.startswith("openppc/samples/")}
     assert {Path(dest).name for dest in forced.values()} == set(samples.EXPORTS.values()) | {samples.AUDIT}
-    for src, dest in forced.items():
-        assert (ROOT / src).is_file() and dest.startswith("openppc/samples/"), src
+    for src in forced:
+        assert (ROOT / src).is_file(), src
+    # the only other file forced in: the rulebook's sources, which the Playbook cites
+    assert {s: d for s, d in wheel["force-include"].items() if s not in forced} == {
+        "rulebook/sources.csv": "openppc/playbook/sources.csv"}

@@ -29,6 +29,8 @@ THEMES_SHOWN = 10
 THEME_COVER = 0.8      # a phrase that carries this share of a word's cost stands in for the word
 ALIKE_CLICKS = 2_000   # needing more clicks than this to be sure means the account's terms convert alike
 PMAX_NEGATIVES = 10_000  # Google's cap on negative keywords per Performance Max campaign
+PLAYBOOK = {"negative": "stw-proven-waste", "watch": "stw-not-proven-yet", "review": "stw-expensive-converters",
+            "add": "stw-harvest"}  # each step of "What to do" and the Playbook guide that explains how to do it
 CLIENT_TITLE = "Search-term review"  # the branded report's default title
 STEP_TAGS = {"negative": "Block", "watch": "Watch", "review": "Review", "add": "Grow"}
 STEP_COUNT = {1: "One step to take.", 2: "Two steps, most useful first.", 3: "Three steps, most useful first."}
@@ -711,6 +713,15 @@ def run(report, min_cost=None, industry=None, top=25, brand=None, **_):
     if actions:
         out[todo_at:todo_at] = ["", "## What to do", ""] + [
             f"{i}. **{a['title']}.** {a['detail']}" for i, a in enumerate(actions, 1)]
+    book.findings = [{"guide": PLAYBOOK[a["kind"]], "found": f"{a['title']}. {a['detail']}"} for a in actions]
+    if names:
+        words = ", ".join(f"“{g}”" for g in names[:5])
+        book.findings.append({"guide": "stw-waste-themes", "found": f"Words that never convert: {words}."})
+    if in_auto or in_both:
+        said = (f"Of the wasted spend, {sw} is in Search campaigns and {aw} in Performance Max and other automated "
+                "campaigns." if sw and aw else "Wasted search terms in Performance Max or other automated campaigns "
+                "include " + ", ".join(f"“{t['search_term']}”" for t in (in_auto + in_both)[:3]) + ".")
+        book.findings.append({"guide": "stw-pmax-waste", "found": said})
     book.cards = _cards(book, grand, waste, sure, chance, top, wc, share, d, y, cpa_s, industry, actions, min_s)
 
     if industry:

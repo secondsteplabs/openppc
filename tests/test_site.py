@@ -174,3 +174,13 @@ def test_pages_show_webp_screenshots(tmp_path):
     _site().build(tmp_path)
     for page in tmp_path.rglob("*.html"):
         assert not re.search(r'src="/img/[^"]+\.jpg', page.read_text(encoding="utf-8")), page
+
+
+def test_the_playbook_page_shows_every_guide_with_its_sources(tmp_path):
+    from openppc import playbook
+    _site().build(tmp_path)
+    html = (tmp_path / "docs" / "playbook" / "index.html").read_text(encoding="utf-8")
+    for guide in playbook.guides().values():
+        assert f'<section class="guide" id="{guide.id}">' in html, guide.id
+    assert "{found}" not in html and "<!-- playbook guides -->" not in html
+    assert html.count('<p class="guide-src"><b>Sources</b></p>') == len(playbook.guides())

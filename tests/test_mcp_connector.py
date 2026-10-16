@@ -40,8 +40,8 @@ def test_the_web_connector_offers_no_tool_that_reads_paths():
     pytest.importorskip("mcp")
     web = {t.name for t in _tools(mcp_server.build_server(web=True))}
     local = {t.name for t in _tools(mcp_server.build_server())}
-    assert web == {"list_templates", "audit_export", "check_audit"}
-    assert local == {"list_templates", "audit_account", "check_numbers"}
+    assert web == {"list_templates", "audit_export", "check_audit", "fix_plan_for_export"}
+    assert local == {"list_templates", "audit_account", "check_numbers", "fix_plan_for_account"}
 
 
 def test_a_chatgpt_style_client_can_check_an_audit_over_http():
@@ -67,7 +67,7 @@ def test_a_chatgpt_style_client_can_check_an_audit_over_http():
                                                "clientInfo": {"name": "test", "version": "0"}})
         assert init["serverInfo"]["name"] == "openppc"
         names = {t["name"] for t in call(client, 2, "tools/list", {})["tools"]}
-        assert names == {"list_templates", "audit_export", "check_audit"}
+        assert names == {"list_templates", "audit_export", "check_audit", "fix_plan_for_export"}
         result = call(client, 3, "tools/call", {"name": "check_audit", "arguments": {
             "audit_text": SAMPLE.read_text(), "export_text": CSV.read_text(), "industry": "home-services"}})
         text = "".join(part.get("text", "") for part in result["content"])
