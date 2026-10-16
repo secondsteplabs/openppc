@@ -59,7 +59,7 @@ def test_mcp_server_registers_read_only_tools():
     server = mcp_server.build_server()
     tools = server.list_tools()
     tools = asyncio.run(tools) if inspect.isawaitable(tools) else tools
-    assert sorted(t.name for t in tools) == ["audit_account", "check_numbers", "list_templates"]
+    assert sorted(t.name for t in tools) == ["audit_account", "check_numbers", "fix_plan_for_account", "list_templates"]
     # SDK 2.x names the field read_only_hint; 1.x named it readOnlyHint
     assert all(getattr(t.annotations, "read_only_hint", None) or getattr(t.annotations, "readOnlyHint", None)
                for t in tools)

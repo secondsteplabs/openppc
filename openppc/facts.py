@@ -32,6 +32,9 @@ class FactBook:
     facts: list = field(default_factory=list)
     cards: dict = field(default_factory=dict)  # a template's results as data, for the web app; numbers as printed
     client: dict = field(default_factory=dict)  # the branded client report's pages as blocks; numbers as printed
+    # What the report found, for the Playbook: [{"guide": guide id, "found": a sentence the report already prints}].
+    # Built only from strings already registered above, so it adds no number the checker can't trace.
+    findings: list = field(default_factory=list)
 
     def add(self, label, value, kind, metric="", entity=""):
         if value is not None:
