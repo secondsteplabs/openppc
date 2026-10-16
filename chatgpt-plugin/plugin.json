@@ -1,0 +1,120 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "openppc",
+  "version": "0.1.0",
+  "description": "Audit Google Ads exports and check the numbers in any audit. Read-only: code computes every figure and traces it back to your export.",
+  "author": {
+    "name": "Second Step Labs",
+    "email": "support@openppc.si",
+    "url": "https://openppc.si"
+  },
+  "homepage": "https://openppc.si",
+  "repository": "https://github.com/secondsteplabs/openppc",
+  "license": "MIT",
+  "keywords": [
+    "google ads",
+    "ppc",
+    "audit",
+    "search terms",
+    "negative keywords",
+    "wasted spend"
+  ],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "OpenPPC",
+        "shortDescription": "Google Ads audits, checked",
+        "longDescription": "OpenPPC by Second Step Labs audits Google Ads accounts from an export you upload in the chat, and checks the numbers in any Google Ads audit, including one ChatGPT or an agency wrote.\n\nWhat it does:\n- Search-term audit: terms that spent money and never converted, ranked by cost, with how sure it is that each one is wasting money, and the terms worth adding as keywords.\n- Keyword audit: keywords spending without converting, results by match type, spend on low Quality Scores.\n- Account structure audit: broad match without Smart Bidding, brand mixed with non-brand, duplicate keywords, negatives that block your own keywords, thin ads and more.\n- Number check: every figure in an audit is traced to your export and marked traced, wrong number, wrong label or can't check.\n- Fix plan: for each finding, why it matters, the steps in Google Ads, what to check first and how to tell it worked, citing Google's help pages and named practitioners.\n\nHow it works: open-source code computes every number from your export; nothing is estimated by the model. It never connects to your Google Ads account and never changes anything. It keeps nothing after it answers.\n\nWho it is for: business owners, marketers and agencies who run Google Ads.\n\nLimits: Google Ads only, from exports (CSV for search terms and keywords, JSON for an account snapshot). Exports up to 25 MB. Fair use: 30 audits or checks per 10 minutes per user. The same engine runs free and without limits at openppc.si or with pip install openppc.",
+        "developerName": "Second Step Labs",
+        "category": "Productivity",
+        "capabilities": [
+          "Audit search terms for wasted spend",
+          "Audit keywords and match types",
+          "Audit account structure",
+          "Check every number in a Google Ads audit",
+          "Step-by-step fix plans with sources"
+        ],
+        "websiteURL": "https://openppc.si",
+        "supportURL": "https://openppc.si/support/",
+        "privacyPolicyURL": "https://openppc.si/privacy/",
+        "termsOfServiceURL": "https://openppc.si/terms/",
+        "defaultPrompt": [
+          "Audit this Google Ads search terms report for wasted spend.",
+          "Check every number in this Google Ads audit against my export.",
+          "Give me a step-by-step fix plan for this search terms report."
+        ],
+        "composerIcon": "./assets/icon.png",
+        "logo": "./assets/logo.png",
+        "brandColor": "#4B32C3"
+      },
+      "review": {
+        "test_cases": {
+          "positive": [
+            {
+              "description": "Search-term waste audit from an uploaded export",
+              "prompt": "Audit this search terms report for wasted spend. Our brand is Acme Plumbing.",
+              "tools_triggered": "audit_export",
+              "expected_behavior": "Runs the search-term-waste template on the attached CSV and shows the results view: wasted spend $767.20, 15.4% of total cost, cost per conversion $58.51, July 1 to July 31, 2026, with a table of terms and a button to copy selected terms as exact-match negatives. Brand terms are not flagged. The reply quotes these figures without adding new ones.",
+              "file_attachment_urls": [
+                "https://raw.githubusercontent.com/secondsteplabs/openppc/main/examples/search_terms_acme.csv"
+              ]
+            },
+            {
+              "description": "Check the numbers in an AI-written audit",
+              "prompt": "Check every number in the attached audit against the attached search terms report. The business is in home services.",
+              "tools_triggered": "check_audit",
+              "expected_behavior": "Checks 11 numbers: 6 traced to the export, 3 wrong numbers, 1 wrong label, 1 that can't be checked, and 1 sentence that contradicts its own numbers. The results view lists the problems first, with the real figure where the export has one.",
+              "file_attachment_urls": [
+                "https://raw.githubusercontent.com/secondsteplabs/openppc/main/examples/ai_audit_sample.md",
+                "https://raw.githubusercontent.com/secondsteplabs/openppc/main/examples/search_terms_acme.csv"
+              ]
+            },
+            {
+              "description": "Keyword audit from an uploaded export",
+              "prompt": "Run a keyword audit on this keywords report.",
+              "tools_triggered": "audit_export",
+              "expected_behavior": "Runs the keyword-audit template on the attached CSV and reports keywords spending without converting, results by match type and spend on low Quality Scores for July 1 to July 31, 2026, every figure computed from the file.",
+              "file_attachment_urls": [
+                "https://raw.githubusercontent.com/secondsteplabs/openppc/main/examples/keywords_acme.csv"
+              ]
+            },
+            {
+              "description": "Account structure audit from an account snapshot",
+              "prompt": "Audit how this Google Ads account is built.",
+              "tools_triggered": "audit_export",
+              "expected_behavior": "Runs the account-structure template on the attached JSON snapshot of the synthetic Acme Plumbing account and lists structural problems such as brand mixed with non-brand, duplicate keywords and negatives that block the account's own keywords.",
+              "file_attachment_urls": [
+                "https://raw.githubusercontent.com/secondsteplabs/openppc/main/examples/account_structure_acme.json"
+              ]
+            },
+            {
+              "description": "Fix plan for an uploaded export",
+              "prompt": "How do I fix what's wrong in this search terms report? Our brand is Acme Plumbing.",
+              "tools_triggered": "fix_plan",
+              "expected_behavior": "Returns a fix plan with 3 fixes, each opening with the audit's own finding: 6 terms that need more clicks before becoming negatives (the closest, “free plumbing estimate”, is 79% likely bad after 41 clicks), one expensive converter (“water heater replacement cost” at $201.40 against the $58.51 average), and 5 converting terms to add as keywords. Each fix lists why it matters, the steps in Google Ads, what to check first, how to tell it worked, and its sources. The reply adds no figures of its own.",
+              "file_attachment_urls": [
+                "https://raw.githubusercontent.com/secondsteplabs/openppc/main/examples/search_terms_acme.csv"
+              ]
+            }
+          ],
+          "negative": [
+            {
+              "description": "Changing the ad account is not supported: OpenPPC is read-only",
+              "prompt": "Pause my worst performing campaign and add these negative keywords to my account."
+            },
+            {
+              "description": "Connecting to a live ad account is not supported: OpenPPC works only from exports the user uploads",
+              "prompt": "Connect to my Google Ads account 123-456-7890 and audit it."
+            },
+            {
+              "description": "Other ad platforms are not supported: OpenPPC audits Google Ads only",
+              "prompt": "Audit my Meta Ads campaign export for wasted spend."
+            }
+          ]
+        },
+        "commerce": false,
+        "commerce_description": "OpenPPC is free. It does not sell products or process payments."
+      }
+    }
+  }
+}

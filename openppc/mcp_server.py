@@ -13,10 +13,20 @@ contents, work in a temporary folder that is deleted when the call ends, and kee
 tool is annotated read-only so clients know it never changes anything.
 """
 import argparse
+import contextlib
 import functools
+import ipaddress
+import json
+import os
+import threading
+import time
+from collections import deque
 import re
+import socket
 import tempfile
+import urllib.request
 from pathlib import Path
+from urllib.parse import urlparse
 
 try:  # MCP Python SDK 2.x
     from mcp.server.mcpserver import MCPServer as Server
@@ -37,17 +47,121 @@ try:
     READ_ONLY = ToolAnnotations(readOnlyHint=True, destructiveHint=False, openWorldHint=False)
 except ImportError:
     READ_ONLY = None
+try:  # which hostnames an HTTP server answers to (DNS rebinding protection)
+    from mcp.server.transport_security import TransportSecuritySettings
+except ImportError:
+    TransportSecuritySettings = None
+try:  # what a ChatGPT tool returns: text for the model, data for the results view
+    from mcp.types import CallToolResult, TextContent
+except ImportError:
+    CallToolResult = TextContent = None
+try:  # the request a tool call came with: who it is for, for fair use on a hosted server
+    from mcp.server.mcpserver import Context
+except ImportError:
+    try:
+        from mcp.server.fastmcp import Context
+    except ImportError:
+        Context = None
 
 from . import __version__
 from .checkfacts import facts_for_check
 from .cli import explain
 from .engine.trace import render_check, trace
-from .templates import TEMPLATES, run_template
+from .templates import TEMPLATES, run_template, run_template_book
 
 EXPORT_LIMIT = 3_500_000  # characters in one export sent to the web connector; a request is capped at 4 MB
+UPLOAD_LIMIT = 25_000_000  # bytes in one export uploaded in ChatGPT, fetched from the link ChatGPT gives
+RESULTS_VIEW = "ui://openppc/results-v1.html"  # the view ChatGPT shows for an audit or a check
+VIEW_MIME = "text/html;profile=mcp-app"
+UPLOADED_FILE = {  # a file the user attached in ChatGPT, as ChatGPT passes it to a tool
+    "type": "object", "description": "The Google Ads export the user uploaded in the chat.",
+    "properties": {"download_url": {"type": "string"}, "file_id": {"type": "string"},
+                   "mime_type": {"type": "string"}, "file_name": {"type": "string"}},
+    "required": ["download_url", "file_id"]}
 INSTRUCTIONS = ("OpenPPC audits Google Ads exports read-only. Code computes every number in its reports and a "
                 "checker traces each one back to the export. Quote its numbers as they are and do not add "
-                "figures of your own; use check_numbers or check_audit to verify any other audit's numbers.")
+                "figures of your own; use check_numbers or check_audit to verify any other audit's numbers, and "
+                "fix_plan (or fix_plan_for_account) for the steps to fix what an audit found. "
+                "It audits Google Ads only, works only from exports the user shares, and never connects to or "
+                "changes an ad account: for changes, tell the user what to do in Google Ads themselves.")
+DESCRIPTION = ("OpenPPC by Second Step Labs: open-source, read-only Google Ads audits from an export, with every "
+               "number checked against the data.")
+WEBSITE = "https://openppc.si"
+# The origin ChatGPT gives the results view (required for a directory listing, and unique to this app)
+WIDGET_DOMAIN = os.environ.get("OPENPPC_WIDGET_DOMAIN", WEBSITE)
+
+
+class FairUse:
+    """Fair use on a hosted server: each user gets `calls` audits or checks per `window` seconds, and at most `jobs`
+    run at once (an audit holds a CPU while it runs). A user is ChatGPT's anonymous id for them (openai/subject),
+    else the address the call came from. Kept in memory, so it is per server process and resets on a restart."""
+
+    def __init__(self, calls=30, window=600, jobs=2, wait=60):
+        self.calls, self.window, self.wait = calls, window, wait
+        self.jobs = threading.BoundedSemaphore(jobs)
+        self.lock = threading.Lock()
+        self.seen = {}
+
+    def admit(self, who):
+        now = time.monotonic()
+        with self.lock:
+            if len(self.seen) > 10_000:  # forget users with no call in the window
+                self.seen = {k: q for k, q in self.seen.items() if q and now - q[-1] < self.window}
+            calls = self.seen.setdefault(who, deque())
+            while calls and now - calls[0] >= self.window:
+                calls.popleft()
+            if len(calls) >= self.calls:
+                minutes = max(1, round((self.window - (now - calls[0])) / 60))
+                raise ValueError(f"Fair-use limit reached: {self.calls} audits or checks every "
+                                 f"{self.window // 60} minutes. Try again in about {minutes} minute"
+                                 f"{'' if minutes == 1 else 's'}, or run OpenPPC free and without limits on your "
+                                 f"own computer: pip install openppc")
+            calls.append(now)
+
+    @contextlib.contextmanager
+    def slot(self, who):
+        self.admit(who)
+        if not self.jobs.acquire(timeout=self.wait):
+            raise ValueError("OpenPPC is busy with other audits right now. Try again in a minute.")
+        try:
+            yield
+        finally:
+            self.jobs.release()
+
+    @classmethod
+    def from_env(cls, value):
+        """OPENPPC_FAIR_USE: "off", or "<calls>/<seconds>[/<jobs at once>]", such as "30/600/2"."""
+        if value.strip().lower() == "off":
+            return None
+        parts = [int(p) for p in value.split("/")] if value.strip() else []
+        return cls(*parts)
+
+
+FAIR_USE = None  # set by main() for an HTTP server; a local server, and code calling the tools directly, have none
+
+
+def _caller(ctx):
+    """Who a call is for: ChatGPT's anonymous user id, else the client's address (the first X-Forwarded-For hop
+    behind a proxy such as Railway's), else one shared bucket."""
+    try:
+        request = ctx.request_context
+    except (AttributeError, ValueError):
+        return "anyone"
+    meta = getattr(request, "meta", None)
+    fields = {}
+    if meta is not None:
+        fields.update(getattr(meta, "model_extra", None) or {})
+        fields.update(meta.model_dump() if hasattr(meta, "model_dump") else dict(meta))
+    if fields.get("openai/subject"):
+        return f"user:{fields['openai/subject']}"
+    headers = getattr(getattr(request, "request", None), "headers", None) or {}
+    hop = headers.get("x-forwarded-for", "").split(",")[0].strip()
+    client = getattr(getattr(request, "request", None), "client", None)
+    return f"ip:{hop or getattr(client, 'host', '') or 'anyone'}"
+
+
+def _fair_use(ctx):
+    return FAIR_USE.slot(_caller(ctx)) if FAIR_USE is not None and ctx is not None else contextlib.nullcontext()
 
 
 def list_templates() -> str:
@@ -106,6 +220,108 @@ def check_audit(audit_text: str, export_text: str, export_name: str = "export.cs
         return check_numbers(audit_text, [_export_file(folder, export_text, export_name)], industry)
 
 
+def _allow_local():
+    return os.environ.get("OPENPPC_ALLOW_LOCAL_UPLOADS") == "1"  # tests only: fetch from a local server
+
+
+def _public_host(url):
+    """Only fetch from the public internet: a link to this machine or a private network is refused, so nobody can
+    use the connector to reach anything behind it."""
+    parts = urlparse(url)
+    if parts.scheme != "https" and not (_allow_local() and parts.scheme == "http"):
+        raise ValueError("The uploaded file's link must use https.")
+    if not parts.hostname:
+        raise ValueError("The uploaded file's link has no host.")
+    if _allow_local():
+        return
+    try:
+        addresses = {info[4][0] for info in socket.getaddrinfo(parts.hostname, parts.port or 443)}
+    except socket.gaierror:
+        raise ValueError(f"Can't reach {parts.hostname} to fetch the uploaded file.") from None
+    if not addresses or not all(ipaddress.ip_address(a.split("%")[0]).is_global for a in addresses):
+        raise ValueError("The uploaded file's link points at a private address.")
+
+
+class _CheckedRedirects(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        _public_host(newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def _fetch_upload(upload):
+    """The bytes of a file the user uploaded in ChatGPT, from the short-lived link ChatGPT passes with it."""
+    if not isinstance(upload, dict) or not upload.get("download_url"):
+        raise ValueError("Upload the Google Ads export in the chat, or paste its contents.")
+    url = str(upload["download_url"])
+    _public_host(url)
+    opener = urllib.request.build_opener(_CheckedRedirects)
+    request = urllib.request.Request(url, headers={"User-Agent": f"openppc/{__version__}"})
+    with opener.open(request, timeout=60) as response:
+        data = response.read(UPLOAD_LIMIT + 1)
+    if len(data) > UPLOAD_LIMIT:
+        raise ValueError(f"The uploaded export is over {UPLOAD_LIMIT // 1_000_000} MB. Export a shorter date range, "
+                         "or run OpenPPC on your computer.")
+    return data, str(upload.get("file_name") or "")
+
+
+def _export_in(folder, export_file, export_text, export_name):
+    """The export for one call, as a file in the call's temporary folder: uploaded in ChatGPT, or pasted as text."""
+    if export_file:
+        data, name = _fetch_upload(export_file)
+        path = Path(_export_file(folder, "", name or export_name))  # a safe name with a known extension
+        path.write_bytes(data)  # as uploaded: the reader works out the encoding (Google's UTF-16 exports too)
+        return str(path)
+    if not export_text:
+        raise ValueError("Upload the Google Ads export in the chat, or paste its contents.")
+    return _export_file(folder, export_text, export_name)
+
+
+def _json_safe(value):
+    return json.loads(json.dumps(value, default=str))
+
+
+def chatgpt_audit_export(template: str, export_file: dict | None = None, export_text: str = "",
+                         export_name: str = "export.csv", industry: str = "", min_cost: float | None = None,
+                         brand: str = "", ctx: "Context | None" = None):
+    """Run an audit template on a Google Ads export the user uploaded in the chat (export_file) or pasted
+    (export_text). Returns the report as markdown, with every number computed from the export and traced back
+    to it. Pass the account's brand names (comma-separated) so brand terms are never flagged as waste. Call
+    list_templates first if you don't know which template fits the export."""
+    with _fair_use(ctx), tempfile.TemporaryDirectory(prefix="openppc-") as folder:
+        path = _export_in(folder, export_file, export_text, export_name)
+        markdown, book, passed = run_template_book(template, path, industry=industry or None, min_cost=min_cost,
+                                                   brand=brand or None)
+    view = {"kind": "audit", "template": template, "title": TEMPLATES[template].TITLE, "passed": passed,
+            "facts": len(book.facts), "period": (book.client or {}).get("period"), "cards": _json_safe(book.cards)}
+    return CallToolResult(content=[TextContent(type="text", text=markdown)], structured_content=view)
+
+
+def chatgpt_check_audit(audit_text: str, export_file: dict | None = None, export_text: str = "",
+                        export_name: str = "export.csv", industry: str = "", ctx: "Context | None" = None):
+    """Check every number in an audit, written by any AI or person, against the Google Ads export it was written
+    from: uploaded in the chat (export_file) or pasted (export_text). Reports which numbers trace to the data,
+    which are wrong numbers (with the real figure where known), which are wrong labels, and which sentences
+    contradict their own numbers."""
+    with _fair_use(ctx), tempfile.TemporaryDirectory(prefix="openppc-") as folder:
+        path = _export_in(folder, export_file, export_text, export_name)
+        claims, contradictions = trace(audit_text, facts_for_check(audit_text, [path], industry or None))
+    count = lambda verdict: sum(c.verdict == verdict for c in claims)
+    view = {"kind": "check",
+            "counts": {"total": len(claims), "traced": count("traced"), "mismatch": count("mismatch"),
+                       "not_in_data": count("not in data"), "cant_check": count("can't check"),
+                       "contradictions": len(contradictions)},
+            "numbers": [{"line": c.line, "written": c.written, "verdict": c.verdict, "detail": c.detail,
+                         "context": c.context[:240]} for c in claims],
+            "contradictions": [{"line": n, "problem": p, "context": ctx[:240]} for n, p, ctx in contradictions]}
+    return CallToolResult(content=[TextContent(type="text", text=render_check(claims, contradictions))],
+                          structured_content=view)
+
+
+def results_view() -> str:
+    """The results view ChatGPT shows under an audit or a check."""
+    return (Path(__file__).parent / "ui" / "results.html").read_text(encoding="utf-8")
+
+
 def _plain_errors(tool):
     """Hand the errors a user can fix to the model as plain messages, the ones the command line prints. The SDK
     reports any other exception as only "Error executing tool <name>", which looks like OpenPPC is broken."""
@@ -140,24 +356,130 @@ def fix_plan_for_export(template: str, export_text: str, export_name: str = "exp
                                     brand)
 
 
+def _plan_sections(body):
+    """A guide's body after its first line, as sections of paragraphs, numbered steps and bullets for the view."""
+    sections = []
+    for line in body.splitlines():
+        if line.startswith("## "):
+            sections.append({"heading": line[3:].strip(), "paragraphs": [], "steps": [], "bullets": []})
+        elif sections and line.strip():
+            numbered = re.match(r"\d+\. (.*)", line)
+            if numbered:
+                sections[-1]["steps"].append(numbered.group(1))
+            elif line.startswith("- "):
+                sections[-1]["bullets"].append(line[2:])
+            else:
+                sections[-1]["paragraphs"].append(line)
+    return sections
+
+
+def chatgpt_fix_plan(template: str, export_file: dict | None = None, export_text: str = "",
+                     export_name: str = "export.csv", industry: str = "", min_cost: float | None = None,
+                     brand: str = "", ctx: "Context | None" = None):
+    """Run an audit template on a Google Ads export the user uploaded in the chat (export_file) or pasted
+    (export_text), and return the Playbook's fix plan: for each finding, what the audit found in its own numbers,
+    why it matters, the steps to fix it in Google Ads, what to check first and how to tell it worked, with the
+    sources behind each step. Use it when the user asks how to fix what an audit found. Quote it as it is and add
+    no numbers of your own. Pass the account's brand names (comma-separated) so brand terms are never called waste."""
+    from .playbook import fixes, render, sources
+    with _fair_use(ctx), tempfile.TemporaryDirectory(prefix="openppc-") as folder:
+        path = _export_in(folder, export_file, export_text, export_name)
+        _, book, _ = run_template_book(template, path, industry=industry or None, min_cost=min_cost,
+                                       brand=brand or None)
+    title = f"Fix plan: {TEMPLATES[template].TITLE}"
+    plan = []
+    for guide, found in fixes(book.findings):
+        cited = [sources().get(s, {}) for s in guide.sources]
+        plan.append({"guide": guide.id, "title": guide.title, "found": found,
+                     "sections": _plan_sections(guide.body.split("\n", 1)[-1]),
+                     "sources": [{"name": s.get("title", ""), "publisher": s.get("publisher", ""),
+                                  "url": s.get("url", "")} for s in cited if s]})
+    view = {"kind": "plan", "template": template, "title": title, "fixes": plan}
+    return CallToolResult(content=[TextContent(type="text", text=render(book.findings, title))],
+                          structured_content=view)
+
+
 LOCAL_TOOLS = (list_templates, audit_account, check_numbers, fix_plan_for_account)
 WEB_TOOLS = (list_templates, audit_export, check_audit, fix_plan_for_export)  # contents in, never paths
+CHATGPT_TOOLS = (  # the web tools as ChatGPT runs them: an upload or pasted contents in, text and a view out
+    (chatgpt_audit_export, "audit_export", "Running the audit", "Audit ready"),
+    (chatgpt_check_audit, "check_audit", "Checking every number", "Numbers checked"),
+    (chatgpt_fix_plan, "fix_plan", "Writing the fix plan", "Fix plan ready"))
+
+
+def _new_server():
+    attempts = (  # newest SDK first: 2.x shows a title, description and website; 1.x takes no version
+        {"title": "OpenPPC", "description": DESCRIPTION, "website_url": WEBSITE, "instructions": INSTRUCTIONS,
+         "version": __version__},
+        {"instructions": INSTRUCTIONS, "version": __version__},
+        {"instructions": INSTRUCTIONS},
+        {})
+    for options in attempts:
+        try:
+            return Server("openppc", **options)
+        except TypeError:
+            continue
 
 
 def build_server(web=False):
-    try:
-        server = Server("openppc", instructions=INSTRUCTIONS, version=__version__)
-    except TypeError:  # an SDK 1.x server takes no version
-        try:
-            server = Server("openppc", instructions=INSTRUCTIONS)
-        except TypeError:  # an SDK without server instructions
-            server = Server("openppc")
+    server = _new_server()
+    if web and CallToolResult is not None and hasattr(server, "resource"):
+        return _chatgpt_ready(server)
     for tool in WEB_TOOLS if web else LOCAL_TOOLS:
         try:
             server.tool(annotations=READ_ONLY)(_plain_errors(tool))
         except TypeError:  # an SDK too old for tool annotations
             server.tool()(_plain_errors(tool))
     return server
+
+
+def _chatgpt_ready(server):
+    """The web tools with what ChatGPT needs: an uploaded file as input, and a results view linked to each tool."""
+    server.tool(annotations=READ_ONLY)(_plain_errors(list_templates))
+    for fn, name, invoking, invoked in CHATGPT_TOOLS:
+        meta = {"ui": {"resourceUri": RESULTS_VIEW}, "openai/outputTemplate": RESULTS_VIEW,
+                "openai/toolInvocation/invoking": invoking, "openai/toolInvocation/invoked": invoked,
+                "openai/fileParams": ["export_file"]}
+        server.tool(name=name, annotations=READ_ONLY, meta=meta, structured_output=False)(_plain_errors(fn))
+        params = server._tool_manager.get_tool(name).parameters
+        params["properties"]["export_file"] = UPLOADED_FILE  # inline, the shape ChatGPT looks for
+        params.pop("$defs", None)
+    view_meta = {"ui": {"prefersBorder": True, "domain": WIDGET_DOMAIN,
+                        "csp": {"connectDomains": [], "resourceDomains": []}},
+                 "openai/widgetDomain": WIDGET_DOMAIN}
+    server.resource(RESULTS_VIEW, name="openppc-results", title="OpenPPC results", mime_type=VIEW_MIME,
+                    meta=view_meta)(results_view)
+    if hasattr(server, "custom_route"):
+        _web_routes(server)
+    return server
+
+
+def _web_routes(server):
+    """Plain HTTP pages beside /mcp: a health check for the host, and the token that proves to OpenAI this
+    hostname is ours (set OPENAI_APPS_CHALLENGE to the token the plugin portal shows)."""
+    from starlette.responses import PlainTextResponse
+
+    @server.custom_route("/health", methods=["GET"])
+    async def health(request):
+        return PlainTextResponse("ok")
+
+    @server.custom_route("/.well-known/openai-apps-challenge", methods=["GET"])
+    async def challenge(request):
+        token = os.environ.get("OPENAI_APPS_CHALLENGE", "").strip()
+        return PlainTextResponse(token, status_code=200 if token else 404)
+
+
+def _trusted_hosts(hosts):
+    """The public hostnames the HTTP server answers to, besides this machine. Bound to 127.0.0.1 the SDK accepts only
+    localhost Host headers, so behind a proxy or tunnel (mcp.openppc.si, a Tailscale Funnel) the public name must be
+    listed, or every request is refused with "Invalid Host header"."""
+    if not hosts or TransportSecuritySettings is None:
+        return None
+    return TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=["127.0.0.1:*", "localhost:*", "[::1]:*"] + [name for h in hosts for name in (h, f"{h}:*")],
+        allowed_origins=["http://127.0.0.1:*", "http://localhost:*", "http://[::1]:*", "https://chatgpt.com"]
+                        + [f"https://{h}" for h in hosts])
 
 
 def main(argv=None):
@@ -169,18 +491,28 @@ def main(argv=None):
                         help="serve streamable HTTP at /mcp; the tools then take file contents, never paths")
     parser.add_argument("--host", default="127.0.0.1", help="address to listen on with --http (default 127.0.0.1)")
     parser.add_argument("--port", type=int, default=8000, help="port to listen on with --http (default 8000)")
+    parser.add_argument("--allow-host", action="append", default=[], metavar="HOST",
+                        help="a public hostname the HTTP server answers to, such as mcp.openppc.si (repeatable; "
+                             "OPENPPC_ALLOWED_HOSTS takes a comma-separated list too)")
     args = parser.parse_args(argv)
+    hosts = [h.strip() for h in args.allow_host + os.environ.get("OPENPPC_ALLOWED_HOSTS", "").split(",") if h.strip()]
+    security = _trusted_hosts(hosts)
     if Server is None:
         raise SystemExit('The MCP server needs the optional extra: uv pip install "openppc[mcp]"')
     server = build_server(web=args.http)
     if not args.http:
         server.run()
         return
+    global FAIR_USE  # an HTTP server can be public: limit each user (OPENPPC_FAIR_USE, default 30 per 10 minutes)
+    FAIR_USE = FairUse.from_env(os.environ.get("OPENPPC_FAIR_USE", "30/600/2"))
+    extra = {"transport_security": security} if security else {}
     try:  # SDK 2.x takes the HTTP options as arguments
-        server.run("streamable-http", host=args.host, port=args.port, stateless_http=True, json_response=True)
+        server.run("streamable-http", host=args.host, port=args.port, stateless_http=True, json_response=True, **extra)
     except TypeError:  # SDK 1.x reads them from settings
         server.settings.host, server.settings.port = args.host, args.port
         server.settings.stateless_http, server.settings.json_response = True, True
+        if security:
+            server.settings.transport_security = security
         server.run(transport="streamable-http")
 
 
