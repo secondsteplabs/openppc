@@ -335,11 +335,75 @@ def _plain_errors(tool):
     return call
 
 
-LOCAL_TOOLS = (list_templates, audit_account, check_numbers)
-WEB_TOOLS = (list_templates, audit_export, check_audit)  # contents in, never paths
+def fix_plan_for_account(template: str, data_path: str, industry: str = "", min_cost: float | None = None,
+                         brand: str = "") -> str:
+    """Run an audit template on a local Google Ads export and return the Playbook's fix plan: for each finding,
+    what the audit found (its own numbers), why it matters, the steps to fix it in Google Ads, what to check first
+    and how to tell it worked, with the rules and sources behind each step. Quote it as it is; add no numbers."""
+    from .playbook import fix_plan
+    return fix_plan(template, data_path, industry=industry or None, min_cost=min_cost, brand=brand or None)
+
+
+def fix_plan_for_export(template: str, export_text: str, export_name: str = "export.csv", industry: str = "",
+                        min_cost: float | None = None, brand: str = "") -> str:
+    """Run an audit template on the contents of a Google Ads export (pass the whole file's text) and return the
+    Playbook's fix plan: for each finding, what the audit found, why it matters, the steps to fix it in Google Ads,
+    what to check first and how to tell it worked, citing the rules and sources behind each step. Quote it as it
+    is; add no numbers."""
+    with tempfile.TemporaryDirectory(prefix="openppc-") as folder:
+        return fix_plan_for_account(template, _export_file(folder, export_text, export_name), industry, min_cost,
+                                    brand)
+
+
+def _plan_sections(body):
+    """A guide's body after its first line, as sections of paragraphs, numbered steps and bullets for the view."""
+    sections = []
+    for line in body.splitlines():
+        if line.startswith("## "):
+            sections.append({"heading": line[3:].strip(), "paragraphs": [], "steps": [], "bullets": []})
+        elif sections and line.strip():
+            numbered = re.match(r"\d+\. (.*)", line)
+            if numbered:
+                sections[-1]["steps"].append(numbered.group(1))
+            elif line.startswith("- "):
+                sections[-1]["bullets"].append(line[2:])
+            else:
+                sections[-1]["paragraphs"].append(line)
+    return sections
+
+
+def chatgpt_fix_plan(template: str, export_file: dict | None = None, export_text: str = "",
+                     export_name: str = "export.csv", industry: str = "", min_cost: float | None = None,
+                     brand: str = "", ctx: "Context | None" = None):
+    """Run an audit template on a Google Ads export the user uploaded in the chat (export_file) or pasted
+    (export_text), and return the Playbook's fix plan: for each finding, what the audit found in its own numbers,
+    why it matters, the steps to fix it in Google Ads, what to check first and how to tell it worked, with the
+    sources behind each step. Use it when the user asks how to fix what an audit found. Quote it as it is and add
+    no numbers of your own. Pass the account's brand names (comma-separated) so brand terms are never called waste."""
+    from .playbook import fixes, render, sources
+    with _fair_use(ctx), tempfile.TemporaryDirectory(prefix="openppc-") as folder:
+        path = _export_in(folder, export_file, export_text, export_name)
+        _, book, _ = run_template_book(template, path, industry=industry or None, min_cost=min_cost,
+                                       brand=brand or None)
+    title = f"Fix plan: {TEMPLATES[template].TITLE}"
+    plan = []
+    for guide, found in fixes(book.findings):
+        cited = [sources().get(s, {}) for s in guide.sources]
+        plan.append({"guide": guide.id, "title": guide.title, "found": found,
+                     "sections": _plan_sections(guide.body.split("\n", 1)[-1]),
+                     "sources": [{"name": s.get("title", ""), "publisher": s.get("publisher", ""),
+                                  "url": s.get("url", "")} for s in cited if s]})
+    view = {"kind": "plan", "template": template, "title": title, "fixes": plan}
+    return CallToolResult(content=[TextContent(type="text", text=render(book.findings, title))],
+                          structured_content=view)
+
+
+LOCAL_TOOLS = (list_templates, audit_account, check_numbers, fix_plan_for_account)
+WEB_TOOLS = (list_templates, audit_export, check_audit, fix_plan_for_export)  # contents in, never paths
 CHATGPT_TOOLS = (  # the web tools as ChatGPT runs them: an upload or pasted contents in, text and a view out
     (chatgpt_audit_export, "audit_export", "Running the audit", "Audit ready"),
-    (chatgpt_check_audit, "check_audit", "Checking every number", "Numbers checked"))
+    (chatgpt_check_audit, "check_audit", "Checking every number", "Numbers checked"),
+    (chatgpt_fix_plan, "fix_plan", "Writing the fix plan", "Fix plan ready"))
 
 
 def _new_server():

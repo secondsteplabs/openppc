@@ -6,6 +6,7 @@
     openppc check --sample
     openppc audit search-term-waste exports/search_terms.csv --industry home-services
     openppc check --audit their_audit.md --data exports/search_terms.csv
+    openppc playbook search-term-waste exports/search_terms.csv --brand "Acme Plumbing"
 
 Exit codes: 0 clean, 1 bad input, 2 the check found problems, 3 our own report failed
 its number check (a bug in OpenPPC).
@@ -37,16 +38,18 @@ def _parser():
     sub = ap.add_subparsers(dest="command", required=True)
     sub.add_parser("templates", help="list the audit templates")
     sub.add_parser("industries", help="list the benchmark industries")
-    a = sub.add_parser("audit", help="run a template on an export")
-    a.add_argument("template", choices=sorted(TEMPLATES))
-    a.add_argument("data", nargs="?", help="your export (.csv) or two-period totals (.json)")
-    a.add_argument("--sample", action="store_true",
-                   help="run on the made-up Acme Plumbing account that ships with OpenPPC")
-    a.add_argument("--industry", help="compare against an industry average, e.g. home-services")
-    a.add_argument("--min-cost", type=float, default=None,
-                   help="cost threshold for a waste flag (default: about $20, in the export's currency)")
-    a.add_argument("--brand", help="your brand names, comma-separated; brand terms are never flagged as waste")
-    a.add_argument("--out", help="write the report here instead of printing it")
+    for name, what in (("audit", "run a template on an export"),
+                       ("playbook", "run a template on an export and get the steps to fix each finding")):
+        a = sub.add_parser(name, help=what)
+        a.add_argument("template", choices=sorted(TEMPLATES))
+        a.add_argument("data", nargs="?", help="your export (.csv) or two-period totals (.json)")
+        a.add_argument("--sample", action="store_true",
+                       help="run on the made-up Acme Plumbing account that ships with OpenPPC")
+        a.add_argument("--industry", help="compare against an industry average, e.g. home-services")
+        a.add_argument("--min-cost", type=float, default=None,
+                       help="cost threshold for a waste flag (default: about $20, in the export's currency)")
+        a.add_argument("--brand", help="your brand names, comma-separated; brand terms are never flagged as waste")
+        a.add_argument("--out", help="write the result here instead of printing it")
     c = sub.add_parser("check", help="check the numbers in any audit against your data")
     c.add_argument("--audit", help="the audit to check (.md or .txt)")
     c.add_argument("--data", action="append", help="an export or totals file; repeat for more")
@@ -77,14 +80,18 @@ def main(argv=None):
             for key, row in benchmarks.TABLE.items():
                 print(f"{key:20} {row[0]}")
             return 0
-        if args.command == "audit":
+        if args.command in ("audit", "playbook"):
             if args.sample == bool(args.data):
                 raise ValueError("give your export's path, or --sample to try the made-up Acme Plumbing account")
             if args.sample:
                 args.data = str(samples.path(samples.EXPORTS[args.template]))
                 args.industry = args.industry or samples.INDUSTRY
-            markdown, _, passed = run_template(args.template, args.data, industry=args.industry,
-                                               min_cost=args.min_cost, brand=args.brand)
+            options = {"industry": args.industry, "min_cost": args.min_cost, "brand": args.brand}
+            if args.command == "playbook":
+                from .playbook import fix_plan
+                _emit(fix_plan(args.template, args.data, **options).rstrip("\n"), args.out)
+                return 0
+            markdown, _, passed = run_template(args.template, args.data, **options)
             _emit(markdown, args.out)
             return 0 if passed else 3
         if args.command == "check":

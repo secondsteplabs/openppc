@@ -1,0 +1,28 @@
+<!--
+title: OpenPPC Playbook: how to fix every Google Ads audit finding
+description: Step-by-step fixes for every finding in an OpenPPC audit: wasted search terms, keywords, account structure and trends, each citing its sources.
+crumb: Playbook
+-->
+<div class="wrap doc">
+  <nav class="doc-nav" aria-label="Playbook">
+    <a href="#how">How it works</a>
+    <a href="#stw">Search terms audit</a>
+    <a href="#kw">Keyword audit</a>
+    <a href="#as">Account structure audit</a>
+    <a href="#ar">Account read</a>
+  </nav>
+  <article class="doc-body">
+    <span class="label">Docs</span>
+    <h1>The OpenPPC Playbook</h1>
+    <p class="doc-lead">An audit tells you what is wrong. The Playbook tells you how to fix it: for every finding, why it matters, the steps in Google Ads, what to check first and how to tell it worked.</p>
+
+    <h2 id="how">How it works</h2>
+    <p>Run the Playbook on an export and it runs the audit, then turns each finding into a fix plan. The plan opens with the audit's own sentence for that finding, so every number in it is one the audit computed and checked. The guides add no numbers of their own and promise no results. Each step cites the rule in OpenPPC's <a href="https://github.com/secondsteplabs/openppc/blob/main/rulebook/rules.csv">rulebook</a> and the source behind it: Google's help pages, named practitioners, or OpenPPC's own reasoning.</p>
+    <p>On your computer:</p>
+    <pre class="code"><span class="p">$ </span>openppc playbook search-term-waste search_terms.csv --brand "Your Brand"</pre>
+    <p>Try it on the made-up sample account with <code>openppc playbook search-term-waste --sample</code>. In Claude, Cursor and other assistants, the MCP server's <code>fix_plan_for_account</code> tool does the same. OpenPPC never changes your account: you make each change in Google Ads.</p>
+    <p>Below is every guide, grouped by the audit that finds it.</p>
+
+<!-- playbook guides -->
+  </article>
+</div>

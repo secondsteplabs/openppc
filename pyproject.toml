@@ -46,6 +46,8 @@ packages = ["openppc"]
 "examples/account_structure_acme.json" = "openppc/samples/account_structure_acme.json"
 "examples/account_acme.json" = "openppc/samples/account_acme.json"
 "examples/ai_audit_sample.md" = "openppc/samples/ai_audit_sample.md"
+# The Playbook cites the rulebook's sources by id, so their titles and links ship with it.
+"rulebook/sources.csv" = "openppc/playbook/sources.csv"
 
 [tool.hatch.build.targets.sdist]
 # An allowlist: the source archive on PyPI holds only what builds and explains the package. Hatch reads only the

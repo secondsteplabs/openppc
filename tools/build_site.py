@@ -55,6 +55,7 @@ OpenPPC does two things. It checks any audit (from ChatGPT, Claude, an agency or
 - [The app]({ORIGIN}/app/): runs in the browser, no sign-up
 - [Install and quick start]({ORIGIN}/docs/install/): browser, command line, self-hosting
 - [Claude, Cursor and ChatGPT]({ORIGIN}/docs/install/#ai): MCP server on your computer (`uvx --from "openppc[mcp]" openppc-mcp`), or a web connector you run with `openppc-mcp --http` (a hosted one is coming soon)
+- [Playbook]({ORIGIN}/docs/playbook/): how to fix every finding an audit reports, step by step in Google Ads; `openppc playbook <template> <export>` prints a fix plan quoting the audit's own numbers
 - [Source code]({GITHUB}): MIT license
 
 ## Articles
@@ -65,6 +66,62 @@ OpenPPC does two things. It checks any audit (from ChatGPT, Claude, an agency or
 - [How do you check a Google Ads audit? A 10-minute method]({ORIGIN}/articles/how-to-check-a-google-ads-audit/): eight checks against the export: totals, group sums, shares, labels, direction words, and the working for targets and forecasts
 - [Is that search term really wasting money?]({ORIGIN}/articles/google-ads-wasted-spend/): judge terms on their total across rows, tell a bad term from bad luck (about 59 clicks in the sample account), and block wrong intent on meaning
 """
+
+
+GUIDES_MARK = "<!-- playbook guides -->"  # where the Playbook page gets its guides, rendered from openppc/playbook
+GROUPS = (("stw-", "Search terms audit"), ("kw-", "Keyword audit"), ("as-", "Account structure audit"),
+          ("ar-", "Account read"))
+
+
+def _inline(text):
+    """**bold** and [label](url) in one line of a guide, with everything else escaped."""
+    text = escape(text, quote=False)
+    text = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", text)
+    return re.sub(r"\[([^\]]+)\]\((https?://[^)\s]+)\)", r'<a href="\2">\1</a>', text)
+
+
+def guide_html(markdown):
+    """The small markdown the guides use (## headings, paragraphs, numbered and bulleted lists, bold) as HTML."""
+    out, items, kind = [], [], None
+
+    def close():
+        nonlocal items, kind
+        if items:
+            out.append(f"<{kind}>" + "".join(f"<li>{i}</li>" for i in items) + f"</{kind}>")
+        items, kind = [], None
+
+    for line in markdown.splitlines():
+        numbered, bullet = re.match(r"\d+\. (.*)", line), re.match(r"- (.*)", line)
+        if numbered or bullet:
+            want = "ol" if numbered else "ul"
+            if kind != want:
+                close()
+                kind = want
+            items.append(_inline((numbered or bullet).group(1)))
+            continue
+        close()
+        if line.startswith("## "):  # a guide's own sections sit under its title
+            out.append(f"<h4>{_inline(line[3:])}</h4>")
+        elif line.strip():
+            out.append(f"<p>{_inline(line)}</p>")
+    close()
+    return "\n".join(out)
+
+
+def playbook_html():
+    """Every Playbook guide, grouped by the audit it belongs to. What the audit found is filled in when you run it."""
+    sys.path.insert(0, str(ROOT))
+    from openppc import playbook
+    out = []
+    for prefix, name in GROUPS:
+        out.append(f'<h2 id="{prefix.rstrip("-")}">{escape(name)}</h2>')
+        for g in (g for g in playbook.guides().values() if g.id.startswith(prefix)):
+            body = g.body.replace("{found}", "filled in from your audit, in its own numbers.")
+            sources = "".join(f"<li>{_inline(playbook._cite(s)[2:])}</li>" for s in g.sources)
+            out.append(f'<section class="guide" id="{g.id}"><h3 class="guide-title">{escape(g.title)}</h3>\n'
+                       f"{guide_html(body)}\n<p class=\"guide-src\"><b>Sources</b></p><ul class=\"guide-src\">{sources}</ul>"
+                       "</section>")
+    return "\n".join(out)
 
 
 def header(text):
@@ -207,7 +264,7 @@ def build(out=DIST):
     for page in sorted((SITE / "pages").rglob("*.html")):
         meta, body = header(page.read_text(encoding="utf-8"))
         url, dest = route(page)
-        body = with_crumbs_and_bio(meta, url, body)
+        body = with_crumbs_and_bio(meta, url, body).replace(GUIDES_MARK, playbook_html())
         docs = url.startswith("/docs/")
         html = layout.substitute(
             title=escape(meta["title"]), description=escape(meta["description"]),

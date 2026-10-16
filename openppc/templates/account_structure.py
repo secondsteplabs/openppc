@@ -35,6 +35,14 @@ NICE = {"TARGET_SPEND": "Maximize clicks", "MANUAL_CPC": "Manual CPC", "ENHANCED
         "TARGET_CPA": "Target CPA", "TARGET_ROAS": "Target ROAS", "PRESENCE_OR_INTEREST": "Presence or interest"}
 
 Check = namedtuple("Check", "title rule status summary lines")  # status: found, passed, info, missing, needs brand
+PLAYBOOK = {  # each check's rule and the Playbook guide that explains how to fix what it found
+    "search-broad-match-needs-smart-bidding": "as-broad-without-smart-bidding", "struct-brand-nonbrand": "as-brand-mixed",
+    "kw-duplicates": "as-duplicate-keywords", "neg-conflicts": "as-negative-conflicts",
+    "search-rsa-asset-count": "as-rsa-coverage", "search-rsa-per-ad-group": "as-rsa-coverage",
+    "search-rsa-pinning": "as-rsa-coverage", "search-structure-themed-ad-groups": "as-ad-group-cleanup",
+    "search-structure-cleanup": "as-ad-group-cleanup", "search-quality-score-diagnostic": "kw-quality-score",
+    "bidding-ecpc-deprecated": "as-click-bidding", "struct-settings-consistency": "as-display-and-location",
+    "assets-coverage": "as-assets"}
 
 
 def accepts(data):
@@ -443,6 +451,7 @@ def run(data, brand=None, top=25, **_):
     checks, book, (camps, groups, kws, ads) = evaluate(data, brand, top)
     judged = [c for c in checks if c.status in ("found", "passed")]
     found = [c for c in judged if c.status == "found"]
+    book.findings = [{"guide": PLAYBOOK[c.rule], "found": f"{c.title}: {c.summary}."} for c in found if c.rule in PLAYBOOK]
     out = _header(book, data)
     counts = [book.count("live Search campaigns", len(camps)), book.count("live ad groups", len(groups)),
               book.count("live keywords", len(kws), ""), book.count("live responsive search ads", len(ads or []))]

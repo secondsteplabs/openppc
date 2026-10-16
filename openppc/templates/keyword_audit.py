@@ -62,6 +62,8 @@ def run(report, min_cost=None, industry=None, low_qs=4, top=25, brand=None, **_)
         n = book.count("keywords flagged (zero conversions, at or above the threshold)", len(zero))
         zc = book.money("cost of flagged zero-conversion keywords", zt.cost)
         share = book.pct("flagged zero-conversion cost as a share of total cost", zt.cost / grand.cost * 100, "cost")
+        book.findings.append({"guide": "kw-zero-conversion", "found": f"{n} {plural(len(zero), 'keyword')} spent {zc} "
+                                                                      f"with zero conversions. That is {share} of total cost."})
         out += ["", f"**{n} {plural(len(zero), 'keyword')} spent {zc} with zero conversions.** "
                     f"That is {share} of total cost.",
                 "", "## Keywords spending without converting", "",
@@ -81,6 +83,7 @@ def run(report, min_cost=None, industry=None, low_qs=4, top=25, brand=None, **_)
         out += ["", "## Budget by match type", "",
                 "| Match type | Cost | Share of total cost | Conversions | Cost per conversion |",
                 "|---|---|---|---|---|"]
+        printed = {}  # match type: (share, cost per conversion as printed, cost per conversion)
         for mt, members in sorted(groups.items(), key=lambda kv: -totals(kv[1]).cost):
             t = totals(members)
             c = book.money(f"cost of {mt}", t.cost, "cost", mt)
@@ -88,6 +91,13 @@ def run(report, min_cost=None, industry=None, low_qs=4, top=25, brand=None, **_)
             v = book.count(f"conversions of {mt}", t.conversions, "conversions", mt, dp=conv_dp(t.conversions))
             p = book.money(f"cost per conversion of {mt}", t.cost / t.conversions, "cpa", mt) if t.conversions else "--"
             out.append(f"| {esc(mt)} | {c} | {s} | {v} | {p} |")
+            printed[mt] = (s, p, t.cost / t.conversions if t.conversions else None)
+        broad = next((mt for mt in printed if mt.lower().startswith("broad")), None)
+        others = [cpa for mt, (_, _, cpa) in printed.items() if mt != broad and cpa]
+        if broad and others and (printed[broad][2] is None or printed[broad][2] > min(others)):
+            parts = [f"{mt} took {s} of cost" + (f" at {p} per conversion" if p != "--" else " with no conversions")
+                     for mt, (s, p, _) in printed.items()]
+            book.findings.append({"guide": "kw-match-type-mix", "found": "; ".join(parts) + "."})
 
     scored = [r for r in rows if r.get("quality_score") is not None]
     if scored:
@@ -98,6 +108,8 @@ def run(report, min_cost=None, industry=None, low_qs=4, top=25, brand=None, **_)
             n = book.count("keywords at or below the Quality Score threshold", len(low))
             c = book.money("cost of low Quality Score keywords", lt.cost)
             s = book.pct("low Quality Score cost as a share of total cost", lt.cost / grand.cost * 100, "cost")
+            book.findings.append({"guide": "kw-quality-score", "found": f"{n} {plural(len(low), 'keyword')} with a "
+                                  f"Quality Score of {low_qs} or lower spent {c}. That is {s} of total cost."})
             out += [f"{n} {plural(len(low), 'keyword')} with a Quality Score of {low_qs} or lower spent {c}. "
                     f"That is {s} of total cost. "
                     "Low scores usually mean paying more for the same ad position.", "",
