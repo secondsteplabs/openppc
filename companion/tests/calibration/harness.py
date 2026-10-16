@@ -35,8 +35,6 @@ from .fixtures import HOST, OTHER_HOSTS, TAG_FIXTURES, Server, url
 LOCAL = {HOST, *OTHER_HOSTS}
 PROXY_FIXTURE = "hero"
 PROXY_RUNS = 9
-PROXY_LCP_SHARE = 0.03
-PROXY_TTFB_MS = 20.0
 
 
 def resolve(host: str, port: int) -> list[str]:
@@ -80,7 +78,7 @@ def reference(browser: Any, address: str, lh: Path, target: str, device: str, pr
 
 
 def proxy_gate(browser: Any, unguarded: Any, target: str, profile: Profile, proxy: str) -> dict[str, Any]:
-    """The guard's cost: LCP within 3% and TTFB within 20 ms, medians of alternating loads."""
+    """The guard's cost (gate.guard_cost_ok), from medians of alternating loads."""
     guarded: list[dict[str, float | None]] = []
     direct: list[dict[str, float | None]] = []
     for i in range(PROXY_RUNS):
@@ -90,9 +88,7 @@ def proxy_gate(browser: Any, unguarded: Any, target: str, profile: Profile, prox
             into.append(ours(b, target, profile, p)["metrics"])
     lcp = (gate.median(guarded, "lcp"), gate.median(direct, "lcp"))
     ttfb = (gate.median(guarded, "ttfb"), gate.median(direct, "ttfb"))
-    lcp_ok = None not in lcp and abs(lcp[0] - lcp[1]) <= PROXY_LCP_SHARE * lcp[1]  # type: ignore[operator]
-    ttfb_ok = None not in ttfb and abs(ttfb[0] - ttfb[1]) <= PROXY_TTFB_MS  # type: ignore[operator]
-    return {"fixture": PROXY_FIXTURE, "lcp": lcp, "ttfb": ttfb, "passed": bool(lcp_ok and ttfb_ok),
+    return {"fixture": PROXY_FIXTURE, "lcp": lcp, "ttfb": ttfb, "passed": gate.guard_cost_ok(lcp, ttfb),
             "guarded": guarded, "direct": direct}
 
 

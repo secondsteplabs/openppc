@@ -18,6 +18,10 @@ BAND_MARGIN = 2             # scores this near a band line may land in the other
 BAND_LINES = (50, 90)
 MISSES_ALLOWED = 1
 ORDER = ("fcp", "lcp", "si", "tbt", "cls", "ttfb", "tti")
+# the guard's cost, with against without: (share of LCP without, ms), whichever allows more; ms for TTFB. Its cost is
+# mostly fixed, on the first answer, and 3% of a 400 ms desktop LCP is less than that
+PROXY_LCP = (0.03, 20.0)
+PROXY_TTFB_MS = 20.0
 
 Runs = Sequence[dict[str, float | None]]
 
@@ -41,6 +45,14 @@ class Row:
 def median(runs: Runs, metric: str) -> float | None:
     values = [v for r in runs if (v := r.get(metric)) is not None]
     return float(statistics.median(values)) if values else None
+
+
+def guard_cost_ok(lcp: tuple[float | None, float | None], ttfb: tuple[float | None, float | None]) -> bool:
+    """The proxy gate, on medians (with the guard, without)."""
+    if None in lcp or None in ttfb:
+        return False
+    share, ms = PROXY_LCP
+    return abs(lcp[0] - lcp[1]) <= max(share * lcp[1], ms) and abs(ttfb[0] - ttfb[1]) <= PROXY_TTFB_MS  # type: ignore[operator]
 
 
 def allowance(metric: str, reference: float) -> float:

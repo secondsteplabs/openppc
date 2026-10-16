@@ -41,6 +41,15 @@ def test_one_miss_passes_and_two_fail():
     assert "| a | mobile | fcp | 1200 | 1000 | 200 | 150 | miss |" in gate.table(rows)
 
 
+def test_the_guard_may_cost_3_percent_of_lcp_or_20_ms_whichever_is_more():
+    assert gate.guard_cost_ok((3253.0, 3248.0), (43.0, 30.0))      # a phone: 3% of LCP is 97 ms
+    assert gate.guard_cost_ok((426.3, 410.1), (44.4, 32.8))        # a desktop: 16 ms is over 3% but within 20
+    assert not gate.guard_cost_ok((432.0, 410.0), (44.0, 33.0))    # 22 ms
+    assert not gate.guard_cost_ok((3400.0, 3248.0), (43.0, 30.0))  # 152 ms, over 3%
+    assert not gate.guard_cost_ok((426.0, 410.0), (55.0, 33.0))    # TTFB 22 ms
+    assert not gate.guard_cost_ok((None, 410.0), (44.0, 33.0))
+
+
 def test_the_tag_pages_are_published_side_by_side_not_gated():
     text = gate.tag_table({"tags": {"answered": [run(tbt=100), run(tbt=140)], "sent": [run(tbt=300)],
                                     "reference": [run(tbt=310), run(tbt=290), run(tbt=330)]}})
