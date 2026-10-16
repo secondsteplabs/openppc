@@ -176,3 +176,55 @@ def test_a_public_hostname_can_be_trusted_behind_a_proxy():
                                                                      transport_security=security)  # one run per app
         with testclient.TestClient(app, base_url=base) as client:
             assert client.post("/mcp", headers=headers, json=body).status_code == status, base
+
+
+def test_chatgpt_sees_the_app_name_website_and_its_own_widget_domain():
+    pytest.importorskip("mcp")
+    client, call = _http(mcp_server.build_server(web=True))
+    with client:
+        info = call(1, "initialize", {"protocolVersion": "2025-06-18", "capabilities": {},
+                                      "clientInfo": {"name": "t", "version": "0"}})["serverInfo"]
+        assert info["name"] == "openppc" and info.get("title", "OpenPPC") == "OpenPPC"
+        tools = {t["name"]: t for t in call(2, "tools/list", {})["tools"]}
+        assert all("ctx" not in t["inputSchema"]["properties"] for t in tools.values())  # never asked of the model
+        view = call(3, "resources/read", {"uri": mcp_server.RESULTS_VIEW})["contents"][0]
+        assert view["_meta"]["ui"]["domain"] == view["_meta"]["openai/widgetDomain"] == mcp_server.WIDGET_DOMAIN
+
+
+def test_the_host_can_check_health_and_openai_can_verify_the_domain(monkeypatch):
+    pytest.importorskip("mcp")
+    client, _ = _http(mcp_server.build_server(web=True))
+    with client:
+        assert client.get("/health").text == "ok"
+        monkeypatch.delenv("OPENAI_APPS_CHALLENGE", raising=False)
+        assert client.get("/.well-known/openai-apps-challenge").status_code == 404
+        monkeypatch.setenv("OPENAI_APPS_CHALLENGE", "token-123\n")
+        res = client.get("/.well-known/openai-apps-challenge")
+        assert res.status_code == 200 and res.text == "token-123"  # exactly the token, nothing else
+
+
+def test_fair_use_counts_calls_per_user_within_the_window(monkeypatch):
+    clock = [0.0]
+    monkeypatch.setattr(mcp_server.time, "monotonic", lambda: clock[0])
+    limit = mcp_server.FairUse(calls=2, window=600, jobs=1)
+    limit.admit("a"), limit.admit("a"), limit.admit("b")
+    with pytest.raises(ValueError, match="Fair-use limit reached: 2 audits or checks every 10 minutes"):
+        limit.admit("a")
+    clock[0] = 600.0  # the first calls have left the window
+    limit.admit("a")
+    assert mcp_server.FairUse.from_env("off") is None
+    assert (mcp_server.FairUse.from_env("5/60/3").calls, mcp_server.FairUse.from_env("5/60/3").window) == (5, 60)
+
+
+def test_a_chatgpt_user_over_the_fair_use_limit_gets_a_plain_message(monkeypatch):
+    pytest.importorskip("mcp")
+    monkeypatch.setattr(mcp_server, "FAIR_USE", mcp_server.FairUse(calls=1, window=600, jobs=1))
+    client, call = _http(mcp_server.build_server(web=True))
+    args = {"audit_text": SAMPLE.read_text(), "export_text": CSV.read_text(), "export_name": CSV.name}
+    with client:
+        call(1, "initialize", {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "t", "version": "0"}})
+        first = call(2, "tools/call", {"name": "check_audit", "arguments": args, "_meta": {"openai/subject": "u1"}})
+        again = call(3, "tools/call", {"name": "check_audit", "arguments": args, "_meta": {"openai/subject": "u1"}})
+        other = call(4, "tools/call", {"name": "check_audit", "arguments": args, "_meta": {"openai/subject": "u2"}})
+    assert not first.get("isError") and not other.get("isError")
+    assert again["isError"] and "Fair-use limit reached" in again["content"][0]["text"]

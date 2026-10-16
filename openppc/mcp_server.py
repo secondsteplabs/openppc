@@ -13,10 +13,14 @@ contents, work in a temporary folder that is deleted when the call ends, and kee
 tool is annotated read-only so clients know it never changes anything.
 """
 import argparse
+import contextlib
 import functools
 import ipaddress
 import json
 import os
+import threading
+import time
+from collections import deque
 import re
 import socket
 import tempfile
@@ -51,6 +55,13 @@ try:  # what a ChatGPT tool returns: text for the model, data for the results vi
     from mcp.types import CallToolResult, TextContent
 except ImportError:
     CallToolResult = TextContent = None
+try:  # the request a tool call came with: who it is for, for fair use on a hosted server
+    from mcp.server.mcpserver import Context
+except ImportError:
+    try:
+        from mcp.server.fastmcp import Context
+    except ImportError:
+        Context = None
 
 from . import __version__
 from .checkfacts import facts_for_check
@@ -70,6 +81,84 @@ UPLOADED_FILE = {  # a file the user attached in ChatGPT, as ChatGPT passes it t
 INSTRUCTIONS = ("OpenPPC audits Google Ads exports read-only. Code computes every number in its reports and a "
                 "checker traces each one back to the export. Quote its numbers as they are and do not add "
                 "figures of your own; use check_numbers or check_audit to verify any other audit's numbers.")
+DESCRIPTION = ("OpenPPC by Second Step Labs: open-source, read-only Google Ads audits from an export, with every "
+               "number checked against the data.")
+WEBSITE = "https://openppc.si"
+# The origin ChatGPT gives the results view (required for a directory listing, and unique to this app)
+WIDGET_DOMAIN = os.environ.get("OPENPPC_WIDGET_DOMAIN", WEBSITE)
+
+
+class FairUse:
+    """Fair use on a hosted server: each user gets `calls` audits or checks per `window` seconds, and at most `jobs`
+    run at once (an audit holds a CPU while it runs). A user is ChatGPT's anonymous id for them (openai/subject),
+    else the address the call came from. Kept in memory, so it is per server process and resets on a restart."""
+
+    def __init__(self, calls=30, window=600, jobs=2, wait=60):
+        self.calls, self.window, self.wait = calls, window, wait
+        self.jobs = threading.BoundedSemaphore(jobs)
+        self.lock = threading.Lock()
+        self.seen = {}
+
+    def admit(self, who):
+        now = time.monotonic()
+        with self.lock:
+            if len(self.seen) > 10_000:  # forget users with no call in the window
+                self.seen = {k: q for k, q in self.seen.items() if q and now - q[-1] < self.window}
+            calls = self.seen.setdefault(who, deque())
+            while calls and now - calls[0] >= self.window:
+                calls.popleft()
+            if len(calls) >= self.calls:
+                minutes = max(1, round((self.window - (now - calls[0])) / 60))
+                raise ValueError(f"Fair-use limit reached: {self.calls} audits or checks every "
+                                 f"{self.window // 60} minutes. Try again in about {minutes} minute"
+                                 f"{'' if minutes == 1 else 's'}, or run OpenPPC free and without limits on your "
+                                 f"own computer: pip install openppc")
+            calls.append(now)
+
+    @contextlib.contextmanager
+    def slot(self, who):
+        self.admit(who)
+        if not self.jobs.acquire(timeout=self.wait):
+            raise ValueError("OpenPPC is busy with other audits right now. Try again in a minute.")
+        try:
+            yield
+        finally:
+            self.jobs.release()
+
+    @classmethod
+    def from_env(cls, value):
+        """OPENPPC_FAIR_USE: "off", or "<calls>/<seconds>[/<jobs at once>]", such as "30/600/2"."""
+        if value.strip().lower() == "off":
+            return None
+        parts = [int(p) for p in value.split("/")] if value.strip() else []
+        return cls(*parts)
+
+
+FAIR_USE = None  # set by main() for an HTTP server; a local server, and code calling the tools directly, have none
+
+
+def _caller(ctx):
+    """Who a call is for: ChatGPT's anonymous user id, else the client's address (the first X-Forwarded-For hop
+    behind a proxy such as Railway's), else one shared bucket."""
+    try:
+        request = ctx.request_context
+    except (AttributeError, ValueError):
+        return "anyone"
+    meta = getattr(request, "meta", None)
+    fields = {}
+    if meta is not None:
+        fields.update(getattr(meta, "model_extra", None) or {})
+        fields.update(meta.model_dump() if hasattr(meta, "model_dump") else dict(meta))
+    if fields.get("openai/subject"):
+        return f"user:{fields['openai/subject']}"
+    headers = getattr(getattr(request, "request", None), "headers", None) or {}
+    hop = headers.get("x-forwarded-for", "").split(",")[0].strip()
+    client = getattr(getattr(request, "request", None), "client", None)
+    return f"ip:{hop or getattr(client, 'host', '') or 'anyone'}"
+
+
+def _fair_use(ctx):
+    return FAIR_USE.slot(_caller(ctx)) if FAIR_USE is not None and ctx is not None else contextlib.nullcontext()
 
 
 def list_templates() -> str:
@@ -190,12 +279,12 @@ def _json_safe(value):
 
 def chatgpt_audit_export(template: str, export_file: dict | None = None, export_text: str = "",
                          export_name: str = "export.csv", industry: str = "", min_cost: float | None = None,
-                         brand: str = ""):
+                         brand: str = "", ctx: "Context | None" = None):
     """Run an audit template on a Google Ads export the user uploaded in the chat (export_file) or pasted
     (export_text). Returns the report as markdown, with every number computed from the export and traced back
     to it. Pass the account's brand names (comma-separated) so brand terms are never flagged as waste. Call
     list_templates first if you don't know which template fits the export."""
-    with tempfile.TemporaryDirectory(prefix="openppc-") as folder:
+    with _fair_use(ctx), tempfile.TemporaryDirectory(prefix="openppc-") as folder:
         path = _export_in(folder, export_file, export_text, export_name)
         markdown, book, passed = run_template_book(template, path, industry=industry or None, min_cost=min_cost,
                                                    brand=brand or None)
@@ -205,12 +294,12 @@ def chatgpt_audit_export(template: str, export_file: dict | None = None, export_
 
 
 def chatgpt_check_audit(audit_text: str, export_file: dict | None = None, export_text: str = "",
-                        export_name: str = "export.csv", industry: str = ""):
+                        export_name: str = "export.csv", industry: str = "", ctx: "Context | None" = None):
     """Check every number in an audit, written by any AI or person, against the Google Ads export it was written
     from: uploaded in the chat (export_file) or pasted (export_text). Reports which numbers trace to the data,
     which are wrong numbers (with the real figure where known), which are wrong labels, and which sentences
     contradict their own numbers."""
-    with tempfile.TemporaryDirectory(prefix="openppc-") as folder:
+    with _fair_use(ctx), tempfile.TemporaryDirectory(prefix="openppc-") as folder:
         path = _export_in(folder, export_file, export_text, export_name)
         claims, contradictions = trace(audit_text, facts_for_check(audit_text, [path], industry or None))
     count = lambda verdict: sum(c.verdict == verdict for c in claims)
@@ -251,14 +340,22 @@ CHATGPT_TOOLS = (  # the web tools as ChatGPT runs them: an upload or pasted con
     (chatgpt_check_audit, "check_audit", "Checking every number", "Numbers checked"))
 
 
-def build_server(web=False):
-    try:
-        server = Server("openppc", instructions=INSTRUCTIONS, version=__version__)
-    except TypeError:  # an SDK 1.x server takes no version
+def _new_server():
+    attempts = (  # newest SDK first: 2.x shows a title, description and website; 1.x takes no version
+        {"title": "OpenPPC", "description": DESCRIPTION, "website_url": WEBSITE, "instructions": INSTRUCTIONS,
+         "version": __version__},
+        {"instructions": INSTRUCTIONS, "version": __version__},
+        {"instructions": INSTRUCTIONS},
+        {})
+    for options in attempts:
         try:
-            server = Server("openppc", instructions=INSTRUCTIONS)
-        except TypeError:  # an SDK without server instructions
-            server = Server("openppc")
+            return Server("openppc", **options)
+        except TypeError:
+            continue
+
+
+def build_server(web=False):
+    server = _new_server()
     if web and CallToolResult is not None and hasattr(server, "resource"):
         return _chatgpt_ready(server)
     for tool in WEB_TOOLS if web else LOCAL_TOOLS:
@@ -280,9 +377,29 @@ def _chatgpt_ready(server):
         params = server._tool_manager.get_tool(name).parameters
         params["properties"]["export_file"] = UPLOADED_FILE  # inline, the shape ChatGPT looks for
         params.pop("$defs", None)
+    view_meta = {"ui": {"prefersBorder": True, "domain": WIDGET_DOMAIN,
+                        "csp": {"connectDomains": [], "resourceDomains": []}},
+                 "openai/widgetDomain": WIDGET_DOMAIN}
     server.resource(RESULTS_VIEW, name="openppc-results", title="OpenPPC results", mime_type=VIEW_MIME,
-                    meta={"ui": {"prefersBorder": True, "csp": {"connectDomains": [], "resourceDomains": []}}})(results_view)
+                    meta=view_meta)(results_view)
+    if hasattr(server, "custom_route"):
+        _web_routes(server)
     return server
+
+
+def _web_routes(server):
+    """Plain HTTP pages beside /mcp: a health check for the host, and the token that proves to OpenAI this
+    hostname is ours (set OPENAI_APPS_CHALLENGE to the token the plugin portal shows)."""
+    from starlette.responses import PlainTextResponse
+
+    @server.custom_route("/health", methods=["GET"])
+    async def health(request):
+        return PlainTextResponse("ok")
+
+    @server.custom_route("/.well-known/openai-apps-challenge", methods=["GET"])
+    async def challenge(request):
+        token = os.environ.get("OPENAI_APPS_CHALLENGE", "").strip()
+        return PlainTextResponse(token, status_code=200 if token else 404)
 
 
 def _trusted_hosts(hosts):
@@ -319,6 +436,8 @@ def main(argv=None):
     if not args.http:
         server.run()
         return
+    global FAIR_USE  # an HTTP server can be public: limit each user (OPENPPC_FAIR_USE, default 30 per 10 minutes)
+    FAIR_USE = FairUse.from_env(os.environ.get("OPENPPC_FAIR_USE", "30/600/2"))
     extra = {"transport_security": security} if security else {}
     try:  # SDK 2.x takes the HTTP options as arguments
         server.run("streamable-http", host=args.host, port=args.port, stateless_http=True, json_response=True, **extra)
