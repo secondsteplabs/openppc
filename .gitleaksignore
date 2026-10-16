@@ -1,0 +1,7 @@
+# Fake credentials in tests on the stagging branch (dev-SENTINEL-1 ... ya29.SENTINEL-5), checked by hand
+# 2026-10-17. Each line ignores one exact finding (commit:file:rule:line); anything else still fails the scan.
+428bb881f7185b262609fb49711eacf5e52ec34f:companion/tests/test_app_jobs.py:generic-api-key:128
+e7a858b68ff2bfc5a79fede53aafe0ec149d0b70:companion/tests/test_fetch_google.py:generic-api-key:14
+e7a858b68ff2bfc5a79fede53aafe0ec149d0b70:companion/tests/test_fetch_google.py:generic-api-key:15
+428bb881f7185b262609fb49711eacf5e52ec34f:companion/tests/test_lab_lhr.py:generic-api-key:187
+ef73ae5249eab91e11e37d5195385337b6772dda:companion/tests/test_app_jobs.py:generic-api-key:111
