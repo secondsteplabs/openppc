@@ -4,11 +4,11 @@ template: account-structure
 finding: Negatives that block your own keywords
 rules: neg-conflicts
 sources: src-adalysis-audit-guide
-fills: n_conflicts, examples
+fills: found
 ---
 # Negatives that block your own keywords
 
-**What the audit found:** {n_conflicts} negative keywords block keywords you're bidding on in the same campaign or ad group: {examples}.
+**What the audit found:** {found}
 
 ## Why it matters
 A keyword blocked by a negative can't show at all. You think you're covering that search, but you're not.

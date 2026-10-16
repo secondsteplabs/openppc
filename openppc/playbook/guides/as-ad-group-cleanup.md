@@ -4,11 +4,11 @@ template: account-structure
 finding: Single-keyword ad groups; Keywords that rarely serve
 rules: search-structure-themed-ad-groups, search-structure-cleanup
 sources: src-google-14752782
-fills: single_keyword_groups, rarely_served
+fills: found
 ---
 # Single-keyword ad groups and keywords that rarely serve
 
-**What the audit found:** {single_keyword_groups} ad groups hold just one keyword, and {rarely_served} keywords rarely or never serve.
+**What the audit found:** {found}
 
 ## Why it matters
 Google's guidance is to group keywords into tightly themed ad groups, so Smart Bidding learns from pooled data instead of many thin slices. Keywords that never serve add clutter and hide the ones that matter.

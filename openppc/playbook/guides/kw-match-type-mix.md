@@ -4,11 +4,11 @@ template: keyword-audit
 finding: Budget by match type
 rules: kw-match-type-mix
 sources: src-openppc, src-google-7478529
-fills: broad_share, broad_cpa, exact_cpa
+fills: found
 ---
 # Where your budget goes by match type
 
-**What the audit found:** broad match took {broad_share} of spend, at {broad_cpa} per conversion, against {exact_cpa} for exact match.
+**What the audit found:** {found}
 
 ## Why it matters
 Broad match reaches the most searches, and with it the most irrelevant ones. When broad match takes a growing share of the budget at a higher cost per conversion, money is drifting to the least controlled traffic.

@@ -4,11 +4,11 @@ template: account-structure
 finding: Duplicate keywords
 rules: kw-duplicates, search-structure-cleanup
 sources: src-optmyzr-audit-skill, src-google-14752782
-fills: n_keywords, examples
+fills: found
 ---
 # Duplicate keywords
 
-**What the audit found:** {n_keywords} keywords appear with the same text and match type in more than one ad group: {examples}.
+**What the audit found:** {found}
 
 ## Why it matters
 Duplicates compete with each other for the same searches. Google picks one, often not the one with the best ad or landing page, and the split history makes both harder to judge.

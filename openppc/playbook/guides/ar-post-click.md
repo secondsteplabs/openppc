@@ -4,11 +4,11 @@ template: account-read
 finding: Read; Flags
 rules: ar-post-click-drop, ar-cvr-drop
 sources: src-openppc
-fills: conversion_rate_before, conversion_rate_now, clicks
+fills: found
 ---
 # Clicks held up, conversions didn't
 
-**What the audit found:** the conversion rate fell from {conversion_rate_before} to {conversion_rate_now} on {clicks} clicks, while traffic stayed similar.
+**What the audit found:** {found}
 
 ## Why it matters
 If the same kind of traffic arrives but fewer people convert, the problem is after the click: the landing page, the form, the offer, or tracking. Changing keywords or bids won't fix it.

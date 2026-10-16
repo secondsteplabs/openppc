@@ -4,11 +4,11 @@ template: account-read
 finding: Flags
 rules: ar-tracking-first, ar-micro-conversions
 sources: src-google-11461796, src-openppc
-fills: conversion_rate
+fills: found
 ---
 # Check conversion tracking first
 
-**What the audit found:** conversions are zero in one period, or {conversion_rate} of clicks convert, which is too high for leads or sales. Either way, the numbers can't be read as performance until tracking is checked.
+**What the audit found:** {found}
 
 ## Why it matters
 Every judgment about cost per conversion depends on conversions being counted correctly. Zero conversions usually means tracking broke, not that ads stopped working. A very high conversion rate usually means page views, clicks or other small actions are counted as conversions.

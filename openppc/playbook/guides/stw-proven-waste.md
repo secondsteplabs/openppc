@@ -4,11 +4,11 @@ template: search-term-waste
 finding: Wasted spend, ranked
 rules: stw-waste, stw-waste-model, stw-clicks-needed, stw-brand-never-waste
 sources: src-google-2472708, src-openppc
-fills: n_terms, cost, period, examples
+fills: found
 ---
 # Search terms proven to waste money
 
-**What the audit found:** {n_terms} search terms are at least 90% likely to convert at under half your account's rate. Together they cost {cost} in {period}. The biggest: {examples}.
+**What the audit found:** {found}
 
 ## Why it matters
 These searches keep paying for clicks that don't turn into leads or sales. The waste model compares each term with your own account, not an industry rule of thumb, and only calls a term proven once the evidence is strong. Each one left running keeps spending at the same rate.

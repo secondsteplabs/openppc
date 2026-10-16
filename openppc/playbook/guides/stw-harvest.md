@@ -4,11 +4,11 @@ template: search-term-waste
 finding: Worth adding as keywords
 rules: stw-harvest
 sources: src-google-2472708, src-openppc
-fills: n_terms, examples, account_cpa
+fills: found
 ---
 # Converting terms worth adding as keywords
 
-**What the audit found:** {n_terms} search terms converted at least twice at or below your account's cost per conversion of {account_cpa}, and none is a keyword yet. The best: {examples}.
+**What the audit found:** {found}
 
 ## Why it matters
 These searches already work. Making them keywords gives you control over their bid, their ad and their landing page, and stops other keywords competing for them.

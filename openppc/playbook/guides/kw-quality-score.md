@@ -4,11 +4,11 @@ template: keyword-audit; account-structure
 finding: Quality Score
 rules: kw-low-quality-score, search-quality-score-diagnostic
 sources: src-google-6167118
-fills: n_keywords, cost, share, weak_parts
+fills: found
 ---
 # Spend on low Quality Score keywords
 
-**What the audit found:** {n_keywords} keywords with a Quality Score of 4 or lower spent {cost}, {share} of the account. The parts rated below average: {weak_parts}.
+**What the audit found:** {found}
 
 ## Why it matters
 Quality Score is Google's diagnostic for how well a keyword, its ad and its landing page fit the searches. A low score usually means paying more for the same position. Google treats it as a diagnostic, not a target, so use it to find what to fix, not as a number to chase.

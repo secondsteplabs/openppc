@@ -4,11 +4,11 @@ template: account-read
 finding: Read; Flags
 rules: ar-small-sample, ar-thin-data, ar-conversion-noise, ar-seasonal, ar-flat, ar-efficiency-win, ar-efficient-contraction, ar-budget-reduction, ar-efficiency-gain, ar-clean-scale, ar-same-output-cheaper, ar-tightening
 sources: src-google-7065882, src-openppc
-fills: pattern
+fills: found
 ---
 # Hold steady: not enough data, or it's working
 
-**What the audit found:** {pattern}.
+**What the audit found:** {found}
 
 ## Why it matters
 Not every change needs a response. With too few conversions, movements are noise. In a seasonal business, comparing with last month misleads. And when the account read shows an efficiency win, steady growth or tighter targeting, the right move is to keep what's working.

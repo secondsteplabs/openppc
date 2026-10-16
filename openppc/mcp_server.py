@@ -120,8 +120,28 @@ def _plain_errors(tool):
     return call
 
 
-LOCAL_TOOLS = (list_templates, audit_account, check_numbers)
-WEB_TOOLS = (list_templates, audit_export, check_audit)  # contents in, never paths
+def fix_plan_for_account(template: str, data_path: str, industry: str = "", min_cost: float | None = None,
+                         brand: str = "") -> str:
+    """Run an audit template on a local Google Ads export and return the Playbook's fix plan: for each finding,
+    what the audit found (its own numbers), why it matters, the steps to fix it in Google Ads, what to check first
+    and how to tell it worked, with the rules and sources behind each step. Quote it as it is; add no numbers."""
+    from .playbook import fix_plan
+    return fix_plan(template, data_path, industry=industry or None, min_cost=min_cost, brand=brand or None)
+
+
+def fix_plan_for_export(template: str, export_text: str, export_name: str = "export.csv", industry: str = "",
+                        min_cost: float | None = None, brand: str = "") -> str:
+    """Run an audit template on the contents of a Google Ads export (pass the whole file's text) and return the
+    Playbook's fix plan: for each finding, what the audit found, why it matters, the steps to fix it in Google Ads,
+    what to check first and how to tell it worked, citing the rules and sources behind each step. Quote it as it
+    is; add no numbers."""
+    with tempfile.TemporaryDirectory(prefix="openppc-") as folder:
+        return fix_plan_for_account(template, _export_file(folder, export_text, export_name), industry, min_cost,
+                                    brand)
+
+
+LOCAL_TOOLS = (list_templates, audit_account, check_numbers, fix_plan_for_account)
+WEB_TOOLS = (list_templates, audit_export, check_audit, fix_plan_for_export)  # contents in, never paths
 
 
 def build_server(web=False):

@@ -4,11 +4,11 @@ template: account-read
 finding: Read
 rules: ar-over-expansion, ar-reach-dilution, ar-paying-more, ar-growth-worsening, ar-contraction-worse
 sources: src-openppc
-fills: pattern, spend_change, conversion_change, cpa_change
+fills: found
 ---
 # More spend bought worse traffic
 
-**What the audit found:** {pattern}. Spend moved {spend_change}, conversions {conversion_change}, and cost per conversion {cpa_change}.
+**What the audit found:** {found}
 
 ## Why it matters
 When spend or reach grows but conversions don't keep up, the extra money is buying less relevant searches. It is the most expensive pattern to leave running.

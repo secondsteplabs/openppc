@@ -26,6 +26,17 @@ INPUT = "two-period totals (.json)"
 SUMMARY = ("What changed between two periods, classified by explicit rules: efficiency win, "
            "over-expansion, broken tracking, and more. Every direction is computed, never guessed.")
 KEYS = ("cs", "ps", "ci", "pi", "cc", "pc", "cv", "pv")
+PLAYBOOK = (  # how each read or flag starts, and the Playbook guide that explains what to do about it
+    ("NO TRACKED CONVERSIONS", "ar-tracking-first"), ("CONVERSIONS WENT TO ZERO", "ar-tracking-first"),
+    ("CONVERSIONS APPEARED", "ar-tracking-first"), ("MICRO-CONVERSIONS", "ar-tracking-first"),
+    ("OVER-EXPANSION", "ar-traffic-got-worse"), ("CONTRACTION WITH WORSENING", "ar-traffic-got-worse"),
+    ("GROWTH AT A WORSENING", "ar-traffic-got-worse"), ("PAYING MORE", "ar-traffic-got-worse"),
+    ("REACH DILUTION", "ar-traffic-got-worse"), ("DETERIORATION AFTER THE CLICK", "ar-post-click"),
+    ("CONVERSION RATE fell", "ar-post-click"), ("SAMPLE TOO SMALL", "ar-hold-steady"), ("THIN DATA", "ar-hold-steady"),
+    ("SEASONAL BUSINESS", "ar-hold-steady"), ("EFFICIENCY WIN", "ar-hold-steady"),
+    ("EFFICIENT CONTRACTION", "ar-hold-steady"), ("BUDGET REDUCTION", "ar-hold-steady"),
+    ("EFFICIENCY GAIN", "ar-hold-steady"), ("CLEAN SCALE", "ar-hold-steady"), ("SAME OUTPUT", "ar-hold-steady"),
+    ("TIGHTENING", "ar-hold-steady"))
 
 
 def accepts(data):
@@ -110,7 +121,12 @@ def run(data, industry=None, **_):
     bits.append(f"currency {book.currency}")
     out = [f"# {TITLE}", "", " · ".join(bits), "",
            "_Built by OpenPPC, read-only: computed from this file alone, with no network calls._", ""]
-    out += _markdown(build_findings(m, meta))
+    block = build_findings(m, meta)
+    out += _markdown(block)
+    said = [line[len("READ: "):] for line in block.splitlines() if line.startswith("READ: ")]
+    said += [line[2:] for line in block.split("FLAGS:", 1)[-1].splitlines() if line.startswith("- ")]
+    book.findings = [{"guide": next(g for p, g in PLAYBOOK if text.startswith(p)), "found": text}
+                     for text in said if any(text.startswith(p) for p, _ in PLAYBOOK)]
     if industry:
         out += benchmarks.section(book, industry, cost=m["cs"], clicks=m["cc"],
                                   impressions=m["ci"], conversions=m["cv"], currency=book.currency)

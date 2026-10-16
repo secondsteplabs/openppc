@@ -4,11 +4,11 @@ template: search-term-waste
 finding: What to do
 rules: stw-themes
 sources: src-adalysis-ngrams, src-openppc
-fills: n_themes, themes, cost
+fills: found
 ---
 # Words that keep wasting money
 
-**What the audit found:** {n_themes} words or two-word phrases appear across many search terms that never converted: {themes}. Together those terms cost {cost}.
+**What the audit found:** {found}
 
 ## Why it matters
 Each search term on its own may be too small to judge, but the same word across dozens of terms tells a clear story. Blocking the word catches every future search that contains it, including ones that haven't appeared yet.

@@ -4,11 +4,11 @@ template: account-structure
 finding: Sitelinks, callouts and snippets
 rules: assets-coverage, search-sitelinks
 sources: src-google-2375416, src-optmyzr-audit-skill
-fills: n_campaigns, campaigns
+fills: found
 ---
 # Missing sitelinks, callouts and snippets
 
-**What the audit found:** {n_campaigns} Search campaigns have fewer than 4 sitelinks, fewer than 4 callouts, or no structured snippet: {campaigns}.
+**What the audit found:** {found}
 
 ## Why it matters
 These assets make an ad bigger and give searchers more reasons and more links to click. They cost nothing extra to add.

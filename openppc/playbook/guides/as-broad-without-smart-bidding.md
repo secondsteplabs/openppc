@@ -4,11 +4,11 @@ template: account-structure
 finding: Broad match without Smart Bidding
 rules: search-broad-match-needs-smart-bidding
 sources: src-google-7478529, src-optmyzr-audit-skill
-fills: n_keywords, campaigns
+fills: found
 ---
 # Broad match without Smart Bidding
 
-**What the audit found:** {n_keywords} broad match keywords run in campaigns that don't use Smart Bidding: {campaigns}.
+**What the audit found:** {found}
 
 ## Why it matters
 Broad match matches a wide range of searches. Google's guidance is to pair it with Smart Bidding, which judges each search by how likely it is to convert. On manual or click bidding, broad match pays the same for a poor search as for a good one.

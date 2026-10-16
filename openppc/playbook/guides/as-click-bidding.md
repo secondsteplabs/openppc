@@ -4,11 +4,11 @@ template: account-structure
 finding: Bidding for clicks, not conversions
 rules: bid-conversion-based, bidding-ecpc-deprecated
 sources: src-google-2464964
-fills: n_campaigns, campaigns, strategies
+fills: found
 ---
 # Bidding for clicks, not conversions
 
-**What the audit found:** {n_campaigns} campaigns bid for clicks rather than conversions: {campaigns} ({strategies}).
+**What the audit found:** {found}
 
 ## Why it matters
 Manual CPC and Maximize clicks buy as many clicks as the budget allows, whether or not they convert. Enhanced CPC stopped working for Search and Display campaigns in the week of 31 March 2025, so any campaign still set to it now runs on plain Manual CPC.

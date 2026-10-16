@@ -4,11 +4,11 @@ template: account-structure
 finding: Headlines and descriptions; Ads per ad group; Pinning
 rules: search-rsa-asset-count, ads-rsa-asset-count, search-rsa-per-ad-group, search-rsa-pinning, ads-pinning
 sources: src-google-7684791, src-google-9921843, src-optmyzr-rsa-study
-fills: thin_ads, single_ad_groups, pinned_ads
+fills: found
 ---
 # Responsive search ads: too few assets, too few ads, too much pinning
 
-**What the audit found:** {thin_ads} ads have fewer than 8 headlines, {single_ad_groups} ad groups run fewer than 2 responsive search ads, and {pinned_ads} ads pin every position.
+**What the audit found:** {found}
 
 ## Why it matters
 A responsive search ad mixes its headlines and descriptions to fit each search. Fewer assets, fewer ads and heavy pinning all leave Google fewer combinations to test.

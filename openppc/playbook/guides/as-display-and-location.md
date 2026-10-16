@@ -4,11 +4,11 @@ template: account-structure
 finding: Search campaigns on the Display Network; Where Google and practitioners disagree
 rules: struct-settings-consistency, set-location-presence, set-location-presence-or-interest
 sources: src-adalysis-audit-guide, src-optmyzr-audit-skill, src-google-1722038
-fills: display_campaigns, location_setting
+fills: found
 ---
 # Settings: the Display Network and who sees your ads by location
 
-**What the audit found:** {display_campaigns} Search campaigns also show on the Display Network. Location targeting is set to {location_setting}.
+**What the audit found:** {found}
 
 ## Why it matters
 Search ads that spill onto the Display Network show on websites and apps to people who aren't searching. That traffic behaves differently and blurs your Search results.
@@ -17,7 +17,7 @@ Location targeting decides whether ads reach only people in your area, or also p
 
 ## How to fix it in Google Ads
 1. In each Search campaign's settings, under Networks, turn off the Google Display Network. If you want display ads, run them in their own campaign.
-2. Choose the location option that fits the business. Our view: Presence for local services that people must be in the area to use; Presence or interest for travel and holiday businesses, whose customers search from elsewhere. [Shiv]
+2. Choose the location option that fits the business. Our view: Presence for local services that people must be in the area to use; Presence or interest for travel and holiday businesses, whose customers search from elsewhere.
 
 ## Check before you change anything
 Changing the location option can cut traffic sharply for a business that sells to visitors. Check where your converting customers come from first.

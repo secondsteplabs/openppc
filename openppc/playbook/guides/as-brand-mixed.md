@@ -4,11 +4,11 @@ template: account-structure
 finding: Brand and non-brand in one campaign
 rules: struct-brand-nonbrand
 sources: src-optmyzr-audit-skill
-fills: n_campaigns, campaigns
+fills: found
 ---
 # Brand and non-brand in the same campaign
 
-**What the audit found:** {n_campaigns} campaigns hold both brand and non-brand keywords: {campaigns}.
+**What the audit found:** {found}
 
 ## Why it matters
 Brand searches convert far more cheaply than other searches. Mixed together, they hide how the non-brand keywords really perform and pull budget toward whichever is easier to win.

@@ -4,11 +4,11 @@ template: search-term-waste
 finding: Wasted spend, ranked
 rules: stw-automated-apart
 sources: src-google-15726455, src-google-11396330, src-google-6372658
-fills: n_terms, cost, campaigns
+fills: found
 ---
 # Waste in Performance Max and other automated campaigns
 
-**What the audit found:** {n_terms} wasted search terms came from automated campaigns ({campaigns}), costing {cost}. They are listed apart from Search because they are fixed differently.
+**What the audit found:** {found}
 
 ## Why it matters
 Performance Max chooses its own searches. Without negatives, it can keep spending on searches you would never bid on in a Search campaign.
